@@ -19,3 +19,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Personales
+*.md
+rich.py

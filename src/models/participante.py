@@ -1,7 +1,8 @@
 class Participante:
     """Representa a una persona que aporta dinero al hogar."""
 
-    def __init__(self, name: str, monthly_income: float):
+    def __init__(self, name: str, monthly_income: float): # TODO Participante debe saber; monthly_incomes? o solo nombre
+                                                          # NOTE en el futuro extraer ingresos mensuales y que Participante solo se encargue de los datos del miembro 
 
         if not name or not name.strip():
             raise ValueError("Nombre no puede estar vacío")
