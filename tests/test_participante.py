@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def base_member():
-    return Participante("Default", 1500.0)
+    return Participante("Default")
 
 
 def test_create_valid_member(base_member):
@@ -12,40 +12,40 @@ def test_create_valid_member(base_member):
 
     # Assert
     assert base_member.name == "Default"
-    assert base_member.monthly_income == 1500.0
+    assert base_member.monthly_income == 0
 
 
-""" def test_calculate_contribution_percentage(base_member):
-    #Verifica que el porcentaje calculado sea correcto
-    # Arrange: 1500 de 3000 debe ser exactamente el 50%
-    total_incomes = 3000
-    expected_percentage = 50.0
-
-    # Act
-    result = base_member.calculate_contribution_percentage(total_incomes)
-
-    # Assert
-    assert result == expected_percentage """
-
-
-# Raises
 def test_name_empty_raises_error():
     """
     Verifica que se lance un ValueError si el nombre está vacío.
     """
     with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
-        Participante("", 1000)
+        Participante("")
 
 
+def test_add_incomes_is_correct(base_member):
+    """Verifica que se agregan ingresos correctamente"""
+    # Arrange:
+    incomes_expected = 700
+
+    # Act
+    base_member.set_add_incomes(400)
+    base_member.set_add_incomes(300)
+
+    # Assert
+    base_member.monthly_income == incomes_expected
+
+#TODO || CREAR TEST Y VALIDADOR DE INGRESOS CORRECTOS. -> SE GESTIONARÁ EN HOUSEHOLD LA ENTRADA, `participante.py` soy setea
+""" 
 def test_incorrect_monthly_income_raises_error():
-    """
-    Verifica que se lance un ValueError si el ingreso es negativo o 0.
-    """
+    
+    #Verifica que se lance un ValueError si el ingreso es negativo o 0.
+    
     with pytest.raises(ValueError, match="Ingresos deben ser superiores o igual a 0"):
         Participante("Default", -500)
+"""
 
-
-# Verifica que ingreso de 0 también lance error.
+#TODO || INGRESOS = 0 NO DEBERÍAN DAR ERROR; HAY MESES MALOS
 """ 
 def test_monthly_income_zero_raises_error():
     with pytest.raises(ValueError, match="Ingresos deben ser superiores o igual a 0"):

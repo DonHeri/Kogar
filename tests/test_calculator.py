@@ -4,24 +4,29 @@ from src.models.participante import Participante
 
 @pytest.fixture
 def base_member_1():
-    return Participante("Default", 1500.0)
-
+    return Participante("Default")
 
 @pytest.fixture
 def base_member_2():
-    return Participante("Default", 1300.0)
+    return Participante("Default")
 
-def test_household_total_incomes_is_correct(base_member_1, base_member_2):
+@pytest.fixture
+def base_calculator():
+    return Calculator()
+
+def test_household_total_incomes_is_correct(base_member_1, base_member_2,base_calculator):
     """ Verifica cálculos del total de ingresos"""
     # Arrange
     expected_total = 2800.0
-    calculator = Calculator()
-
+    base_member_1.monthly_income = 1500
+    base_member_2.monthly_income = 1300
+    
     # Act
-    total = calculator.sum_total_incomes([base_member_1,base_member_2])
+    total = base_calculator.sum_total_incomes([base_member_1,base_member_2])
 
     # assert
     assert expected_total == total
+ 
     
 def test_member_proportional_share_calculation(base_member_1,base_member_2):
     """ Verifica aporte proporcional en base al salario """

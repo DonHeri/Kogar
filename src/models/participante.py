@@ -1,33 +1,26 @@
 class Participante:
-    """Representa a una persona que aporta dinero al hogar."""
+    """Representa a una persona con su ingreso base mensual."""
 
-    def __init__(self, name: str, monthly_income: float): # TODO Participante debe saber; monthly_incomes? o solo nombre
-                                                          # NOTE en el futuro extraer ingresos mensuales y que Participante solo se encargue de los datos del miembro 
+    def __init__(self, name: str):
 
         if not name or not name.strip():
             raise ValueError("Nombre no puede estar vacío")
 
-        # Si no lo es, hacer: raise ValueError("El ingreso debe ser positivo")
-        if monthly_income < 0:
-            raise ValueError("Ingresos deben ser superiores o igual a 0")
+        # Atributos
+        self.name: str = name
+        self.monthly_income: float = 0.0  # TODO LISTA? + INGRESOS
 
-        self.name = name
-        self.monthly_income = monthly_income
 
-    """ 
-    def calculate_contribution_percentage(self, total_incomes: float) -> float:
-        #Calcula qué % de los ingresos totales representa esta persona.
+    def add_incomes(self, income: float) -> None:
+        if income < 0:  #TODO || TEST
+            raise ValueError("Ingreso no puede ser negativo")
+        self.monthly_income += income
 
-        if total_incomes <= 0:
-            raise ValueError("El total de ingresos debe ser mayor a 0")
-
-        return (self.monthly_income / total_incomes) * 100 
-    """
 
 
 if __name__ == "__main__":
-    user_1 = Participante("Heri", 1200)
-    user_2 = Participante("Amanda", 1400)
-    total_incomes = user_1.monthly_income + user_2.monthly_income
-
-    
+    """
+    Zona de prueba de código
+    python -m src.models.participante
+    """
+# TODO ||
