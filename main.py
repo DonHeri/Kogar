@@ -57,7 +57,7 @@ if __name__ == "__main__":
     # Se preguntaran ingresos total al principio de mes, luego ingresos extras sir surge
     household.test_incomes()
 
-    total_incomes = household.total_incomes()
+    total_incomes = household.obtain_total_incomes()
     print(total_incomes)
 
     print(household.obtain_percentages())  # FIXME Calcula y settea || TEMPORAL

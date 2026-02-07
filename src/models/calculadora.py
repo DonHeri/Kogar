@@ -43,8 +43,8 @@ class Calculator:
         return contribution
 
 
+# ====================================================
+# Zona de pruebas
+# ====================================================
 if __name__ == "__main__":
-    """
-    Zona de prueba de código
-    python -m src.models.calculadora
-    """
+

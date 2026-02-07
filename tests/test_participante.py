@@ -26,16 +26,16 @@ def test_name_empty_raises_error():
 def test_add_incomes_is_correct(base_member):
     """Verifica que se agregan ingresos correctamente"""
     # Arrange:
-    incomes_expected = 700
+    incomes_expected = 700.0
 
     # Act
-    base_member.set_add_incomes(400)
-    base_member.set_add_incomes(300)
+    base_member.add_incomes(300.0)
+    base_member.add_incomes(400.0)
 
     # Assert
-    base_member.monthly_income == incomes_expected
+    assert base_member.monthly_income == incomes_expected
 
-#TODO || CREAR TEST Y VALIDADOR DE INGRESOS CORRECTOS. -> SE GESTIONARÁ EN HOUSEHOLD LA ENTRADA, `participante.py` soy setea
+
 """ 
 def test_incorrect_monthly_income_raises_error():
     

@@ -4,11 +4,11 @@ from src.models.participante import Participante
 
 @pytest.fixture
 def base_member_1():
-    return Participante("Default")
+    return Participante("Default_1")
 
 @pytest.fixture
 def base_member_2():
-    return Participante("Default")
+    return Participante("Default_2")
 
 @pytest.fixture
 def base_calculator():
@@ -22,7 +22,7 @@ def test_household_total_incomes_is_correct(base_member_1, base_member_2,base_ca
     base_member_2.monthly_income = 1300
     
     # Act
-    total = base_calculator.sum_total_incomes([base_member_1,base_member_2])
+    total = base_calculator.sum_total_incomes({"Default_1":base_member_1,"Default_2": base_member_2})
 
     # assert
     assert expected_total == total
