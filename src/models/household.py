@@ -1,74 +1,114 @@
 from src.models.participante import Participante
 from src.models.calculadora import Calculator
+from src.models.constants import MetodoReparto, Fase
 from typing import Dict
 
 
 class Household:
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # phase=Fase.REGISTRO
 
-        self.members: Dict[str, Participante] = (
-            {}
-        )  
+        self.members: Dict[str, Participante] = {}
 
     def register_member(self, member: Participante):
         """Crear instancias de miembros de la unidad e incorporar en dict de miembros"""
         self.members[member.name] = member
 
-    def set_members_incomes(self, name: str, amount: float): #TODO || Validador de ingresos correctos
+    def set_members_incomes(self, name: str, amount: float):
         """Interfaz para que usuario introduzca ingreso del mes."""
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].add_incomes(amount)
 
-    def obtain_total_incomes(self): #TODO || Comprobar que los miembros tienen ingresos
-        """Calcula el total de ingresos entre los miembros"""
+    def get_total_incomes(self):
+        """
+        Calcula el total de ingresos entre los miembros
+        """
+        if not self.members:
+            raise ValueError("No hay miembros registrados")
 
-        return Calculator.sum_total_incomes(self.members)
-
-    def obtain_percentages(self):
-        """Calcula el porcentaje para cada usuario"""
-        # TODO: TEST
-        total = self.obtain_total_incomes()
-
-        if total <= 0:
-            raise ValueError("Total de ingresos debe ser > 0")
-        return Calculator.calculate_member_percentage(self.members, total)
-
-    def obtain_contribution_member(
-        self,
-    ):  # IDEA:Inyectar porcentajes, parametro del monto también
-        # TODO || TEST
-        total = self.obtain_total_incomes()
+        total = Calculator.sum_total_incomes(self.members)
 
         if total <= 0:
-            raise ValueError("Total de ingresos debe ser > 0")
+            raise ValueError("Al menos un miembro debe tener ingresos > 0")
 
-        percentages = self.obtain_percentages()
-        aportes = Calculator.calculate_contribution(
-            percentages, total
-        )  # dict con montos definidos,y sacar a pagar por cada uno
-        return aportes
+        return total
 
-    # ====================================================
-    # FUNCIONES DE TESTS
-    # ====================================================
-    def test_register_member(self):
-        """Datos de usuarios para probar el software"""
-        # Datos de TEST
-        self.register_member(Participante("Amanda"))
-        self.register_member(Participante("Heri"))
+    def get_percentages(self) -> dict:
+        """
+        Calcula el porcentaje que representa el sueldo de cada usuario frente al total de ingresos
+        """
+        if not self.members:
+            raise ValueError("No hay miembros registrados")
 
-    def test_incomes(self):
-        """Simula ingresos para testear sistema"""
-        self.set_members_incomes("Amanda", 1500.0)
-        self.set_members_incomes("Heri", 1300.0)
+        percentages = Calculator.calculate_member_percentage(self.members)
+
+        return percentages
 
 
 
 # ====================================================
-# Zona de pruebas
+# HOUSEHOLD - Zona de pruebas
 # ====================================================
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
+    print("=== TESTING HOUSEHOLD ===\n")
 
+    # 1. Crear household
+    household = Household()
+    print(f"Household creado: {household.members}")
+
+    # 2. Registrar miembros
+    amanda = Participante("Amanda")
+    heri = Participante("Heri")
+    household.register_member(amanda)
+    household.register_member(heri)
+    print(f"\nMiembros registrados: {list(household.members.keys())}")
+
+    # 3. Añadir ingresos
+    print(f"\n=== AÑADIENDO INGRESOS ===")
+    household.set_members_incomes("Amanda", 1500)
+    household.set_members_incomes("Heri", 1300)
+    
+    for name, member in household.members.items():
+        print(f"  {name}: {member.monthly_income}€")
+
+    # 4. Calcular total
+    total = household.get_total_incomes()
+    print(f"\nTotal: {total}€")
+
+    # 5. Calcular porcentajes
+    percentages = household.get_percentages()
+    print(f"\nPorcentajes:")
+    for name, pct in percentages.items():
+        print(f"  {name}: {pct:.2f}%")
+
+    # 6. Validaciones
+    print(f"\n=== VALIDACIONES ===")
+
+    # Household vacío
+    empty = Household()
+    try:
+        empty.get_total_incomes()
+    except ValueError as e:
+        print(f"✓ Household vacío bloqueado: {e}")
+
+    # Miembro inexistente
+    try:
+        household.set_members_incomes("NoExiste", 1000)
+    except ValueError as e:
+        print(f"✓ Miembro inexistente bloqueado: {e}")
+
+    # Ingresos en 0
+    zero_household = Household()
+    zero_household.register_member(Participante("Test"))
+    try:
+        zero_household.get_total_incomes()
+    except ValueError as e:
+        print(f"✓ Ingresos 0 bloqueado: {e}")
+
+
+    print(f"\n=== FIN TESTING HOUSEHOLD 11/02/2026 ===")
+    
+    # ====== CONTINUACIÓN ======
+    

@@ -1,17 +1,26 @@
 import pytest
 from src.models.participante import Participante
 from src.models.household import Household
-from src.models.calculadora import Calculator
+
+
+# ====================================================
+# FIXTURES
+# ====================================================
+
+@pytest.fixture
+def members_with_incomes():
+    """Dos miembros con ingresos diferentes"""
+    m1 = Participante("Member1")
+    m2 = Participante("Member2")
+    m1.monthly_income = 2000.0
+    m2.monthly_income = 1000.0
+    return {m1.name: m1, m2.name: m2}
 
 
 @pytest.fixture
-def base_member_1():
-    return Participante("Default_1")
-
-
-@pytest.fixture
-def base_member_2():
-    return Participante("Default_2")
+def member_zero_income():
+    """Miembro sin ingresos"""
+    return Participante("NoIncome")
 
 
 @pytest.fixture
@@ -19,65 +28,87 @@ def base_household():
     return Household()
 
 
+# ====================================================
+# TESTS: Registro de miembros
+# ====================================================
+
 def test_create_valid_household(base_household):
     """Verifica correcta creación de instancia Household"""
-
-    # Assert
     assert isinstance(base_household.members, dict)
+    assert len(base_household.members) == 0
 
 
-def test_register_member_adds_members_to_household(base_member_1, base_household):
-    """Verifica que se ingresen las instancias de los participantes en la lista de miembros"""
-
-    base_household.register_member(base_member_1)
-
-    assert base_member_1.name in base_household.members
-
-
-def test_setter_incomes_is_correct(base_household, base_member_1):
-    """Se cambian los ingresos correctamente"""
-    # Arrange
-    expected = 500.0
-    base_household.members[base_member_1.name] = base_member_1
-
-    # Act
-    base_household.set_members_incomes(base_member_1.name, 500.0)
-
-    # Assert
-    assert base_member_1.monthly_income == expected
-
-
-def test_household_total_incomes_is_correct(
-    base_member_1, base_member_2, base_household
-):
-    """Verifica cálculos del total de ingresos"""
-    # Arrange
-    expected_total = 2800.0
-    base_member_1.monthly_income = 1500
-    base_member_2.monthly_income = 1300
-    base_household.members = {"Default_1": base_member_1, "Default_2": base_member_2}
-
-    # Act
-    total = base_household.obtain_total_incomes()
-
-    # assert
-    assert expected_total == total
-
-# Test workflow completo setup
-""" 
-def test_full_workflow_transition(base_household, base_member_1):
-    # 1. Registro
-    base_member_1.monthly_income = 2000.0
-    base_household.register_member(base_member_1)
+def test_register_member_adds_to_household(base_household, member_zero_income):
+    """Verifica que se registre correctamente un miembro"""
+    base_household.register_member(member_zero_income)
     
-    # 2. Cierre de registro
-    base_household.lock_registration()
-    assert base_household.phase == Phase.PLANNING
+    assert member_zero_income.name in base_household.members
+    assert base_household.members[member_zero_income.name] == member_zero_income
+
+
+# ====================================================
+# TESTS: set_members_incomes
+# ====================================================
+
+def test_set_members_incomes_updates_correctly(base_household, member_zero_income):
+    """Actualiza ingresos de miembro existente"""
+    base_household.register_member(member_zero_income)
     
-    # 3. Planificación (Auto-cálculo de ahorro)
-    # Si ingreso es 2000, fijos 1000 y variables 500 -> ahorro debe ser 500
-    base_household.set_budget_plan(fijos=1000.0, variables=500.0)
+    base_household.set_members_incomes(member_zero_income.name, 500.0)
     
-    assert base_household.budget_plan.ahorro_deuda == 500.0
-    assert base_household.phase == Phase.EXECUTION
-"""
+    assert member_zero_income.monthly_income == 500.0
+
+
+def test_set_members_incomes_raises_if_member_not_exists(base_household):
+    """Lanza error si el miembro no está registrado"""
+    with pytest.raises(ValueError, match="NoExiste no existe en el hogar"):
+        base_household.set_members_incomes("NoExiste", 500)
+
+
+# ====================================================
+# TESTS: get_total_incomes
+# ====================================================
+
+def test_get_total_incomes_calculates_correctly(base_household, members_with_incomes):
+    """Calcula total de ingresos correctamente"""
+    for member in members_with_incomes.values():
+        base_household.register_member(member)
+    
+    total = base_household.get_total_incomes()
+    
+    assert total == 3000.0
+
+
+def test_get_total_incomes_raises_if_no_members(base_household):
+    """Lanza error si no hay miembros registrados"""
+    with pytest.raises(ValueError, match="No hay miembros registrados"):
+        base_household.get_total_incomes()
+
+
+def test_get_total_incomes_raises_if_zero_incomes(base_household, member_zero_income):
+    """Lanza error si todos los ingresos son 0"""
+    base_household.register_member(member_zero_income)
+    
+    with pytest.raises(ValueError, match="Al menos un miembro debe tener ingresos > 0"):
+        base_household.get_total_incomes()
+
+
+# ====================================================
+# TESTS: get_percentages
+# ====================================================
+
+def test_get_percentages_calculates_correctly(base_household, members_with_incomes):
+    """Calcula porcentajes correctos según ingresos"""
+    for member in members_with_incomes.values():
+        base_household.register_member(member)
+    
+    percentages = base_household.get_percentages()
+    
+    assert percentages["Member1"] == pytest.approx(66.67, rel=1e-2)
+    assert percentages["Member2"] == pytest.approx(33.33, rel=1e-2)
+
+
+def test_get_percentages_raises_if_no_members(base_household):
+    """Lanza error si no hay miembros registrados"""
+    with pytest.raises(ValueError, match="No hay miembros registrados"):
+        base_household.get_percentages()

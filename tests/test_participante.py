@@ -1,46 +1,58 @@
-from src.models.participante import Participante
 import pytest
+from src.models.participante import Participante
 
+
+# ====================================================
+# FIXTURES
+# ====================================================
 
 @pytest.fixture
 def base_member():
     return Participante("Default")
 
 
+# ====================================================
+# TESTS: Creación de participante
+# ====================================================
+
 def test_create_valid_member(base_member):
-    """Verifica que la creación de la instancia de Participante sea correcta"""
-
-    # Assert
+    """Crea participante correctamente con valores iniciales"""
     assert base_member.name == "Default"
-    assert base_member.monthly_income == 0
+    assert base_member.monthly_income == 0.0
 
 
-def test_name_empty_raises_error():
-    """
-    Verifica que se lance un ValueError si el nombre está vacío.
-    """
+def test_create_member_empty_name_raises_error():
+    """Lanza error si nombre está vacío"""
     with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
         Participante("")
 
 
-def test_add_incomes_is_correct(base_member):
-    """Verifica que se agregan ingresos correctamente"""
-    # Arrange:
-    incomes_expected = 700.0
+def test_create_member_whitespace_name_raises_error():
+    """Lanza error si nombre es solo espacios"""
+    with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
+        Participante("   ")
 
-    # Act
+
+# ====================================================
+# TESTS: add_incomes
+# ====================================================
+
+def test_add_incomes_updates_correctly(base_member):
+    """Suma ingresos correctamente"""
     base_member.add_incomes(300.0)
     base_member.add_incomes(400.0)
+    
+    assert base_member.monthly_income == 700.0
 
-    # Assert
-    assert base_member.monthly_income == incomes_expected
+
+def test_add_incomes_zero_is_valid(base_member):
+    """Permite agregar ingreso de 0"""
+    base_member.add_incomes(0.0)
+    
+    assert base_member.monthly_income == 0.0
 
 
-def test_negative_income_raises_error(base_member):
-    """
-    Verifica que el sistema no permita ingresos menores o iguales a cero.
-    """
-
-    # Raise
+def test_add_negative_income_raises_error(base_member):
+    """Lanza error con ingreso negativo"""
     with pytest.raises(ValueError, match="Ingreso no puede ser negativo"):
         base_member.add_incomes(-500)
