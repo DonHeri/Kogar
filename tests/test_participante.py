@@ -36,26 +36,11 @@ def test_add_incomes_is_correct(base_member):
     assert base_member.monthly_income == incomes_expected
 
 
-""" 
-def test_incorrect_monthly_income_raises_error():
-    
-    #Verifica que se lance un ValueError si el ingreso es negativo o 0.
-    
-    with pytest.raises(ValueError, match="Ingresos deben ser superiores o igual a 0"):
-        Participante("Default", -500)
-"""
+def test_negative_income_raises_error(base_member):
+    """
+    Verifica que el sistema no permita ingresos menores o iguales a cero.
+    """
 
-#TODO || INGRESOS = 0 NO DEBERÍAN DAR ERROR; HAY MESES MALOS
-""" 
-def test_monthly_income_zero_raises_error():
-    with pytest.raises(ValueError, match="Ingresos deben ser superiores o igual a 0"):
-        Participante("Juan", 0)
-"""
-
-# Verifica que se lance error si total_incomes es 0.
-""" 
-def test_total_incomes_zero_raises_error(base_member):
-    
-    with pytest.raises(ValueError, match="El total de ingresos debe ser mayor a 0"):
-        base_member.calculate_contribution_percentage(0) 
-"""
+    # Raise
+    with pytest.raises(ValueError, match="Ingreso no puede ser negativo"):
+        base_member.add_incomes(-500)

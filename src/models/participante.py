@@ -8,18 +8,20 @@ class Participante:
 
         # ====== Atributos ======
         self.name: str = name
-        self.monthly_income: float = 0.0  # TODO: Convertir monthly_income a lista cuando necesite histórico
+        self.monthly_income: float = 0.0
 
     # Suma ingresos
     def add_incomes(self, income: float) -> None:
-        if income < 0:  
+        if income < 0:
             raise ValueError("Ingreso no puede ser negativo")
         self.monthly_income += income
 
+    def __repr__(self):
+        return f"Participante('{self.name}', {self.monthly_income}€)"
 
 
 # ====================================================
 # Zona de pruebas
 # ====================================================
 if __name__ == "__main__":
-
+    pass

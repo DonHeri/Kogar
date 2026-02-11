@@ -138,3 +138,7 @@ cython_debug/
 
 # Project specific
 CACHEDIR.TAG
+
+# DOCs
+PRODUCT.md
+TODO.md
