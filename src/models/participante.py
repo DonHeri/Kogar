@@ -20,34 +20,3 @@ class Participante:
         return f"Participante('{self.name}', {self.monthly_income}€)"
 
 
-# ====================================================
-# PARTICIPANTE - Zona de pruebas
-# ====================================================
-if __name__ == "__main__": # pragma: no cover
-    print("=== TESTING PARTICIPANTE ===\n")
-
-    # 1. Crear miembro
-    member1 = Participante("Member1")
-    print(f"Miembro creado: {member1}")
-
-    # 2. Agregar ingresos
-    member1.add_incomes(1500)
-    member1.add_incomes(200)
-    print(f"Ingresos acumulados: {member1}")
-
-    # 3. Validaciones
-    print(f"\n=== VALIDACIONES ===")
-    
-    try:
-        Participante(" ")
-    except ValueError as e:
-        print(f"✓ Nombre vacío bloqueado: {e}")
-
-    try:
-        member1.add_incomes(-500)
-    except ValueError as e:
-        print(f"✓ Ingreso negativo bloqueado: {e}")
-    
-    print(f"\n=== FIN TESTING HOUSEHOLD 11/02/2026 ===")
-    
-    # ====== CONTINUACIÓN ======
