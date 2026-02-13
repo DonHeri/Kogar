@@ -16,7 +16,7 @@ class Participante:
             raise ValueError("Ingreso no puede ser negativo")
         self.monthly_income += income
 
-    def __repr__(self):
+    def __repr__(self): # pragma: no cover
         return f"Participante('{self.name}', {self.monthly_income}€)"
 
 

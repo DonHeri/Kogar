@@ -1,9 +1,10 @@
 class BudgetCategory:
+    """Gestiona el presupuesto en una categoría"""
 
     def __init__(self, name: str, planned_amount: float) -> None:
 
         # Evitar monto negativo
-        if planned_amount <= 0:
+        if planned_amount < 0:
             raise ValueError("El monto presupuestado no puede ser negativo")
 
         self.name = name  # Categoría ("fijos", "variable")
@@ -36,11 +37,31 @@ class BudgetCategory:
         paid = self.member_contributions.get(member_name, 0)
         return owed_amount - paid
 
-    def __repr__(self) -> str:
-        """ Información técnica para debugging """
-        return f"BudgetCategory(name={self.name}, planned={self.planned_amount}, spent={self.spent})"
-    
-    
-    def get_report(self) -> str:
-        """ Información formateada para el usuario final """
+    def get_report(self) -> str:  # pragma: no cover
+        """Información formateada para el usuario final"""
         return f"- Categoría: {self.name.title()} | Restante: {self.remaining()}$"
+
+    def __repr__(self) -> str:  # pragma: no cover
+        """Información técnica para debugging"""
+        return f"BudgetCategory(name={self.name}, planned={self.planned_amount}, spent={self.spent})"
+
+
+class Budget:
+    """Orquesta las diferentes categoría presupuestadas"""
+
+    def __init__(self) -> None:
+        self.categories = {
+            "fijos": BudgetCategory("fijos", 0),
+            "variables": BudgetCategory("variables", 0),
+            "deuda": BudgetCategory("deuda", 0),
+            "ahorro": BudgetCategory("ahorro", 0),
+        }
+
+    def set_budget(self, category: str, amount: float) -> None:
+        """Establece un presupuesto para una categoría"""
+        if category not in self.categories:
+            raise ValueError("La categoría debe estar creada")
+        if amount < 0:
+            raise ValueError("Monto del presupuesto debe ser superior a 0")
+
+        self.categories[category].planned_amount = amount
