@@ -5,33 +5,30 @@ from typing import Dict
 class Calculator:
 
     @staticmethod
-    def sum_total_incomes(members: dict[str, Participante]) -> float:
-        """Calcula el total de ingresos entre los miembros"""
-        return sum(m.monthly_income for m in members.values())
+    def sum_values(values: list[float]) -> float:
+        """Suma una lista de valores numéricos de forma genérica."""
+        return sum(values)
 
+   
     @staticmethod
-    def calculate_member_percentage(dict_members: Dict[str, Participante]) -> dict:
+    def calculate_member_percentage(income_map: dict[str, float]) -> dict[str, float]:
         """
-        Parámetros:
-        members: Miembros registrados
+        Recibe un mapa simple {nombre: monto} y devuelve {nombre: porcentaje}.
         """
-        total = Calculator.sum_total_incomes(dict_members)
+        
+        total = sum(income_map.values()) # Ahora suma directamente valores
 
         if total <= 0:
             raise ValueError("Total de ingresos debe ser > 0")
 
-        # almacenar porcentajes de cada usuario
-        percentages = {}
-
-        for name, member in dict_members.items():
-            percentages[name] = (member.monthly_income / total) * 100
-
-        return percentages
+        return {name: (income / total) * 100 for name, income in income_map.items()}
 
 
-# ====================================================
-# Sin integrar
-# ====================================================
+
+
+    # ====================================================
+    # Sin integrar
+    # ====================================================
 
     """ @staticmethod
     def calculate_contribution(percentages, monto):

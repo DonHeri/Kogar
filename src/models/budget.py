@@ -37,4 +37,10 @@ class BudgetCategory:
         return owed_amount - paid
 
     def __repr__(self) -> str:
-        return f"- Categoría: {self.name.title()} - Presupuestado: {self.planned_amount} - Se han pagado {self.spent}$ - {self.member_contributions}"
+        """ Información técnica para debugging """
+        return f"BudgetCategory(name={self.name}, planned={self.planned_amount}, spent={self.spent})"
+    
+    
+    def get_report(self) -> str:
+        """ Información formateada para el usuario final """
+        return f"- Categoría: {self.name.title()} | Restante: {self.remaining()}$"

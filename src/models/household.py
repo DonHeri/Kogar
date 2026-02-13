@@ -28,8 +28,10 @@ class Household:
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
-        total = Calculator.sum_total_incomes(self.members)
-
+        # Extraemos solo los números (los ingresos) antes de llamar a la calculadora
+        incomes = [m.monthly_income for m in self.members.values()]
+        total = Calculator.sum_values(incomes)
+        
         if total <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos > 0")
 
@@ -42,8 +44,12 @@ class Household:
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
-        percentages = Calculator.calculate_member_percentage(self.members)
+        # Extraemos el "mapa de ingresos" para desacoplar
+        income_map = {name: m.monthly_income for name, m in self.members.items()}
 
-        return percentages
+        # La calculadora procesa números, no objetos Participante
+        return Calculator.calculate_member_percentage(income_map)
+        
+        
 
 
