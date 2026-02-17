@@ -1,5 +1,5 @@
 from src.models.household import Household
-from src.models.calculadora import Calculator
+from models.calculator import Calculator
 
 # Formatos
 BOLD = "\033[1m"

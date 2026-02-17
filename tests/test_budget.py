@@ -28,8 +28,8 @@ def test_create_valid_budget_category():
 
     # Arrange
     assert budget1.name == "Test"
-    assert budget1.spent == 0.0
-    assert budget1.planned_amount == 500
+    assert budget1.spent == 0
+    assert budget1.planned_amount == 50000
     assert isinstance(budget1.member_contributions, dict)
 
 
@@ -45,15 +45,15 @@ def test_negative_budget_must_raise_error():
 # ====================================================
 def test_set_budget_updates_category_amount(budget):
     budget.set_budget("fijos", 1000)
-    assert budget.categories["fijos"].planned_amount == 1000
+    assert budget.categories["fijos"].planned_amount == 100000
 
 
 def test_set_budget_updates_multiple_categories(budget):
     budget.set_budget("fijos", 1000)
     budget.set_budget("variables", 500)
 
-    assert budget.categories["fijos"].planned_amount == 1000
-    assert budget.categories["variables"].planned_amount == 500
+    assert budget.categories["fijos"].planned_amount == 100000
+    assert budget.categories["variables"].planned_amount == 50000
 
 
 def test_set_budget_invalid_category_raises_error(budget):
@@ -72,25 +72,25 @@ def test_set_budget_negative_amount_raises_error(budget):
 def test_register_payment_adds_amount_to_member(budget_rent):
     budget_rent.register_payment("Amanda", 100)
 
-    assert budget_rent.member_contributions["Amanda"] == 100
-    assert budget_rent.spent == 100
+    assert budget_rent.member_contributions["Amanda"] == 10000
+    assert budget_rent.spent == 10000
 
 
 def test_register_payment_accumulates_multiple_payments(budget_rent):
     budget_rent.register_payment("Amanda", 100)
     budget_rent.register_payment("Amanda", 50)
 
-    assert budget_rent.member_contributions["Amanda"] == 150
-    assert budget_rent.spent == 150
+    assert budget_rent.member_contributions["Amanda"] == 15000
+    assert budget_rent.spent == 15000
 
 
 def test_register_payment_tracks_multiple_members(budget_rent):
     budget_rent.register_payment("Amanda", 100)
     budget_rent.register_payment("Heri", 200)
 
-    assert budget_rent.member_contributions["Amanda"] == 100
-    assert budget_rent.member_contributions["Heri"] == 200
-    assert budget_rent.spent == 300
+    assert budget_rent.member_contributions["Amanda"] == 10000
+    assert budget_rent.member_contributions["Heri"] == 20000
+    assert budget_rent.spent == 30000
 
 
 def test_register_payment_zero_raises_error(budget_rent):
@@ -110,7 +110,6 @@ def test_create_budget_negative_planned_raises_error():
         BudgetCategory("fijos", -100)
 
 
-
 # ====================================================
 # REMAINING
 # ====================================================
@@ -118,7 +117,7 @@ def test_create_budget_negative_planned_raises_error():
 
 def test_remaining_returns_difference_between_planned_and_spent(budget_rent):
     budget_rent.register_payment("Amanda", 300)
-    assert budget_rent.remaining() == 700
+    assert budget_rent.remaining() == 70000
 
 
 def test_remaining_returns_zero_when_fully_paid(budget_rent):
@@ -128,7 +127,7 @@ def test_remaining_returns_zero_when_fully_paid(budget_rent):
 
 def test_remaining_returns_negative_when_overpaid(budget_rent):
     budget_rent.register_payment("Amanda", 1200)
-    assert budget_rent.remaining() == -200
+    assert budget_rent.remaining() == -20000
 
 
 # ====================================================
@@ -136,13 +135,13 @@ def test_remaining_returns_negative_when_overpaid(budget_rent):
 # ====================================================
 def test_member_pending_returns_amount_owed_minus_paid(budget_rent):
     budget_rent.register_payment("Amanda", 100)
-    assert budget_rent.member_pending("Amanda", 500) == 400
+    assert budget_rent.member_pending("Amanda", 50000) == 40000
 
 
 def test_member_pending_when_member_hasnt_paid(budget_rent):
-    assert budget_rent.member_pending("Heri", 300) == 300
+    assert budget_rent.member_pending("Heri", 30000) == 30000
 
 
 def test_member_pending_when_overpaid(budget_rent):
     budget_rent.register_payment("Amanda", 600)
-    assert budget_rent.member_pending("Amanda", 500) == -100
+    assert budget_rent.member_pending("Amanda", 50000) == -10000

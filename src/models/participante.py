@@ -1,3 +1,6 @@
+from src.models.utils import to_cents, to_euros
+
+
 class Participante:
     """Representa a una persona con su ingreso base mensual."""
 
@@ -8,15 +11,20 @@ class Participante:
 
         # ====== Atributos ======
         self.name: str = name
-        self.monthly_income: float = 0.0
+        self.monthly_income: int = 0
 
-    # Suma ingresos
+    
     def add_incomes(self, income: float) -> None:
+        """Recibe euros, convierte a céntimos internamente"""
         if income < 0:
             raise ValueError("Ingreso no puede ser negativo")
-        self.monthly_income += income
+        cents = to_cents(income)
+        self.monthly_income += cents
 
     def __repr__(self): # pragma: no cover
-        return f"Participante('{self.name}', {self.monthly_income}€)"
+        return f"Participante('{self.name}', {to_euros(self.monthly_income)})"
 
 
+
+    
+    
