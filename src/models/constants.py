@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class MetodoReparto(Enum):
     PROPORCIONAL = "proporcional"
     IGUAL = "igual"

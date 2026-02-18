@@ -1,15 +1,17 @@
 from src.models.participante import Participante
 from src.models.calculator import Calculator
 from src.models.budget import Budget
+from src.models.constants import MetodoReparto
 from typing import Dict
 
 
 class Household:
 
-    def __init__(self, budget: Budget) -> None:  # phase=Fase.REGISTRO
+    def __init__(self, budget: Budget,method:MetodoReparto=MetodoReparto.PROPORCIONAL) -> None:  # phase=Fase.REGISTRO
 
         self.members: Dict[str, Participante] = {}
         self.budget = budget
+        self.method = method
 
     def register_member(self, member: Participante):
         """
@@ -41,7 +43,6 @@ class Household:
 
         return total
 
-    # En Household
     def get_percentages(self):
         """Calcula el porcentaje que representa el sueldo de cada usuario (×100)"""
         if not self.members:
@@ -49,3 +50,35 @@ class Household:
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
         return Calculator.calculate_member_percentage(income_map)
+
+    def calculate_member_contribution_for_category(self, percentages, budget_amount):
+        """Calcula contribución de UNA categoría"""
+
+        return Calculator.calculate_contribution(percentages, budget_amount)
+
+    def get_budget_contribution_summary(self):
+        """
+        Retorna resumen completo por categoría
+        {
+            'fijos': {
+                'planned': 90000 céntimos,
+                'contributions': {'Amanda': 48200, 'Heri': 41800},
+                'total_assigned': 90000
+            },
+            ...
+        }
+        """
+        percentages = self.get_percentages()
+        summary = {}
+
+        for cat_name, category in self.budget.categories.items():
+            contributions = Calculator.calculate_contribution(
+                percentages, category.planned_amount
+            )
+            summary[cat_name] = {
+                "planned": category.planned_amount,
+                "contributions": contributions,
+                "total_assigned": sum(contributions.values()),
+            }
+
+        return summary

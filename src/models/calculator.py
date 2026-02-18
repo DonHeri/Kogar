@@ -1,3 +1,6 @@
+from typing import Dict
+
+
 class Calculator:
 
     @staticmethod
@@ -20,3 +23,38 @@ class Calculator:
         return {
             name: round((income * 10000) / total) for name, income in income_map.items()
         }
+
+    @staticmethod
+    def calculate_contribution(
+        percentages: dict[str, int], budget_amount: int
+    ) -> dict[str, int]:
+        """
+        Aplica porcentaje que debe aportar cada miembro: percentages: dict[name_member,percentage]
+        A un presupuesto: budget_amount
+        """
+        contributions = {}
+        total_assigned = 0
+
+        for member_name, percentage in percentages.items():
+            member_contribution = (
+                budget_amount * percentage // 10000
+            )  # División entera para evitar float
+
+            total_assigned += member_contribution
+            contributions[member_name] = member_contribution
+
+        # Diferencia siempre positiva por división entera
+        diferencia = budget_amount - total_assigned
+
+        # Diferencia al de mayor aporte
+        if total_assigned != 0:
+            max_member = max(percentages, key=lambda k: percentages[k])
+            contributions[max_member] += diferencia
+
+        # Para lanzar algún error si no cuadra
+        if sum(contributions.values()) != budget_amount:#TODO temporal 
+            raise ValueError(
+                "El total asignado en contribution es diferente al monto presupuestado"
+            )
+
+        return contributions
