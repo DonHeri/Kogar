@@ -1,8 +1,8 @@
 from enum import Enum
 
 class MetodoReparto(Enum):
-    PROPORCIONAL = "proporcional"
-    IGUAL = "igual"
+    PROPORTIONAL = "proporcional"
+    EQUAL = "igual"
     CUSTOM = "custom"
 
 

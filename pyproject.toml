@@ -16,6 +16,7 @@ dev = [
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
     "coverage==7.13.3",
+    "ruff>=0.4.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -26,3 +27,15 @@ include = ["src*"]
 testpaths = ["tests"]
 addopts = "-v --cov=src --cov-report=term-missing --cov-report=html:coverage"
 python_files = "test_*.py"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]  # E/W = pycodestyle, F = pyflakes, I = isort
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

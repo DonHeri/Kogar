@@ -6,8 +6,9 @@ from typing import Dict
 
 
 class Household:
-
-    def __init__(self, budget: Budget,method:MetodoReparto=MetodoReparto.PROPORCIONAL) -> None:  # phase=Fase.REGISTRO
+    def __init__(
+        self, budget: Budget, method: MetodoReparto = MetodoReparto.PROPORTIONAL
+    ) -> None:  # phase=Fase.REGISTRO
 
         self.members: Dict[str, Participante] = {}
         self.budget = budget
@@ -43,20 +44,34 @@ class Household:
 
         return total
 
-    def get_percentages(self):
-        """Calcula el porcentaje que representa el sueldo de cada usuario (×100)"""
+    def get_percentages_by_method(self, method: MetodoReparto):
+        """Calcula el porcentaje de reparto según método elegido"""
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
-        return Calculator.calculate_member_percentage(income_map)
+
+        match method:
+            case MetodoReparto.PROPORTIONAL:
+                percentages = Calculator.calculate_percentage_based_on_weight_of_income(
+                    income_map
+                )
+
+            case MetodoReparto.EQUAL:
+                percentages = Calculator.calculate_equal_percentage(income_map)
+
+            case MetodoReparto.CUSTOM:
+                # Aquí un método que pregunte porcentajes
+                # Calcule porcentaje para último miembro,para cuadrar
+                pass
+
+        return percentages
 
     def calculate_member_contribution_for_category(self, percentages, budget_amount):
         """Calcula contribución de UNA categoría"""
-
         return Calculator.calculate_contribution(percentages, budget_amount)
 
-    def get_budget_contribution_summary(self):
+    def get_budget_contribution_summary(self,method:MetodoReparto):
         """
         Retorna resumen completo por categoría
         {
@@ -68,7 +83,7 @@ class Household:
             ...
         }
         """
-        percentages = self.get_percentages()
+        percentages = self.get_percentages_by_method(method)
         summary = {}
 
         for cat_name, category in self.budget.categories.items():
@@ -82,3 +97,7 @@ class Household:
             }
 
         return summary
+
+    def set_method(self,method:MetodoReparto):
+        """ Settea el método de reparto global """
+        self.method = method

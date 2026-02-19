@@ -1,4 +1,4 @@
-from utils.change_eur_cent import to_cents, to_euros
+from src.utils.change_eur_cent import to_euros,to_cents
 
 
 class BudgetCategory:
