@@ -1,5 +1,5 @@
 import pytest
-from src.models.participante import Participante
+from src.models.member import Member
 
 
 # ====================================================
@@ -9,7 +9,7 @@ from src.models.participante import Participante
 
 @pytest.fixture
 def base_member():
-    return Participante("Default")
+    return Member("Default")
 
 
 # ====================================================
@@ -26,13 +26,13 @@ def test_create_valid_member(base_member):
 def test_create_member_empty_name_raises_error():
     """Lanza error si nombre está vacío"""
     with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
-        Participante("")
+        Member("")
 
 
 def test_create_member_whitespace_name_raises_error():
     """Lanza error si nombre es solo espacios"""
     with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
-        Participante("   ")
+        Member("   ")
 
 
 # ====================================================

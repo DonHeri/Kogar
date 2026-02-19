@@ -1,7 +1,4 @@
-from typing import Dict
-
-
-class Calculator:
+class FinanceCalculator:
     @staticmethod
     def sum_values(values: list[int]) -> int:
         """Suma una lista de valores numéricos de forma genérica."""
@@ -56,8 +53,6 @@ class Calculator:
         max_member = max(members, key=lambda k: members[k])
         percentages[max_member] += 10000 - assigned
         return percentages
-
-
 
     @staticmethod
     def calculate_contribution(
