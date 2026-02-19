@@ -39,7 +39,7 @@ pip-delete-this-directory.txt
 # ==========================================
 # Testing y Coverage
 # ==========================================
-htmlcov/
+coverage/
 .tox/
 .nox/
 .coverage
@@ -66,8 +66,8 @@ cover/
 # SCRIPTS Y NOTAS PERSONALES (PROYECTO)
 # ==========================================
 # Aquí irán tus zonas de pruebas manuales que no quieres subir
-scripts/
-sandbox/
+examples/
+sandbox_*
 temp/
 
 # Documentación de trabajo personal 

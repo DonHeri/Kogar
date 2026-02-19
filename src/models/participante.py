@@ -1,4 +1,4 @@
-from src.models.utils import to_cents, to_euros
+from utils.change_eur_cent import to_cents, to_euros
 
 
 class Participante:

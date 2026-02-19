@@ -1,4 +1,4 @@
-from typing import Dict
+
 
 
 class Calculator:
@@ -52,7 +52,7 @@ class Calculator:
             contributions[max_member] += diferencia
 
         # Para lanzar algún error si no cuadra
-        if sum(contributions.values()) != budget_amount:#TODO temporal 
+        if sum(contributions.values()) != budget_amount: #TODO validador temporal 
             raise ValueError(
                 "El total asignado en contribution es diferente al monto presupuestado"
             )
