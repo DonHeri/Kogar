@@ -2,6 +2,7 @@ from src.models.participante import Participante
 from src.models.calculator import Calculator
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
+from src.utils.change_eur_cent import to_percentage_basis
 from typing import Dict
 
 
@@ -13,6 +14,7 @@ class Household:
         self.members: Dict[str, Participante] = {}
         self.budget = budget
         self.method = method
+        self._custom_splits = {}
 
     def register_member(self, member: Participante):
         """
@@ -44,12 +46,30 @@ class Household:
 
         return total
 
+    def set_custom_splits(self, splits: dict[str, float]):
+        """
+        Define splits custom (ya validados desde fuera).
+        Convierte de float (55.55) a basis points (5555).
+        """
+        if not self.members:
+            raise ValueError("Registra a los miembros antes de asignar porcentajes")
+
+        # Validación de seguridad: asegurar que todos los miembros tienen un split asignado
+        for name in self.members:
+            if name not in splits:
+                raise ValueError(f"Falta el porcentaje para el miembro: {name}")
+
+        self._custom_splits = {
+            name: to_percentage_basis(pct) for name, pct in splits.items()
+        }
+
     def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto según método elegido"""
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
+        percentages = {}
 
         match method:
             case MetodoReparto.PROPORTIONAL:
@@ -61,9 +81,11 @@ class Household:
                 percentages = Calculator.calculate_equal_percentage(income_map)
 
             case MetodoReparto.CUSTOM:
-                # Aquí un método que pregunte porcentajes
-                # Calcule porcentaje para último miembro,para cuadrar
-                pass
+                if not hasattr(self, "_custom_splits"):
+                    raise ValueError(
+                        "Método CUSTOM requiere llamar a set_custom_splits() primero"
+                    )
+                return self._custom_splits
 
         return percentages
 
@@ -71,7 +93,7 @@ class Household:
         """Calcula contribución de UNA categoría"""
         return Calculator.calculate_contribution(percentages, budget_amount)
 
-    def get_budget_contribution_summary(self,method:MetodoReparto):
+    def get_budget_contribution_summary(self, method: MetodoReparto):
         """
         Retorna resumen completo por categoría
         {
@@ -98,6 +120,4 @@ class Household:
 
         return summary
 
-    def set_method(self,method:MetodoReparto):
-        """ Settea el método de reparto global """
-        self.method = method
+ 
