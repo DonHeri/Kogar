@@ -1,5 +1,6 @@
 # tests/test_budget_category.py
-from src.models.budget import BudgetCategory, Budget
+from src.models.budget import Budget
+from src.models.budget_category import BudgetCategory
 import pytest
 
 # ====================================================

@@ -1,7 +1,7 @@
-from src.utils.change_eur_cent import to_euros, to_cents
+from src.utils.currency import to_euros, to_cents
 
 
-class Participante:
+class Member:
     """Representa a una persona con su ingreso base mensual."""
 
     def __init__(self, name: str):
@@ -15,6 +15,7 @@ class Participante:
 
     def add_incomes(self, income: float) -> None:
         """Recibe euros, convierte a céntimos internamente"""
+        # Fase registro
         if income < 0:
             raise ValueError("Ingreso no puede ser negativo")
         cents = to_cents(income)
@@ -22,4 +23,3 @@ class Participante:
 
     def __repr__(self):  # pragma: no cover
         return f"Participante('{self.name}', {to_euros(self.monthly_income)})"
-

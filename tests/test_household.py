@@ -1,5 +1,5 @@
 import pytest
-from src.models.participante import Participante
+from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
@@ -12,8 +12,8 @@ from src.models.constants import MetodoReparto
 @pytest.fixture
 def members_with_incomes():
     """Dos miembros con ingresos diferentes"""
-    m1 = Participante("Member1")
-    m2 = Participante("Member2")
+    m1 = Member("Member1")
+    m2 = Member("Member2")
     m1.monthly_income = 200000
     m2.monthly_income = 100000
     return {m1.name: m1, m2.name: m2}
@@ -22,7 +22,7 @@ def members_with_incomes():
 @pytest.fixture
 def member_zero_income():
     """Miembro sin ingresos"""
-    return Participante("NoIncome")
+    return Member("NoIncome")
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
-from src.models.participante import Participante
-from src.models.calculator import Calculator
+from src.models.member import Member
+from src.models.finance_calculator import FinanceCalculator
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
-from src.utils.change_eur_cent import to_percentage_basis
+from src.utils.currency import to_percentage_basis
 from typing import Dict
 
 
@@ -11,26 +11,28 @@ class Household:
         self, budget: Budget, method: MetodoReparto = MetodoReparto.PROPORTIONAL
     ) -> None:  # phase=Fase.REGISTRO
 
-        self.members: Dict[str, Participante] = {}
+        self.members: Dict[str, Member] = {}
         self.budget = budget
         self.method = method
         self._custom_splits = {}
+        self._custom_splits = {}
 
-    def register_member(self, member: Participante):
+    def register_member(self, member: Member):  # Fase registro
         """
         Registrar miembros.
         """
 
         self.members[member.name] = member
 
-    def set_members_incomes(self, name: str, amount: float):
+    def set_members_incomes(self, name: str, amount: float):  # Fase registro
         """Introducir ingresos de usuarios."""
+
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].add_incomes(amount)
 
-    def get_total_incomes(self):
+    def get_total_incomes(self):  # Todas las fases?
         """
         Calcula el total de ingresos entre los miembros.
         """
@@ -39,7 +41,7 @@ class Household:
 
         # Extraemos solo los números (los ingresos) antes de llamar a la calculadora
         incomes = [m.monthly_income for m in self.members.values()]
-        total = Calculator.sum_values(incomes)
+        total = FinanceCalculator.sum_values(incomes)
 
         if total <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos > 0")
@@ -70,17 +72,25 @@ class Household:
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
         percentages = {}
+        percentages = {}
 
         match method:
             case MetodoReparto.PROPORTIONAL:
-                percentages = Calculator.calculate_percentage_based_on_weight_of_income(
-                    income_map
+                percentages = (
+                    FinanceCalculator.calculate_percentage_based_on_weight_of_income(
+                        income_map
+                    )
                 )
 
             case MetodoReparto.EQUAL:
-                percentages = Calculator.calculate_equal_percentage(income_map)
+                percentages = FinanceCalculator.calculate_equal_percentage(income_map)
 
             case MetodoReparto.CUSTOM:
+                if not hasattr(self, "_custom_splits"):
+                    raise ValueError(
+                        "Método CUSTOM requiere llamar a set_custom_splits() primero"
+                    )
+                return self._custom_splits
                 if not hasattr(self, "_custom_splits"):
                     raise ValueError(
                         "Método CUSTOM requiere llamar a set_custom_splits() primero"
@@ -89,11 +99,15 @@ class Household:
 
         return percentages
 
-    def calculate_member_contribution_for_category(self, percentages, budget_amount):
+    def calculate_member_contribution_for_category(
+        self, percentages, budget_amount
+    ):  # Fase planificación, mes o cierre
         """Calcula contribución de UNA categoría"""
-        return Calculator.calculate_contribution(percentages, budget_amount)
+        return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
-    def get_budget_contribution_summary(self, method: MetodoReparto):
+    def get_budget_contribution_summary(
+        self, method: MetodoReparto
+    ):  # Planificación -> Cierre
         """
         Retorna resumen completo por categoría
         {
@@ -109,7 +123,7 @@ class Household:
         summary = {}
 
         for cat_name, category in self.budget.categories.items():
-            contributions = Calculator.calculate_contribution(
+            contributions = FinanceCalculator.calculate_contribution(
                 percentages, category.planned_amount
             )
             summary[cat_name] = {
@@ -119,5 +133,3 @@ class Household:
             }
 
         return summary
-
- 

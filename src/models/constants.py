@@ -8,7 +8,7 @@ class MetodoReparto(Enum):
 
 class Fase(Enum):
     REGISTRO = "registro"
-    CALCULOS = "calculos"
+    PLANIFICACION = "planificación"
     MES = "transcurso_mes"
     CIERRE = "cierre"
 
