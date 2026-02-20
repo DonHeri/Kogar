@@ -22,7 +22,7 @@ class Budget:
 
         self.categories[category].planned_amount = to_cents(amount)
 
-    def add_category(self):
+    def add_category(self): 
         """Crear categorías"""
         pass
 

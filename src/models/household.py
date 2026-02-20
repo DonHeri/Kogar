@@ -20,10 +20,12 @@ class Household:
         """
         Registrar miembros.
         """
+        if member.name in self.members:
+            raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
 
-    def set_members_incomes(self, name: str, amount: float):  # Fase registro
+    def set_member_income(self, name: str, amount: float):  # Fase registro
         """Introducir ingresos de usuarios."""
 
         if name not in self.members:
@@ -47,9 +49,11 @@ class Household:
 
         return total
 
+    # ====== FASE PLANIFICACIÓN ======
+
     def set_custom_splits(self, splits: dict[str, float]):  # Fase planificación
         """
-        Define splits custom (ya validados desde fuera).
+        Define splits custom (ya validados desde main.py).
         Convierte de float (55.55) a basis points (5555).
         """
         if not self.members:
@@ -100,6 +104,7 @@ class Household:
         """Calcula contribución de UNA categoría"""
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
+    # ==================== QUERIES (Phase-independent) ====================
     def get_budget_contribution_summary(
         self, method: MetodoReparto
     ):  # Planificación -> Cierre
@@ -128,3 +133,5 @@ class Household:
             }
 
         return summary
+
+    
