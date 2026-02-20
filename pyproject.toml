@@ -23,6 +23,11 @@ dev = [
 where = ["."]
 include = ["src*"]
 
+[tool.coverage.run]
+omit = [
+    "src/utils/printer.py",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --cov=src --cov-report=term-missing --cov-report=html:coverage"

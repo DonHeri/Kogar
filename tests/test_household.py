@@ -57,8 +57,15 @@ def test_register_member_adds_to_household(base_household, member_zero_income):
     assert base_household.members[member_zero_income.name] == member_zero_income
 
 
+def test_register_duplicate_member_raises(base_household, member_zero_income):
+    """Lanza error si se intenta registrar un miembro ya existente"""
+    base_household.register_member(member_zero_income)
+    with pytest.raises(ValueError, match="ya está registrado en el hogar"):
+        base_household.register_member(member_zero_income)
+
+
 # ====================================================
-# TESTS: set_members_incomes
+# TESTS: set_member_income
 # ====================================================
 
 
@@ -66,7 +73,7 @@ def test_set_members_incomes_updates_correctly(base_household, member_zero_incom
     """Actualiza ingresos de miembro existente"""
     base_household.register_member(member_zero_income)
 
-    base_household.set_members_incomes(member_zero_income.name, 500.0)
+    base_household.set_member_income(member_zero_income.name, 500.0)
 
     assert member_zero_income.monthly_income == 50000
 
@@ -74,7 +81,7 @@ def test_set_members_incomes_updates_correctly(base_household, member_zero_incom
 def test_set_members_incomes_raises_if_member_not_exists(base_household):
     """Lanza error si el miembro no está registrado"""
     with pytest.raises(ValueError, match="NoExiste no existe en el hogar"):
-        base_household.set_members_incomes("NoExiste", 500)
+        base_household.set_member_income("NoExiste", 500)
 
 
 # ====================================================

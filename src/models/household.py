@@ -21,10 +21,12 @@ class Household:
         """
         Registrar miembros.
         """
+        if member.name in self.members:
+            raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
 
-    def set_members_incomes(self, name: str, amount: float):  # Fase registro
+    def set_member_income(self, name: str, amount: float):  # Fase registro
         """Introducir ingresos de usuarios."""
 
         if name not in self.members:
