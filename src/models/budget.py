@@ -1,5 +1,7 @@
 from src.models.budget_category import BudgetCategory
 from src.utils.currency import to_cents
+from src.models.category_library import CategoryLibrary
+from src.models.subcategory_library import SubcategoryLibrary
 
 
 class Budget:
@@ -25,6 +27,3 @@ class Budget:
     def add_category(self): 
         """Crear categorías"""
         pass
-
-    def save_category_in_bd(self):
-        """Tener un repo de categorías"""
