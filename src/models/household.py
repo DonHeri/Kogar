@@ -9,71 +9,57 @@ from typing import Dict
 class Household:
     def __init__(
         self, budget: Budget, method: MetodoReparto = MetodoReparto.PROPORTIONAL
-    ) -> None:  # phase=Fase.REGISTRO
+    ) -> None:
 
         self.members: Dict[str, Member] = {}
         self.budget = budget
         self.method = method
         self._custom_splits = {}
 
-    def register_member(self, member: Member):  # Fase registro
-        """
-        Registrar miembros.
-        """
+    # ====== MEMBERS MANAGEMENT ======
+    def register_member(self, member: Member):
+        """Registra un nuevo miembro en el hogar"""
         if member.name in self.members:
             raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
 
-    def set_member_income(self, name: str, amount: float):  # Fase registro
-        """Introducir ingresos de usuarios."""
-
+    def set_member_income(self, name: str, amount: float):
+        """Establece el ingreso mensual de un miembro"""
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].add_incomes(amount)
 
-    def get_total_incomes(self):  # Todas las fases?
-        """
-        Calcula el total de ingresos entre los miembros.
-        """
-        if not self.members:
-            raise ValueError("No hay miembros registrados")
+    # ====== INCOME CALCULATIONS ======
+    def get_total_incomes(self):
+        """Calcula el ingreso total mensual de todos los miembros"""
+        self._validate_members_exist()
+        self._validate_total_incomes_positive()
 
-        # Extraemos solo los números (los ingresos) antes de llamar a la calculadora
         incomes = [m.monthly_income for m in self.members.values()]
         total = FinanceCalculator.sum_values(incomes)
 
-        if total <= 0:
-            raise ValueError("Al menos un miembro debe tener ingresos > 0")
-
         return total
 
-    # ====== FASE PLANIFICACIÓN ======
+    # ====== CATEGORY MANAGEMENT ======
 
-    def set_custom_splits(self, splits: dict[str, float]):  # Fase planificación
-        """
-        Define splits custom (ya validados desde main.py).
-        Convierte de float (55.55) a basis points (5555).
-        """
-        if not self.members:
-            raise ValueError("Registra a los miembros antes de asignar porcentajes")
+    # ====== BUDGET ASSIGNMENT ======
 
-        # Validación de seguridad: asegurar que todos los miembros tienen un split asignado
-        for name in self.members:
-            if name not in splits:
-                raise ValueError(f"Falta el porcentaje para el miembro: {name}")
+    # ====== DISTRIBUTION METHOD CONFIGURATION ======
+    def set_custom_splits(self, splits: dict[str, float]):
+        """Define porcentajes de reparto personalizados (0-100)"""
+        self._validate_members_exist()
+        self._validate_all_members_have_split(splits)
 
         self._custom_splits = {
             name: to_percentage_basis(pct) for name, pct in splits.items()
         }
 
-    def get_percentages_by_method(
-        self, method: MetodoReparto
-    ):  # Fase planificación o mes
+    def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto según método elegido"""
-        if not self.members:
-            raise ValueError("No hay miembros registrados")
+        self._validate_members_exist()
+        self._validate_total_incomes_positive()
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
         percentages = {}
@@ -98,27 +84,14 @@ class Household:
 
         return percentages
 
-    def calculate_member_contribution_for_category(
-        self, percentages, budget_amount
-    ):  # Fase planificación, mes o cierre
-        """Calcula contribución de UNA categoría"""
+    # ====== CONTRIBUTION CALCULATIONS ======
+    def calculate_member_contribution_for_category(self, percentages, budget_amount):
+        """Calcula la contribución de cada miembro para una categoría específica"""
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
-    # ==================== QUERIES (Phase-independent) ====================
-    def get_budget_contribution_summary(
-        self, method: MetodoReparto
-    ):  # Planificación -> Cierre
-        """
-        Retorna resumen completo por categoría
-        {
-            'fijos': {
-                'planned': 90000 céntimos,
-                'contributions': {'Amanda': 48200, 'Heri': 41800},
-                'total_assigned': 90000
-            },
-            ...
-        }
-        """
+    # ====== QUERIES ======
+    def get_budget_contribution_summary(self, method: MetodoReparto):
+        """Retorna resumen completo de contribuciones por categoría"""
         percentages = self.get_percentages_by_method(method)
         summary = {}
 
@@ -134,4 +107,22 @@ class Household:
 
         return summary
 
-    
+    # ====== VALIDATORS ======
+    def _validate_members_exist(self):
+        """Valida que hay miembros registrados"""
+        if not self.members:
+            raise ValueError("No hay miembros registrados")
+
+    def _validate_total_incomes_positive(self):
+        """Valida que el ingreso total es mayor a 0"""
+        total = FinanceCalculator.sum_values(
+            [m.monthly_income for m in self.members.values()]
+        )
+        if total <= 0:
+            raise ValueError("Al menos un miembro debe tener ingresos > 0")
+
+    def _validate_all_members_have_split(self, splits: dict[str, float]):
+        """Valida que todos los miembros tienen asignado un porcentaje"""
+        for name in self.members:
+            if name not in splits:
+                raise ValueError(f"Falta el porcentaje para el miembro: {name}")

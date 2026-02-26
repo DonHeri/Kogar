@@ -27,7 +27,9 @@ def member_zero_income():
 
 @pytest.fixture
 def base_household():
-    return Household(Budget())
+    b = Budget()
+    b.set_standard_categories()  # o add_category manual
+    return Household(b)
 
 
 @pytest.fixture
@@ -234,7 +236,7 @@ def test_set_custom_splits_stores_all_members(household_with_members):
 def test_set_custom_splits_raises_if_no_members(base_household):
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(
-        ValueError, match="Registra a los miembros antes de asignar porcentajes"
+        ValueError, match="No hay miembros registrados"
     ):
         base_household.set_custom_splits({"Member1": 50.0, "Member2": 50.0})
 
@@ -441,3 +443,45 @@ def test_get_budget_contribution_summary_with_zero_budgets(
     # Categorías con 0 no deben generar error
     assert summary["variables"]["planned"] == 0
     assert summary["variables"]["total_assigned"] == 0
+
+
+# ====================================================
+# TESTS: VALIDATORS
+# ====================================================
+
+
+def test_validate_members_exist_raises_if_empty(base_household):
+    """Validador lanza error si no hay miembros"""
+    with pytest.raises(ValueError, match="No hay miembros registrados"):
+        base_household._validate_members_exist()
+
+
+def test_validate_members_exist_passes_if_members(household_with_members):
+    """Validador pasa sin error si hay miembros"""
+    # No debe lanzar excepción
+    household_with_members._validate_members_exist()
+
+
+def test_validate_total_incomes_positive_raises_if_zero(base_household, member_zero_income):
+    """Validador lanza error si ingresos son 0"""
+    base_household.register_member(member_zero_income)
+    with pytest.raises(ValueError, match="Al menos un miembro debe tener ingresos > 0"):
+        base_household._validate_total_incomes_positive()
+
+
+def test_validate_total_incomes_positive_passes_if_positive(household_with_members):
+    """Validador pasa sin error si ingresos > 0"""
+    # No debe lanzar excepción
+    household_with_members._validate_total_incomes_positive()
+
+
+def test_validate_all_members_have_split_raises_if_missing(household_with_members):
+    """Validador lanza error si falta un miembro en splits"""
+    with pytest.raises(ValueError, match="Falta el porcentaje para el miembro: Member2"):
+        household_with_members._validate_all_members_have_split({"Member1": 50.0})
+
+
+def test_validate_all_members_have_split_passes_if_all_present(household_with_members):
+    """Validador pasa sin error si todos los miembros están presentes"""
+    # No debe lanzar excepción
+    household_with_members._validate_all_members_have_split({"Member1": 60.0, "Member2": 40.0})

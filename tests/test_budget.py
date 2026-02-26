@@ -14,11 +14,12 @@ def budget_rent():
     return BudgetCategory("fijos", 1000)
 
 
+
 @pytest.fixture
 def budget():
-    """Presupuestos"""
-    return Budget()
-
+    b = Budget()
+    b.set_standard_categories()
+    return b
 
 # ====================================================
 # TESTS: Creación de Presupuesto específico

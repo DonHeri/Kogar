@@ -2,28 +2,20 @@ from src.utils.currency import to_euros, to_cents
 
 
 class BudgetCategory:
-    """Gestiona el presupuesto en una categoría (en céntimos internamente)"""
+    """Gestiona presupuesto y pagos en una categoría específica (en céntimos internamente)"""
 
-    def __init__(self, name: str, planned_amount: float) -> None:  # Planificación
+    def __init__(self, name: str, planned_amount: float) -> None:
+        self._validate_amount(planned_amount)
+        
+        self.name = name
+        self.planned_amount: int = to_cents(planned_amount)
+        self.spent: int = 0
+        self.member_contributions: dict[str, int] = {}
 
-        # Evitar monto negativo
-        if planned_amount < 0:
-            raise ValueError("El monto presupuestado no puede ser negativo")
-
-        self.name = name  # Categoría ("fijos", "variable")
-        self.planned_amount: int = to_cents(
-            planned_amount
-        )  # Dinero presupuestado en céntimos
-        self.spent: int = 0  # Dinero que se ha pagado ya en céntimos
-        self.member_contributions: dict[
-            str, int
-        ] = {}  # {"Amanda": 0, "Heri": 0} -> céntimos
-
-    def register_payment(self, member_name: str, amount: float):  # Mes
-        """Registra que un miembro pagó algo de esta categoría (en euros)"""
-
-        if amount <= 0:
-            raise ValueError(f"El pago debe ser superior a 0")
+    # ====== MUTATIONS ======
+    def register_payment(self, member_name: str, amount: float):
+        """Registra un pago realizado por un miembro (en euros)"""
+        self._validate_payment(amount)
 
         cents = to_cents(amount)
 
@@ -33,20 +25,30 @@ class BudgetCategory:
         self.member_contributions[member_name] += cents
         self.spent += cents
 
-    def remaining(self) -> int:  # Mes -> Cierre
-        """Devolver el restante por pagar (en céntimos)"""
+    # ====== QUERIES ======
+    def remaining(self) -> int:
+        """Retorna lo que falta pagar de esta categoría (en céntimos)"""
         return self.planned_amount - self.spent
 
-    def member_pending(
-        self, member_name: str, owed_amount: int
-    ) -> int:  # Mes -> Cierre
-        """Cuánto le falta pagar a un miembro de lo que debe (en céntimos)"""
+    def member_pending(self, member_name: str, owed_amount: int) -> int:
+        """Calcula cuánto le falta pagar a un miembro de lo que debe (en céntimos)"""
         paid = self.member_contributions.get(member_name, 0)
         return owed_amount - paid
 
     def get_report(self) -> str:  # pragma: no cover
-        """Información formateada para el usuario final"""
+        """Retorna información formateada para mostrar al usuario"""
         return f"- Categoría: {self.name.title()} | Restante: {to_euros(self.remaining())} €"
+
+    # ====== VALIDATORS ======
+    def _validate_amount(self, amount: float):
+        """Valida que el monto presupuestado no sea negativo"""
+        if amount < 0:
+            raise ValueError("El monto presupuestado no puede ser negativo")
+
+    def _validate_payment(self, amount: float):
+        """Valida que el pago sea positivo"""
+        if amount <= 0:
+            raise ValueError(f"El pago debe ser superior a 0")
 
     def __repr__(self) -> str:  # pragma: no cover
         """Información técnica para debugging"""
