@@ -11,7 +11,6 @@ from src.models.finance_calculator import FinanceCalculator
 def incomes_map():
     """Dos miembros con ingresos diferentes"""
     return {"Member1": 200000, "Member2": 100000}
-    return {"Member1": 200000, "Member2": 100000}
 
 
 @pytest.fixture
@@ -22,7 +21,6 @@ def member_zero_income():
 
 @pytest.fixture
 def incomes_list():
-    """Una lista de ingresos en céntimos"""
     """Una lista de ingresos en céntimos"""
     return [200000, 100000]
 
@@ -201,19 +199,15 @@ def test_calculate_equal_percentage_ignores_income_for_base_split():
 
 def test_calculate_contribution_basic_67_33(percentages_66_33):
     """Calcula contribuciones correctamente con split 66/33"""
-    """Calcula contribuciones correctamente con split 66/33"""
     budget = 90000  # 900€
     contributions = FinanceCalculator.calculate_contribution(percentages_66_33, budget)
 
-    assert contributions["Member1"] == 60003
-    assert contributions["Member2"] == 29997
     assert contributions["Member1"] == 60003
     assert contributions["Member2"] == 29997
     assert sum(contributions.values()) == budget
 
 
 def test_calculate_contribution_equal_split(percentages_50_50):
-    """Calcula contribuciones correctamente con split 50/50"""
     """Calcula contribuciones correctamente con split 50/50"""
     budget = 100000  # 1000€
     contributions = FinanceCalculator.calculate_contribution(percentages_50_50, budget)
@@ -256,9 +250,6 @@ def test_calculate_contribution_assigns_remainder_to_max(percentages_66_33):
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_three_members():
-    """Calcula correctamente con 3 miembros sin redondeo"""
-    percentages = {"A": 5000, "B": 3000, "C": 2000}
 def test_calculate_contribution_three_members():
     """Calcula correctamente con 3 miembros sin redondeo"""
     percentages = {"A": 5000, "B": 3000, "C": 2000}

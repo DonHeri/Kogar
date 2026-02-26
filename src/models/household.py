@@ -15,7 +15,6 @@ class Household:
         self.budget = budget
         self.method = method
         self._custom_splits = {}
-        self._custom_splits = {}
 
     def register_member(self, member: Member):  # Fase registro
         """
@@ -50,9 +49,11 @@ class Household:
 
         return total
 
-    def set_custom_splits(self, splits: dict[str, float]):
+    # ====== FASE PLANIFICACIÓN ======
+
+    def set_custom_splits(self, splits: dict[str, float]):  # Fase planificación
         """
-        Define splits custom (ya validados desde fuera).
+        Define splits custom (ya validados desde main.py).
         Convierte de float (55.55) a basis points (5555).
         """
         if not self.members:
@@ -67,13 +68,14 @@ class Household:
             name: to_percentage_basis(pct) for name, pct in splits.items()
         }
 
-    def get_percentages_by_method(self, method: MetodoReparto):
+    def get_percentages_by_method(
+        self, method: MetodoReparto
+    ):  # Fase planificación o mes
         """Calcula el porcentaje de reparto según método elegido"""
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
-        percentages = {}
         percentages = {}
 
         match method:
@@ -93,11 +95,6 @@ class Household:
                         "Método CUSTOM requiere llamar a set_custom_splits() primero"
                     )
                 return self._custom_splits
-                if not hasattr(self, "_custom_splits"):
-                    raise ValueError(
-                        "Método CUSTOM requiere llamar a set_custom_splits() primero"
-                    )
-                return self._custom_splits
 
         return percentages
 
@@ -107,6 +104,7 @@ class Household:
         """Calcula contribución de UNA categoría"""
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
+    # ==================== QUERIES (Phase-independent) ====================
     def get_budget_contribution_summary(
         self, method: MetodoReparto
     ):  # Planificación -> Cierre
@@ -135,3 +133,5 @@ class Household:
             }
 
         return summary
+
+    

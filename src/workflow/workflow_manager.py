@@ -1,7 +1,6 @@
 from src.models.member import Member
 from src.models.household import Household
-from src.models.budget import Budget
-from src.models.constants import MetodoReparto, Phase
+from src.models.constants import Phase
 
 
 class WorkflowManager:
@@ -33,6 +32,14 @@ class WorkflowManager:
         # Cambiar fase
         self.current_phase = Phase.PLANNING
 
+    # ====== FASE PLANIFICACIÓN ======  
+    """ 
+    En fase de planificación 
+    """
+
+    # ====== FASE MES ======
+    # ====== FASE CIERRE ======
+
     # ==================== QUERIES (Phase-independent) ====================
     def get_registered_members(self) -> list[str]:
         """Muestra miembros registrados"""
@@ -56,7 +63,3 @@ class WorkflowManager:
                 f"Operación solo permitida en fase {required_phase.value}. "
                 f"Fase actual: {self.current_phase.value}"
             )
-
-    # ====== FASE PLANIFICACIÓN ======
-    # ====== FASE MES ======
-    # ====== FASE CIERRE ======
