@@ -43,9 +43,30 @@ class Household:
         return total
 
     # ====== CATEGORY MANAGEMENT ======
+    def add_category(self, name: str):
+        """Agrega categoría y la propaga a Budget"""
+        self.budget.add_category(name)
+
+    def remove_category(self, name: str):
+        """Elimina categoría"""
+        self.budget.delete_budget_category(name)
+
+    def get_active_categories(self) -> list[str]:
+        """Lista categorías activas"""
+        return self.budget.get_categories_list()
+
+    def get_category_budget(self, name: str) -> int:
+        """Obtiene presupuesto asignado a una categoría"""
+        return self.budget.get_category_budget(name)
 
     # ====== BUDGET ASSIGNMENT ======
+    def set_budget_for_category(self, category: str, amount: float) -> None:
+        """Asigna presupuesto a una categoría en fase PLANNING"""
+        self.budget.set_budget(category, amount)
 
+    # ====== DISTRIBUTION BY CATEGORY ======
+    # Futuro v0.3: set_category_distribution_method() y get_category_preview()
+    
     # ====== DISTRIBUTION METHOD CONFIGURATION ======
     def set_custom_splits(self, splits: dict[str, float]):
         """Define porcentajes de reparto personalizados (0-100)"""
@@ -106,6 +127,40 @@ class Household:
             }
 
         return summary
+
+    def get_planning_summary(self) -> dict:
+        """
+        Retorna resumen completo del estado en fase PLANNING
+        Incluye: miembros, ingresos, categorías, presupuestos, y previsualización de contribuciones
+        """
+        self._validate_members_exist()
+        self._validate_total_incomes_positive()
+
+        total_incomes = self.get_total_incomes()
+        categories = self.get_active_categories()
+        total_budgeted = sum(self.budget.categories[cat].planned_amount for cat in categories)
+        loose_money = total_incomes - total_budgeted
+
+        percentages = self.get_percentages_by_method(self.method)
+        contributions = self.get_budget_contribution_summary(self.method)
+
+        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
+
+        return {
+            "members": list(self.members.keys()),
+            "member_incomes": member_incomes,
+            "total_household_income": total_incomes,
+            "distribution_method": self.method.value,
+            "distribution_percentages": percentages,
+            "categories": categories,
+            "budget_by_category": {
+                cat: self.budget.categories[cat].planned_amount
+                for cat in categories
+            },
+            "total_budgeted": total_budgeted,
+            "loose_money": loose_money,
+            "contributions_preview": contributions,
+        }
 
     # ====== VALIDATORS ======
     def _validate_members_exist(self):

@@ -192,3 +192,166 @@ def test_validate_phase_wrong(wm):
     """validate_phase lanza ValueError cuando la fase actual no coincide con la requerida"""
     with pytest.raises(ValueError, match="planificación"):
         wm.validate_phase(Phase.PLANNING)
+
+
+# ====================================================
+# TESTS: PLANNING PHASE - Budget assignment
+# ====================================================
+
+
+def test_set_budget_for_category_in_planning_phase(wm, member_amanda):
+    """Puedo asignar presupuesto a una categoría en fase PLANNING"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    # En PLANNING, asignar presupuesto
+    wm.set_budget_for_category("fijos", 2000)
+    assert wm.household.get_category_budget("fijos") == 200000
+
+
+def test_set_budget_for_category_raises_if_not_in_planning(wm, member_amanda):
+    """set_budget_for_category lanza ValueError si no estamos en PLANNING"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+
+    # Aún en REGISTRATION
+    with pytest.raises(ValueError, match="planificación"):
+        wm.set_budget_for_category("fijos", 2000)
+
+
+def test_set_budget_for_category_multiple_categories(wm, member_amanda):
+    """Puedo asignar presupuestos a múltiples categorías"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 10000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 5000)
+    wm.set_budget_for_category("variables", 3000)
+
+    assert wm.household.get_category_budget("fijos") == 500000
+    assert wm.household.get_category_budget("variables") == 300000
+
+
+# ====================================================
+# TESTS: PLANNING PHASE - Planning summary
+# ====================================================
+
+
+def test_get_planning_summary_in_planning_phase(wm, member_amanda):
+    """get_planning_summary retorna resumen completo en PLANNING"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 10000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 5000)
+    wm.set_budget_for_category("variables", 3000)
+
+    summary = wm.get_planning_summary()
+
+    assert summary["members"] == ["Amanda"]
+    assert summary["total_household_income"] == 1000000
+    assert summary["total_budgeted"] == 800000
+    assert summary["loose_money"] == 200000
+    assert "distribution_percentages" in summary
+    assert "contributions_preview" in summary
+
+
+def test_get_planning_summary_raises_if_not_in_planning(wm, member_amanda):
+    """get_planning_summary lanza ValueError si no estamos en PLANNING"""
+    with pytest.raises(ValueError, match="planificación"):
+        wm.get_planning_summary()
+
+
+def test_get_planning_summary_includes_all_key_data(wm, member_amanda):
+    """get_planning_summary incluye todas las claves necesarias"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 10000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 5000)
+
+    summary = wm.get_planning_summary()
+
+    required_keys = {
+        "members",
+        "member_incomes",
+        "total_household_income",
+        "distribution_method",
+        "distribution_percentages",
+        "categories",
+        "budget_by_category",
+        "total_budgeted",
+        "loose_money",
+        "contributions_preview",
+    }
+
+    assert required_keys.issubset(set(summary.keys()))
+
+
+# ====================================================
+# TESTS: PLANNING PHASE - Transitions to MONTH
+# ====================================================
+
+
+def test_finish_planning_transitions_to_month_phase(wm, member_amanda):
+    """finish_planning transita de PLANNING a MONTH correctamente"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    assert wm.current_phase == Phase.PLANNING
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    assert wm.current_phase == Phase.MONTH
+
+
+def test_finish_planning_raises_if_not_in_planning(wm):
+    """finish_planning lanza ValueError si no estamos en PLANNING"""
+    with pytest.raises(ValueError, match="planificación"):
+        wm.finish_planning()
+
+
+def test_finish_planning_raises_if_no_categories(wm, member_amanda):
+    """finish_planning lanza ValueError si no hay categorías creadas"""
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    # No agregamos categorías
+    with pytest.raises(ValueError, match="al menos una categoría"):
+        wm.finish_planning()
+
+
+def test_finish_planning_raises_if_no_budget_assigned(wm, member_amanda):
+    """finish_planning lanza ValueError si no hay presupuesto asignado"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    # Categorías existen pero sin presupuesto asignado
+    with pytest.raises(ValueError, match="presupuesto"):
+        wm.finish_planning()
+
+
+def test_finish_planning_with_multiple_members(wm, member_amanda, member_heri):
+    """finish_planning funciona correctamente con múltiples miembros"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.register_member(member_heri)
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 3000)
+    wm.set_budget_for_category("variables", 1500)
+    wm.finish_planning()
+
+    assert wm.current_phase == Phase.MONTH

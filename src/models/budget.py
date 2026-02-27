@@ -46,6 +46,12 @@ class Budget:
         """Retorna lista de todas las categorías activas"""
         return list(self.categories.keys())
 
+    def get_category_budget(self, name: str) -> int:
+        """Obtiene presupuesto asignado a una categoría"""
+        normalized = CategoryLibrary.normalize(name)
+        self._validate_category_exists(normalized)
+        return self.categories[normalized].planned_amount
+
     # ====== VALIDATORS ======
     def _validate_active_category(self, name: str) -> None:
         """Valida que la categoría no existe (para agregar nueva)"""
