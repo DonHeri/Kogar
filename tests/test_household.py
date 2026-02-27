@@ -485,3 +485,128 @@ def test_validate_all_members_have_split_passes_if_all_present(household_with_me
     """Validador pasa sin error si todos los miembros están presentes"""
     # No debe lanzar excepción
     household_with_members._validate_all_members_have_split({"Member1": 60.0, "Member2": 40.0})
+
+
+# ====================================================
+# TESTS: PLANNING - Budget assignment
+# ====================================================
+
+
+def test_set_budget_for_category(household_with_members):
+    """set_budget_for_category asigna presupuesto correctamente"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 5000)
+    
+    assert household_with_members.get_category_budget("fijos") == 500000
+
+
+def test_set_budget_for_category_normalizes_input(household_with_members):
+    """set_budget_for_category normaliza la entrada (mayúsculas)"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("FIJOS", 3000)
+    
+    assert household_with_members.get_category_budget("fijos") == 300000
+
+
+def test_set_budget_for_category_raises_if_nonexistent(household_with_members):
+    """set_budget_for_category lanza ValueError si categoría no existe"""
+    household_with_members.budget.set_standard_categories()
+    
+    with pytest.raises(ValueError, match="debe estar creada"):
+        household_with_members.set_budget_for_category("inexistente", 2000)
+
+
+def test_set_budget_for_category_multiple(household_with_members):
+    """Puedo asignar presupuesto a múltiples categorías"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 3000)
+    household_with_members.set_budget_for_category("variables", 2000)
+    
+    assert household_with_members.get_category_budget("fijos") == 300000
+    assert household_with_members.get_category_budget("variables") == 200000
+
+
+# ====================================================
+# TESTS: PLANNING - Planning Summary
+# ====================================================
+
+
+def test_get_planning_summary_basic(household_with_members):
+    """get_planning_summary retorna estructura completa"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 3000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    assert isinstance(summary, dict)
+    assert summary["members"] == ["Member1", "Member2"]
+    assert summary["total_household_income"] == 300000
+    assert summary["total_budgeted"] == 300000
+    assert summary["loose_money"] == 0
+
+
+def test_get_planning_summary_includes_distribution_method(household_with_members):
+    """get_planning_summary incluye método de distribución"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 5000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    assert summary["distribution_method"] == MetodoReparto.PROPORTIONAL.value
+
+
+def test_get_planning_summary_with_loose_money(household_with_members):
+    """get_planning_summary calcula dinero suelto correctamente"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 2000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    # Total: 300000, Presupuestado: 200000, Suelto: 100000
+    assert summary["total_budgeted"] == 200000
+    assert summary["loose_money"] == 100000
+
+
+def test_get_planning_summary_includes_contributions_preview(household_with_members):
+    """get_planning_summary incluye preview de contribuciones"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 6000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    assert "contributions_preview" in summary
+    assert "fijos" in summary["contributions_preview"]
+    contributions = summary["contributions_preview"]["fijos"]["contributions"]
+    assert sum(contributions.values()) == 600000
+
+
+def test_get_planning_summary_raises_if_no_members(base_household):
+    """get_planning_summary lanza ValueError si no hay miembros"""
+    with pytest.raises(ValueError, match="No hay miembros"):
+        base_household.get_planning_summary()
+
+
+def test_get_planning_summary_with_multiple_budgets(household_with_members):
+    """get_planning_summary con múltiples categorías presupuestadas"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 3000)
+    household_with_members.set_budget_for_category("variables", 2000)
+    household_with_members.set_budget_for_category("deuda", 1000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    assert summary["categories"] == ["fijos", "variables", "deuda", "ahorro"]
+    assert summary["total_budgeted"] == 600000
+    assert summary["loose_money"] == -300000  # Presupuestó más de lo que tiene
+
+
+def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
+    """get_planning_summary percentages siempre suman 10000 (100%)"""
+    household_with_members.budget.set_standard_categories()
+    household_with_members.set_budget_for_category("fijos", 5000)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    total_pct = sum(summary["distribution_percentages"].values())
+    assert total_pct == 10000
+

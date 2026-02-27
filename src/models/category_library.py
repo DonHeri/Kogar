@@ -59,7 +59,7 @@ class CategoryLibrary:
     def normalize(text: str) -> str:
         """
         Normaliza entrada de usuario a formato estándar
-        
+
         Convierte a minúsculas: "  FIJOS  " → "fijos"
         """
         if not isinstance(text, str):
@@ -71,3 +71,14 @@ class CategoryLibrary:
             raise ValueError("La categoría no puede estar vacía")
 
         return normalized
+
+    @staticmethod
+    def find_similar(user_input: str) -> list[str]:  # TODO
+        """
+        Busca categorías similares si el usuario escribe mal
+        "fixos" → ["fijos"] (distancia de edición)
+        "transporte" → ["transporte"] si no existe, sugerir
+
+        Usa difflib.SequenceMatcher (como dijiste en LEARNING.md)
+        """
+        pass

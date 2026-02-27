@@ -1,6 +1,6 @@
 from src.models.member import Member
 from src.models.household import Household
-from src.models.constants import Phase
+from src.models.constants import Phase, MetodoReparto
 
 
 class WorkflowManager:
@@ -32,10 +32,47 @@ class WorkflowManager:
         # Cambiar fase
         self.current_phase = Phase.PLANNING
 
-    # ====== FASE PLANIFICACIÓN ======  
-    """ 
-    En fase de planificación 
-    """
+    # ====== FASE PLANIFICACIÓN ======
+
+    def assign_distribution_method(self, method: MetodoReparto):
+        self.household.assign_distribution_method(method)
+
+    def add_category(self, name: str):
+        """Crea categoría en PLANNING"""
+        self.validate_phase(Phase.PLANNING)
+        self.household.add_category(name)
+
+    def set_standard_categories(self):
+        """Establece categorías estándar [fijos,variables,deuda,ahorro]"""
+        self.household.set_standard_categories()
+
+    def remove_category(self, name: str):
+        """Elimina categoría en PLANNING"""
+        self.validate_phase(Phase.PLANNING)
+        self.household.remove_category(name)
+
+    def set_budget_for_category(self, category: str, amount: float):
+        """Asigna presupuesto a categoría"""
+        self.validate_phase(Phase.PLANNING)
+        self.household.set_budget_for_category(category, amount)
+
+    def finish_planning(self):
+        """Validar presupuestos y avanzar a mes"""
+        self.validate_phase(Phase.PLANNING)
+
+        # Validar que hay al menos una categoría con presupuesto
+        categories = self.household.get_active_categories()
+        if not categories:
+            raise ValueError("Debe haber al menos una categoría creada")
+
+        total_budgeted = sum(
+            self.household.budget.categories[cat].planned_amount for cat in categories
+        )
+        if total_budgeted <= 0:
+            raise ValueError("Debe asignar presupuesto a al menos una categoría")
+
+        # Cambiar fase
+        self.current_phase = Phase.MONTH
 
     # ====== FASE MES ======
     # ====== FASE CIERRE ======
@@ -55,6 +92,15 @@ class WorkflowManager:
     def get_total_incomes(self) -> int:
         """Get total household income in cents (available in all phases)"""
         return self.household.get_total_incomes()
+
+    def get_active_categories(self) -> list[str]:
+        """Ve categorías activas"""
+        return self.household.get_active_categories()
+
+    def get_planning_summary(self) -> dict:
+        """Obtiene resumen completo de planificación (disponible en PLANNING)"""
+        self.validate_phase(Phase.PLANNING)
+        return self.household.get_planning_summary()
 
     # ====== HELPERS ======
     def validate_phase(self, required_phase: Phase):
