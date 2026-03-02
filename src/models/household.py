@@ -51,6 +51,9 @@ class Household:
         """Elimina categoría"""
         self.budget.delete_budget_category(name)
 
+    def set_standard_categories(self):
+        self.budget.set_standard_categories()
+
     def get_active_categories(self) -> list[str]:
         """Lista categorías activas"""
         return self.budget.get_categories_list()
@@ -66,8 +69,15 @@ class Household:
 
     # ====== DISTRIBUTION BY CATEGORY ======
     # Futuro v0.3: set_category_distribution_method() y get_category_preview()
+
+    # ====== DISTRIBUTION BY CATEGORY ======
+    # Futuro v0.3: set_category_distribution_method() y get_category_preview()
     
     # ====== DISTRIBUTION METHOD CONFIGURATION ======
+    def assign_distribution_method(self, method: MetodoReparto):
+        """Establece método de reparto"""
+        self.method = method
+
     def set_custom_splits(self, splits: dict[str, float]):
         """Define porcentajes de reparto personalizados (0-100)"""
         self._validate_members_exist()
@@ -92,7 +102,6 @@ class Household:
                         income_map
                     )
                 )
-
             case MetodoReparto.EQUAL:
                 percentages = FinanceCalculator.calculate_equal_percentage(income_map)
 
@@ -111,6 +120,7 @@ class Household:
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
     # ====== QUERIES ======
+
     def get_budget_contribution_summary(self, method: MetodoReparto):
         """Retorna resumen completo de contribuciones por categoría"""
         percentages = self.get_percentages_by_method(method)
@@ -138,7 +148,9 @@ class Household:
 
         total_incomes = self.get_total_incomes()
         categories = self.get_active_categories()
-        total_budgeted = sum(self.budget.categories[cat].planned_amount for cat in categories)
+        total_budgeted = sum(
+            self.budget.categories[cat].planned_amount for cat in categories
+        )
         loose_money = total_incomes - total_budgeted
 
         percentages = self.get_percentages_by_method(self.method)
@@ -154,8 +166,7 @@ class Household:
             "distribution_percentages": percentages,
             "categories": categories,
             "budget_by_category": {
-                cat: self.budget.categories[cat].planned_amount
-                for cat in categories
+                cat: self.budget.categories[cat].planned_amount for cat in categories
             },
             "total_budgeted": total_budgeted,
             "loose_money": loose_money,
@@ -181,3 +192,7 @@ class Household:
         for name in self.members:
             if name not in splits:
                 raise ValueError(f"Falta el porcentaje para el miembro: {name}")
+
+    def _validate_category_exist(self, category: str):
+        """Valida que una categoría existe en el presupuesto"""
+        return self.budget._validate_active_category(category)

@@ -1,6 +1,6 @@
 from src.models.member import Member
 from src.models.household import Household
-from src.models.constants import Phase
+from src.models.constants import Phase, MetodoReparto
 
 
 class WorkflowManager:
@@ -33,10 +33,18 @@ class WorkflowManager:
         self.current_phase = Phase.PLANNING
 
     # ====== FASE PLANIFICACIÓN ======
+
+    def assign_distribution_method(self, method: MetodoReparto):
+        self.household.assign_distribution_method(method)
+
     def add_category(self, name: str):
         """Crea categoría en PLANNING"""
         self.validate_phase(Phase.PLANNING)
         self.household.add_category(name)
+
+    def set_standard_categories(self):
+        """Establece categorías estándar [fijos,variables,deuda,ahorro]"""
+        self.household.set_standard_categories()
 
     def remove_category(self, name: str):
         """Elimina categoría en PLANNING"""
@@ -51,19 +59,18 @@ class WorkflowManager:
     def finish_planning(self):
         """Validar presupuestos y avanzar a mes"""
         self.validate_phase(Phase.PLANNING)
-        
+
         # Validar que hay al menos una categoría con presupuesto
         categories = self.household.get_active_categories()
         if not categories:
             raise ValueError("Debe haber al menos una categoría creada")
-        
+
         total_budgeted = sum(
-            self.household.budget.categories[cat].planned_amount 
-            for cat in categories
+            self.household.budget.categories[cat].planned_amount for cat in categories
         )
         if total_budgeted <= 0:
             raise ValueError("Debe asignar presupuesto a al menos una categoría")
-        
+
         # Cambiar fase
         self.current_phase = Phase.MONTH
 

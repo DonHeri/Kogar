@@ -2,6 +2,7 @@
 printer.py - Arsenal de impresión para CLI financiero
 Zero dependencias externas. Todo ANSI puro.
 """
+
 # pragma: no cover
 # ─────────────────────────────────────────────
 # ANSI CODES

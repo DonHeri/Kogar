@@ -51,6 +51,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/_template_test.py
 
 # ==========================================
 # IDEs (VS Code, PyCharm, etc.)
@@ -69,7 +70,7 @@ cover/
 examples/
 sandbox_*
 temp/
-
+tmp/
 # Documentación de trabajo personal 
 docs/
 PRODUCT.md
