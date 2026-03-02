@@ -2,7 +2,7 @@ import pytest
 from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
-from src.models.constants import Phase
+from src.models.constants import Phase, MetodoReparto
 from src.workflow.workflow_manager import WorkflowManager
 
 
@@ -355,3 +355,91 @@ def test_finish_planning_with_multiple_members(wm, member_amanda, member_heri):
     wm.finish_planning()
 
     assert wm.current_phase == Phase.MONTH
+
+
+# ====================================================
+# TESTS: PLANNING PHASE - Category Management
+# ====================================================
+
+
+def test_add_category_in_planning_phase(wm, member_amanda):
+    """add_category() crea categoría en PLANNING"""
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    wm.add_category("educacion")
+
+    assert "educacion" in wm.get_active_categories()
+
+
+def test_add_category_raises_if_not_in_planning(wm):
+    """add_category() lanza error si no estamos en PLANNING"""
+    with pytest.raises(ValueError, match="planificación"):
+        wm.add_category("educacion")
+
+
+def test_set_standard_categories_creates_defaults(wm, member_amanda):
+    """set_standard_categories() establece categorías estándar"""
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    wm.set_standard_categories()
+
+    categories = wm.get_active_categories()
+    assert "fijos" in categories
+    assert "variables" in categories
+    assert "ahorro" in categories
+    assert "deuda" in categories
+
+
+def test_remove_category_in_planning_phase(wm, member_amanda):
+    """remove_category() elimina categoría en PLANNING"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    wm.remove_category("fijos")
+
+    assert "fijos" not in wm.get_active_categories()
+
+
+def test_remove_category_raises_if_not_in_planning(wm, member_amanda):
+    """remove_category() lanza error si no estamos en PLANNING"""
+    wm.household.budget.set_standard_categories()
+
+    with pytest.raises(ValueError, match="planificación"):
+        wm.remove_category("fijos")
+
+
+# ====================================================
+# TESTS: PLANNING PHASE - Distribution Method
+# ====================================================
+
+
+def test_assign_distribution_method_sets_method(wm, member_amanda):
+    """assign_distribution_method() establece método de reparto"""
+    wm.register_member(member_amanda)
+    wm.set_incomes("Amanda", 5000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.EQUAL)
+
+    assert wm.household.method == MetodoReparto.EQUAL
+
+
+def test_assign_distribution_method_changes_summary(wm, member_amanda, member_heri):
+    """assign_distribution_method() cambia el método en el resumen"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member(member_amanda)
+    wm.register_member(member_heri)
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.EQUAL)
+    summary = wm.get_planning_summary()
+
+    assert summary["distribution_method"] == "igual"

@@ -147,3 +147,69 @@ def test_member_pending_when_member_hasnt_paid(budget_rent):
 def test_member_pending_when_overpaid(budget_rent):
     budget_rent.register_payment("Amanda", 600)
     assert budget_rent.member_pending("Amanda", 50000) == -10000
+
+
+# ====================================================
+# ADD_CATEGORY
+# ====================================================
+
+
+def test_add_category_creates_new_category(budget):
+    budget.add_category("educacion")
+    
+    assert "educacion" in budget.get_categories_list()
+    assert budget.categories["educacion"].planned_amount == 0
+
+
+def test_add_category_normalizes_name(budget):
+    budget.add_category("  EDUCACIÓN  ")
+    
+    assert "educación" in budget.get_categories_list()
+
+
+def test_add_category_already_exists_raises_error(budget):
+    with pytest.raises(ValueError, match="La categoría ya existe"):
+        budget.add_category("fijos")
+
+
+def test_add_category_adds_to_library_if_unknown(budget):
+    from src.models.category_library import CategoryLibrary
+    
+    # Asegurarse que "nueva_categoria" no existe en library
+    budget.add_category("nueva_categoria")
+    
+    # Verificar que se agregó a CategoryLibrary
+    assert CategoryLibrary.is_known("nueva_categoria")
+
+
+# ====================================================
+# DELETE_BUDGET_CATEGORY
+# ====================================================
+
+
+def test_delete_budget_category_removes_category(budget):
+    budget.delete_budget_category("fijos")
+    
+    assert "fijos" not in budget.get_categories_list()
+
+
+def test_delete_budget_category_not_exists_raises_error(budget):
+    with pytest.raises(ValueError, match="La categoría debe estar creada"):
+        budget.delete_budget_category("inexistente")
+
+
+def test_delete_budget_category_with_spent_raises_error(budget_rent):
+    budget_rent.register_payment("Amanda", 100)
+    budget = Budget()
+    budget.categories["fijos"] = budget_rent
+    
+    with pytest.raises(ValueError, match="ya tiene pagos registrados"):
+        budget.delete_budget_category("fijos")
+
+
+def test_delete_budget_category_without_spent_succeeds(budget):
+    # Categoría sin gastos se puede eliminar
+    budget.set_budget("fijos", 1000)
+    budget.delete_budget_category("fijos")
+    
+    assert "fijos" not in budget.get_categories_list()
