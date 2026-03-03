@@ -7,7 +7,7 @@ class Expense:
 
     def __init__(
         self, member: str, category: str, amount: float, description: str = ""
-    ) -> None:
+    ) -> None: # Description = Subcategory? 
         """
         Crea un gasto con validaciones básicas
 
@@ -32,7 +32,7 @@ class Expense:
 
     @property
     def amount(self) -> int:
-        """Retorna el monto en céntimos (solo lectura)"""
+        """Retorna el monto del gasto en céntimos (solo lectura)"""
         return self._amount_cents
 
     @property
