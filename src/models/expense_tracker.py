@@ -1,10 +1,8 @@
 from src.models.expense import Expense
-from src.models.category_library import CategoryLibrary
-from datetime import datetime
 
 
 # Se inyecta en Household
-class ExpensesTracker:
+class ExpenseTracker:
     """Gestor de gastos individuales"""
 
     def __init__(self):
@@ -15,7 +13,7 @@ class ExpensesTracker:
         """Añade gasto a la colección"""
         self.expenses.append(expense)
 
-    def get_all_expenses(self) -> list:
+    def get_all_expenses(self) -> list[Expense]:
         """Retorna todos los gastos"""
         return self.expenses.copy()
 
@@ -41,7 +39,7 @@ class ExpensesTracker:
         """Total por miembro"""
         return sum(e.amount for e in self.expenses if e.member == member)
 
-    def get_category_breakdown(self):
+    def get_category_breakdown(self) -> dict[str, int]:
         """Desglose por categoría
 
         Retorna:
@@ -56,15 +54,15 @@ class ExpensesTracker:
             category = expense.category
             amount = expense.amount
 
-            if expense.category not in breakdown:
-                breakdown[expense.category] = 0
+            if category not in breakdown:
+                breakdown[category] = 0
 
             breakdown[category] += amount
 
         return breakdown
 
     def get_member_breakdown(self) -> dict[str, int]:
-        """Desglose por categoría
+        """Desglose por miembro
 
         Retorna:
         {
