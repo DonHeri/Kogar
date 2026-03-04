@@ -2,6 +2,7 @@ import pytest
 from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
+from src.models.expense_tracker import ExpenseTracker
 from src.models.constants import Phase, MetodoReparto
 from src.workflow.workflow_manager import WorkflowManager
 
@@ -13,7 +14,7 @@ from src.workflow.workflow_manager import WorkflowManager
 
 @pytest.fixture
 def household():
-    return Household(Budget())
+    return Household(Budget(), ExpenseTracker())
 
 
 @pytest.fixture

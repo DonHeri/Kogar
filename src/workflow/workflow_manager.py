@@ -74,7 +74,10 @@ class WorkflowManager:
         # Cambiar fase
         self.current_phase = Phase.MONTH
 
-    # ====== FASE MES ======
+    # ====== FASE MONTH ======
+    def register_expense(self):  # TODO
+        pass
+
     # ====== FASE CIERRE ======
 
     # ==================== QUERIES (Phase-independent) ====================

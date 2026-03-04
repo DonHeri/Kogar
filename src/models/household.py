@@ -1,6 +1,8 @@
 from src.models.member import Member
 from src.models.finance_calculator import FinanceCalculator
 from src.models.budget import Budget
+from src.models.expense_tracker import ExpenseTracker
+from src.models.expense import Expense
 from src.models.constants import MetodoReparto
 from src.utils.currency import to_percentage_basis
 from typing import Dict
@@ -8,11 +10,15 @@ from typing import Dict
 
 class Household:
     def __init__(
-        self, budget: Budget, method: MetodoReparto = MetodoReparto.PROPORTIONAL
+        self,
+        budget: Budget,
+        expense_tracker: ExpenseTracker,
+        method: MetodoReparto = MetodoReparto.PROPORTIONAL,
     ) -> None:
 
         self.members: Dict[str, Member] = {}
         self.budget = budget
+        self.expense_tracker = expense_tracker
         self.method = method
         self._custom_splits = {}
 
@@ -34,7 +40,7 @@ class Household:
     # ====== INCOME CALCULATIONS ======
     def get_total_incomes(self):
         """Calcula el ingreso total mensual de todos los miembros"""
-        self._validate_members_exist()
+        self._validate_has_members()
         self._validate_total_incomes_positive()
 
         incomes = [m.monthly_income for m in self.members.values()]
@@ -70,9 +76,6 @@ class Household:
     # ====== DISTRIBUTION BY CATEGORY ======
     # Futuro v0.3: set_category_distribution_method() y get_category_preview()
 
-    # ====== DISTRIBUTION BY CATEGORY ======
-    # Futuro v0.3: set_category_distribution_method() y get_category_preview()
-    
     # ====== DISTRIBUTION METHOD CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
@@ -80,7 +83,7 @@ class Household:
 
     def set_custom_splits(self, splits: dict[str, float]):
         """Define porcentajes de reparto personalizados (0-100)"""
-        self._validate_members_exist()
+        self._validate_has_members()
         self._validate_all_members_have_split(splits)
 
         self._custom_splits = {
@@ -89,7 +92,7 @@ class Household:
 
     def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto según método elegido"""
-        self._validate_members_exist()
+        self._validate_has_members()
         self._validate_total_incomes_positive()
 
         income_map = {name: m.monthly_income for name, m in self.members.items()}
@@ -119,6 +122,14 @@ class Household:
         """Calcula la contribución de cada miembro para una categoría específica"""
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
+    # ====== EXPENSES ======
+    def register_expense(self, expense: Expense):
+        """Registra un pago en una categoría específica"""
+        self._validate_member_exist(expense.member)
+        self._validate_category_exist(expense.category)
+        self.expense_tracker.add_expense(expense)
+        self.budget.register_payment(expense.category, expense.member, expense.amount)
+
     # ====== QUERIES ======
 
     def get_budget_contribution_summary(self, method: MetodoReparto):
@@ -143,7 +154,7 @@ class Household:
         Retorna resumen completo del estado en fase PLANNING
         Incluye: miembros, ingresos, categorías, presupuestos, y previsualización de contribuciones
         """
-        self._validate_members_exist()
+        self._validate_has_members()
         self._validate_total_incomes_positive()
 
         total_incomes = self.get_total_incomes()
@@ -174,7 +185,7 @@ class Household:
         }
 
     # ====== VALIDATORS ======
-    def _validate_members_exist(self):
+    def _validate_has_members(self):
         """Valida que hay miembros registrados"""
         if not self.members:
             raise ValueError("No hay miembros registrados")
@@ -196,3 +207,8 @@ class Household:
     def _validate_category_exist(self, category: str):
         """Valida que una categoría existe en el presupuesto"""
         return self.budget._validate_active_category(category)
+
+    def _validate_member_exist(self, member: str):
+        """Valida que un miembro existe en el hogar"""
+        if member not in self.members:
+            raise ValueError(f"{member} no existe en el hogar")

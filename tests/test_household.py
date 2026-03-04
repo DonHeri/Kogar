@@ -2,6 +2,7 @@ import pytest
 from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
+from src.models.expense_tracker import ExpenseTracker
 from src.models.constants import MetodoReparto
 
 # ====================================================
@@ -28,8 +29,9 @@ def member_zero_income():
 @pytest.fixture
 def base_household():
     b = Budget()
+    e = ExpenseTracker()
     b.set_standard_categories()  # o add_category manual
-    return Household(b)
+    return Household(budget=b, expense_tracker=e)
 
 
 @pytest.fixture
@@ -451,13 +453,13 @@ def test_get_budget_contribution_summary_with_zero_budgets(
 def test_validate_members_exist_raises_if_empty(base_household):
     """Validador lanza error si no hay miembros"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
-        base_household._validate_members_exist()
+        base_household._validate_has_members()
 
 
 def test_validate_members_exist_passes_if_members(household_with_members):
     """Validador pasa sin error si hay miembros"""
     # No debe lanzar excepción
-    household_with_members._validate_members_exist()
+    household_with_members._validate_has_members()
 
 
 def test_validate_total_incomes_positive_raises_if_zero(
@@ -637,7 +639,7 @@ def test_remove_category_deletes_from_budget(base_household):
 def test_set_standard_categories_populates_budget(base_household):
     """Test: set_standard_categories() establece categorías en budget"""
     # base_household ya tiene set_standard_categories() en fixture, pero testeamos explícitamente
-    household = Household(Budget())
+    household = Household(Budget(), ExpenseTracker())
     household.set_standard_categories()
 
     categories = household.get_active_categories()

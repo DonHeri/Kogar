@@ -41,6 +41,13 @@ class Budget:
         self._validate_category_is_deletable(normalized)
         del self.categories[normalized]
 
+    # ====== EXPENSES ======
+    def register_payment(self, category: str, member: str, amount: int) -> None:
+        """Registra un pago en una categoría específica"""
+        normalized = CategoryLibrary.normalize(category)
+        self._validate_category_exists(normalized)
+        self.categories[normalized].register_payment(member, amount)
+
     # ====== QUERIES ======
     def get_categories_list(self) -> list[str]:
         """Retorna lista de todas las categorías activas"""
