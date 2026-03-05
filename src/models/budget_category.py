@@ -6,24 +6,22 @@ class BudgetCategory:
 
     def __init__(self, name: str, planned_amount: float) -> None:
         self._validate_amount(planned_amount)
-        
+
         self.name = name
         self.planned_amount: int = to_cents(planned_amount)
         self.spent: int = 0
         self.member_contributions: dict[str, int] = {}
 
     # ====== MUTATIONS ======
-    def register_payment(self, member_name: str, amount: float):
+    def register_payment(self, member_name: str, amount_cents: int):
         """Registra un pago realizado por un miembro (en euros)"""
-        self._validate_payment(amount)
-
-        cents = to_cents(amount)
+        self._validate_payment(amount_cents)
 
         if member_name not in self.member_contributions:
             self.member_contributions[member_name] = 0
 
-        self.member_contributions[member_name] += cents
-        self.spent += cents
+        self.member_contributions[member_name] += amount_cents
+        self.spent += amount_cents
 
     # ====== QUERIES ======
     def remaining(self) -> int:
@@ -45,9 +43,9 @@ class BudgetCategory:
         if amount < 0:
             raise ValueError("El monto presupuestado no puede ser negativo")
 
-    def _validate_payment(self, amount: float):
+    def _validate_payment(self, amount_cents: int):
         """Valida que el pago sea positivo"""
-        if amount <= 0:
+        if amount_cents <= 0:
             raise ValueError(f"El pago debe ser superior a 0")
 
     def __repr__(self) -> str:  # pragma: no cover

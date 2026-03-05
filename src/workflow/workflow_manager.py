@@ -1,6 +1,8 @@
 from src.models.member import Member
 from src.models.household import Household
+from src.models.expense import Expense
 from src.models.constants import Phase, MetodoReparto
+from src.utils.currency import to_cents, to_euros
 
 
 class WorkflowManager:
@@ -10,16 +12,19 @@ class WorkflowManager:
 
     # ====== FASE REGISTRO ======
     # En esta fase registramos a los usuarios
-    def register_member(self, member: Member):
+    def register_member(self, name: str):
         """Registra miembros en fase inicial"""
         self.validate_phase(Phase.REGISTRATION)
+        name = name.strip()
+        member = Member(name)
         self.household.register_member(member)
 
     # Ingresamos salarios
-    def set_incomes(self, name: str, amount: float):
+    def set_incomes(self, name: str, amount_eur: float):
         """Registra ingresos"""
         self.validate_phase(Phase.REGISTRATION)
-        self.household.set_member_income(name, amount)
+        amount_cents = to_cents(amount_eur)
+        self.household.set_member_income(name, amount_cents)
 
     # Si hay miembros e ingresos > 0; cambiamos de fase
     def finish_registration(self):
@@ -75,8 +80,22 @@ class WorkflowManager:
         self.current_phase = Phase.MONTH
 
     # ====== FASE MONTH ======
-    def register_expense(self):  # TODO
-        pass
+    def register_expense(
+        self, member: str, category: str, amount_euros: float, desc=""
+    ):
+        """Registrar un gasto"""
+        self.validate_phase(Phase.MONTH)
+        member = member.strip()
+        category = category.strip()
+        desc = desc.strip()
+        amount_cents = to_cents(amount_euros)
+        expense = Expense(
+            member=member,
+            category=category,
+            amount_cents=amount_cents,
+            description=desc,
+        )
+        self.household.register_expense(expense=expense)
 
     # ====== FASE CIERRE ======
 

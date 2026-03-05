@@ -30,12 +30,12 @@ class Household:
 
         self.members[member.name] = member
 
-    def set_member_income(self, name: str, amount: float):
-        """Establece el ingreso mensual de un miembro"""
+    def set_member_income(self, name: str, amount_cents: int):
+        """Establece el ingreso mensual de un miembro (en céntimos)"""
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
-        self.members[name].add_incomes(amount)
+        self.members[name].add_incomes(amount_cents)
 
     # ====== INCOME CALCULATIONS ======
     def get_total_incomes(self):
@@ -183,6 +183,9 @@ class Household:
             "loose_money": loose_money,
             "contributions_preview": contributions,
         }
+
+    def get_month_summary(self):
+        pass
 
     # ====== VALIDATORS ======
     def _validate_has_members(self):

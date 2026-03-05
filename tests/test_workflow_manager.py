@@ -1,5 +1,4 @@
 import pytest
-from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
 from src.models.expense_tracker import ExpenseTracker
@@ -22,16 +21,6 @@ def wm(household):
     return WorkflowManager(household)
 
 
-@pytest.fixture
-def member_amanda():
-    return Member("Amanda")
-
-
-@pytest.fixture
-def member_heri():
-    return Member("Heri")
-
-
 # ====================================================
 # TESTS: Initialization
 # ====================================================
@@ -47,26 +36,33 @@ def test_workflow_manager_starts_in_registration_phase(wm):
 # ====================================================
 
 
-def test_register_member_in_registration_phase(wm, member_amanda):
+def test_register_member_in_registration_phase(wm):
     """Un miembro registrado en fase REGISTRATION aparece en get_registered_members"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     assert "Amanda" in wm.get_registered_members()
 
 
-def test_register_member_wrong_phase(wm, member_amanda):
+def test_register_member_wrong_phase(wm):
     """Intentar registrar un miembro fuera de REGISTRATION lanza ValueError"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
     with pytest.raises(ValueError, match="registro"):
-        wm.register_member(Member("Nuevo"))
+        wm.register_member("Nuevo")
 
 
-def test_register_duplicate_member(wm, member_amanda):
+def test_register_duplicate_member(wm):
     """Registrar un miembro con nombre ya existente lanza ValueError"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     with pytest.raises(ValueError, match="ya está registrado"):
-        wm.register_member(Member("Amanda"))
+        wm.register_member("Amanda")
+
+
+def test_register_member_strips_whitespace(wm):
+    """register_member limpia espacios en blanco del nombre"""
+    wm.register_member("  Amanda  ")
+    assert "Amanda" in wm.get_registered_members()
+    assert "  Amanda  " not in wm.get_registered_members()
 
 
 # ====================================================
@@ -74,16 +70,16 @@ def test_register_duplicate_member(wm, member_amanda):
 # ====================================================
 
 
-def test_set_income_valid(wm, member_amanda):
+def test_set_income_valid(wm):
     """set_incomes actualiza el ingreso del miembro en centavos correctamente"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     assert wm.get_member_income("Amanda") == 300000
 
 
-def test_set_income_wrong_phase(wm, member_amanda):
+def test_set_income_wrong_phase(wm):
     """Intentar asignar ingresos fuera de REGISTRATION lanza ValueError"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
     with pytest.raises(ValueError, match="registro"):
@@ -101,9 +97,9 @@ def test_set_income_nonexistent_member(wm):
 # ====================================================
 
 
-def test_finish_registration_advances_to_planning(wm, member_amanda):
+def test_finish_registration_advances_to_planning(wm):
     """finish_registration con datos válidos avanza la fase a PLANNING"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
     assert wm.current_phase == Phase.PLANNING
@@ -115,17 +111,17 @@ def test_finish_registration_no_members(wm):
         wm.finish_registration()
 
 
-def test_finish_registration_zero_incomes(wm, member_amanda):
+def test_finish_registration_zero_incomes(wm):
     """finish_registration con todos los ingresos en 0 lanza ValueError"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     with pytest.raises(ValueError, match="Al menos un miembro debe tener ingresos"):
         wm.finish_registration()
 
 
-def test_finish_registration_partial_incomes_ok(wm, member_amanda, member_heri):
+def test_finish_registration_partial_incomes_ok(wm):
     """finish_registration es válido si al menos un miembro tiene ingresos > 0"""
-    wm.register_member(member_amanda)
-    wm.register_member(member_heri)
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
     wm.set_incomes("Amanda", 3000)
     # Heri sin ingresos — debe pasar igual
     wm.finish_registration()
@@ -142,10 +138,10 @@ def test_get_registered_members_empty(wm):
     assert wm.get_registered_members() == []
 
 
-def test_get_registered_members_multiple(wm, member_amanda, member_heri):
+def test_get_registered_members_multiple(wm):
     """get_registered_members retorna todos los nombres registrados"""
-    wm.register_member(member_amanda)
-    wm.register_member(member_heri)
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
     members = wm.get_registered_members()
     assert set(members) == {"Amanda", "Heri"}
 
@@ -156,9 +152,9 @@ def test_get_member_income_nonexistent(wm):
         wm.get_member_income("Nadie")
 
 
-def test_get_member_income_after_planning(wm, member_amanda):
+def test_get_member_income_after_planning(wm):
     """get_member_income está disponible en cualquier fase y retorna centavos"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
     assert wm.get_member_income("Amanda") == 500000
@@ -170,10 +166,10 @@ def test_get_total_incomes_empty(wm):
         wm.get_total_incomes()
 
 
-def test_get_total_incomes_multiple_members(wm, member_amanda, member_heri):
+def test_get_total_incomes_multiple_members(wm):
     """get_total_incomes suma correctamente los ingresos de todos los miembros en centavos"""
-    wm.register_member(member_amanda)
-    wm.register_member(member_heri)
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
     wm.set_incomes("Amanda", 3000)
     wm.set_incomes("Heri", 2000)
     assert wm.get_total_incomes() == 500000
@@ -200,10 +196,10 @@ def test_validate_phase_wrong(wm):
 # ====================================================
 
 
-def test_set_budget_for_category_in_planning_phase(wm, member_amanda):
+def test_set_budget_for_category_in_planning_phase(wm):
     """Puedo asignar presupuesto a una categoría en fase PLANNING"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -212,20 +208,20 @@ def test_set_budget_for_category_in_planning_phase(wm, member_amanda):
     assert wm.household.get_category_budget("fijos") == 200000
 
 
-def test_set_budget_for_category_raises_if_not_in_planning(wm, member_amanda):
+def test_set_budget_for_category_raises_if_not_in_planning(wm):
     """set_budget_for_category lanza ValueError si no estamos en PLANNING"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
 
     # Aún en REGISTRATION
     with pytest.raises(ValueError, match="planificación"):
         wm.set_budget_for_category("fijos", 2000)
 
 
-def test_set_budget_for_category_multiple_categories(wm, member_amanda):
+def test_set_budget_for_category_multiple_categories(wm):
     """Puedo asignar presupuestos a múltiples categorías"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 10000)
     wm.finish_registration()
 
@@ -241,10 +237,10 @@ def test_set_budget_for_category_multiple_categories(wm, member_amanda):
 # ====================================================
 
 
-def test_get_planning_summary_in_planning_phase(wm, member_amanda):
+def test_get_planning_summary_in_planning_phase(wm):
     """get_planning_summary retorna resumen completo en PLANNING"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 10000)
     wm.finish_registration()
 
@@ -261,16 +257,16 @@ def test_get_planning_summary_in_planning_phase(wm, member_amanda):
     assert "contributions_preview" in summary
 
 
-def test_get_planning_summary_raises_if_not_in_planning(wm, member_amanda):
+def test_get_planning_summary_raises_if_not_in_planning(wm):
     """get_planning_summary lanza ValueError si no estamos en PLANNING"""
     with pytest.raises(ValueError, match="planificación"):
         wm.get_planning_summary()
 
 
-def test_get_planning_summary_includes_all_key_data(wm, member_amanda):
+def test_get_planning_summary_includes_all_key_data(wm):
     """get_planning_summary incluye todas las claves necesarias"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 10000)
     wm.finish_registration()
     wm.set_budget_for_category("fijos", 5000)
@@ -298,10 +294,10 @@ def test_get_planning_summary_includes_all_key_data(wm, member_amanda):
 # ====================================================
 
 
-def test_finish_planning_transitions_to_month_phase(wm, member_amanda):
+def test_finish_planning_transitions_to_month_phase(wm):
     """finish_planning transita de PLANNING a MONTH correctamente"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -319,9 +315,9 @@ def test_finish_planning_raises_if_not_in_planning(wm):
         wm.finish_planning()
 
 
-def test_finish_planning_raises_if_no_categories(wm, member_amanda):
+def test_finish_planning_raises_if_no_categories(wm):
     """finish_planning lanza ValueError si no hay categorías creadas"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -330,10 +326,10 @@ def test_finish_planning_raises_if_no_categories(wm, member_amanda):
         wm.finish_planning()
 
 
-def test_finish_planning_raises_if_no_budget_assigned(wm, member_amanda):
+def test_finish_planning_raises_if_no_budget_assigned(wm):
     """finish_planning lanza ValueError si no hay presupuesto asignado"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -342,11 +338,11 @@ def test_finish_planning_raises_if_no_budget_assigned(wm, member_amanda):
         wm.finish_planning()
 
 
-def test_finish_planning_with_multiple_members(wm, member_amanda, member_heri):
+def test_finish_planning_with_multiple_members(wm):
     """finish_planning funciona correctamente con múltiples miembros"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
-    wm.register_member(member_heri)
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
     wm.set_incomes("Amanda", 3000)
     wm.set_incomes("Heri", 2000)
     wm.finish_registration()
@@ -363,9 +359,9 @@ def test_finish_planning_with_multiple_members(wm, member_amanda, member_heri):
 # ====================================================
 
 
-def test_add_category_in_planning_phase(wm, member_amanda):
+def test_add_category_in_planning_phase(wm):
     """add_category() crea categoría en PLANNING"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -380,9 +376,9 @@ def test_add_category_raises_if_not_in_planning(wm):
         wm.add_category("educacion")
 
 
-def test_set_standard_categories_creates_defaults(wm, member_amanda):
+def test_set_standard_categories_creates_defaults(wm):
     """set_standard_categories() establece categorías estándar"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -395,10 +391,10 @@ def test_set_standard_categories_creates_defaults(wm, member_amanda):
     assert "deuda" in categories
 
 
-def test_remove_category_in_planning_phase(wm, member_amanda):
+def test_remove_category_in_planning_phase(wm):
     """remove_category() elimina categoría en PLANNING"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -407,7 +403,7 @@ def test_remove_category_in_planning_phase(wm, member_amanda):
     assert "fijos" not in wm.get_active_categories()
 
 
-def test_remove_category_raises_if_not_in_planning(wm, member_amanda):
+def test_remove_category_raises_if_not_in_planning(wm):
     """remove_category() lanza error si no estamos en PLANNING"""
     wm.household.budget.set_standard_categories()
 
@@ -420,9 +416,9 @@ def test_remove_category_raises_if_not_in_planning(wm, member_amanda):
 # ====================================================
 
 
-def test_assign_distribution_method_sets_method(wm, member_amanda):
+def test_assign_distribution_method_sets_method(wm):
     """assign_distribution_method() establece método de reparto"""
-    wm.register_member(member_amanda)
+    wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
@@ -431,11 +427,11 @@ def test_assign_distribution_method_sets_method(wm, member_amanda):
     assert wm.household.method == MetodoReparto.EQUAL
 
 
-def test_assign_distribution_method_changes_summary(wm, member_amanda, member_heri):
+def test_assign_distribution_method_changes_summary(wm):
     """assign_distribution_method() cambia el método en el resumen"""
     wm.household.budget.set_standard_categories()
-    wm.register_member(member_amanda)
-    wm.register_member(member_heri)
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
     wm.set_incomes("Amanda", 3000)
     wm.set_incomes("Heri", 2000)
     wm.finish_registration()

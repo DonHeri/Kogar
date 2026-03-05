@@ -10,11 +10,10 @@ class Member:
         self.monthly_income: int = 0
 
     # ====== MUTATIONS ======
-    def add_incomes(self, income: float) -> None:
-        """Agrega ingreso mensual (en euros, se convierte a céntimos)"""
-        self._validate_income(income)
-        cents = to_cents(income)
-        self.monthly_income += cents
+    def add_incomes(self, income_cents: int) -> None:
+        """Agrega ingreso mensual (en céntimos)"""
+        self._validate_income(income_cents)
+        self.monthly_income += income_cents
 
     # ====== VALIDATORS ======
     def _validate_name(self, name: str):
@@ -22,9 +21,9 @@ class Member:
         if not name or not name.strip():
             raise ValueError("Nombre no puede estar vacío")
 
-    def _validate_income(self, income: float):
+    def _validate_income(self, income_cents: int):
         """Valida que el ingreso es positivo"""
-        if income < 0:
+        if income_cents < 0:
             raise ValueError("Ingreso no puede ser negativo")
 
     def __repr__(self):  # pragma: no cover

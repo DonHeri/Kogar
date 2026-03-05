@@ -72,23 +72,23 @@ def test_set_budget_negative_amount_raises_error(budget):
 # TESTS: register_payment(name: str, amount:float)
 # ====================================================
 def test_register_payment_adds_amount_to_member(budget_rent):
-    budget_rent.register_payment("Amanda", 100)
+    budget_rent.register_payment("Amanda", 10000)  # 100€ en céntimos
 
     assert budget_rent.member_contributions["Amanda"] == 10000
     assert budget_rent.spent == 10000
 
 
 def test_register_payment_accumulates_multiple_payments(budget_rent):
-    budget_rent.register_payment("Amanda", 100)
-    budget_rent.register_payment("Amanda", 50)
+    budget_rent.register_payment("Amanda", 10000)  # 100€ en céntimos
+    budget_rent.register_payment("Amanda", 5000)   # 50€ en céntimos
 
     assert budget_rent.member_contributions["Amanda"] == 15000
     assert budget_rent.spent == 15000
 
 
 def test_register_payment_tracks_multiple_members(budget_rent):
-    budget_rent.register_payment("Amanda", 100)
-    budget_rent.register_payment("Heri", 200)
+    budget_rent.register_payment("Amanda", 10000)  # 100€ en céntimos
+    budget_rent.register_payment("Heri", 20000)    # 200€ en céntimos
 
     assert budget_rent.member_contributions["Amanda"] == 10000
     assert budget_rent.member_contributions["Heri"] == 20000
@@ -118,17 +118,17 @@ def test_create_budget_negative_planned_raises_error():
 
 
 def test_remaining_returns_difference_between_planned_and_spent(budget_rent):
-    budget_rent.register_payment("Amanda", 300)
+    budget_rent.register_payment("Amanda", 30000)  # 300€ en céntimos
     assert budget_rent.remaining() == 70000
 
 
 def test_remaining_returns_zero_when_fully_paid(budget_rent):
-    budget_rent.register_payment("Amanda", 1000)
+    budget_rent.register_payment("Amanda", 100000)  # 1000€ en céntimos
     assert budget_rent.remaining() == 0
 
 
 def test_remaining_returns_negative_when_overpaid(budget_rent):
-    budget_rent.register_payment("Amanda", 1200)
+    budget_rent.register_payment("Amanda", 120000)  # 1200€ en céntimos
     assert budget_rent.remaining() == -20000
 
 
@@ -136,7 +136,7 @@ def test_remaining_returns_negative_when_overpaid(budget_rent):
 # MEMBER_PENDING
 # ====================================================
 def test_member_pending_returns_amount_owed_minus_paid(budget_rent):
-    budget_rent.register_payment("Amanda", 100)
+    budget_rent.register_payment("Amanda", 10000)  # 100€ en céntimos
     assert budget_rent.member_pending("Amanda", 50000) == 40000
 
 
@@ -145,7 +145,7 @@ def test_member_pending_when_member_hasnt_paid(budget_rent):
 
 
 def test_member_pending_when_overpaid(budget_rent):
-    budget_rent.register_payment("Amanda", 600)
+    budget_rent.register_payment("Amanda", 60000)  # 600€ en céntimos
     assert budget_rent.member_pending("Amanda", 50000) == -10000
 
 

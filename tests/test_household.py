@@ -77,7 +77,7 @@ def test_set_members_incomes_updates_correctly(base_household, member_zero_incom
     """Actualiza ingresos de miembro existente"""
     base_household.register_member(member_zero_income)
 
-    base_household.set_member_income(member_zero_income.name, 500.0)
+    base_household.set_member_income(member_zero_income.name, 50000)  # 500€ en céntimos
 
     assert member_zero_income.monthly_income == 50000
 

@@ -6,15 +6,15 @@ class Expense:
     """Representa un gasto realizado por un miembro en una categoría específica"""
 
     def __init__(
-        self, member: str, category: str, amount: float, description: str = ""
-    ) -> None: # Description = Subcategory? 
+        self, member: str, category: str, amount_cents: int, description: str = ""
+    ) -> None:
         """
         Crea un gasto con validaciones básicas
 
         Args:
             member: Nombre del miembro que pagó
             category: Categoría del gasto
-            amount: Monto en euros (se almacena en céntimos internamente)
+            amount_cents: Monto en céntimos (int)
             description: Descripción opcional del gasto
 
         Raises:
@@ -22,12 +22,12 @@ class Expense:
         """
         self._validate_non_empty_string(member, "member")
         self._validate_non_empty_string(category, "category")
-        self._validate_positive_amount(amount, "amount")
+        self._validate_positive_amount(amount_cents, "amount")
 
         self.member = member
         self.category = category
         self.description = description
-        self._amount_cents: int = to_cents(amount)
+        self._amount_cents: int = amount_cents
         self._date: datetime = datetime.now()
 
     @property
@@ -81,7 +81,7 @@ class Expense:
         if not value or not value.strip():
             raise ValueError(f"{field_name} no puede estar vacío")
 
-    def _validate_positive_amount(self, value: float, field_name: str) -> None:
+    def _validate_positive_amount(self, value: int, field_name: str) -> None:
         """Valida que un monto sea positivo"""
         if value <= 0:
             raise ValueError(f"{field_name} debe ser positivo")
