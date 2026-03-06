@@ -118,11 +118,10 @@ class Household:
 
     # ====== EXPENSES (MONTH phase) ======
     def register_expense(self, expense: Expense):
-        """Registra un pago en una categoría específica"""
+        """Registra un gasto (almacena solo en ExpenseTracker)"""
         self._validate_member_exist(expense.member)
         self._validate_category_exist(expense.category)
         self.expense_tracker.add_expense(expense)
-        self.budget.register_payment(expense.category, expense.member, expense.amount)
 
     # ====== QUERIES - REGISTRATION ======
     def get_registration_summary(self):
@@ -177,8 +176,30 @@ class Household:
         return self.preview_budget_contribution_summary(self.method)
 
     def get_total_budgeted(self):
+        """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
-    
+
+    # ====== QUERIES - MONTH (Coordination Budget vs ExpenseTracker) ======
+    def get_category_spent(self, category: str) -> int:
+        """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
+        return self.expense_tracker.get_total_spent_by_category(category)
+
+    def get_total_spent(self) -> int:
+        """Obtiene total gastado (consulta ExpenseTracker)"""
+        return self.expense_tracker.get_total_spent()
+
+    def get_category_remaining(self, category: str) -> int:
+        """Calcula presupuesto restante de una categoría: planificado - gastado"""
+        budgeted = self.budget.get_category_budget(category)
+        spent = self.get_category_spent(category)
+        return budgeted - spent
+
+    def get_total_remaining(self) -> int:
+        """Calcula total restante: presupuesto total - total gastado"""
+        budgeted = self.get_total_budgeted()
+        spent = self.get_total_spent()
+        return budgeted - spent
+
     def get_planning_summary(self) -> dict:
         """
         Resumen completo de fase PLANNING con el método ya configurado.
@@ -190,7 +211,7 @@ class Household:
         total_incomes = self.get_total_incomes()
         categories = self.get_active_categories()
         total_budgeted = self.get_total_budgeted()
-        
+
         loose_money = total_incomes - total_budgeted
 
         percentages = self.get_percentages_by_method(self.method)  # FIXME
@@ -221,8 +242,8 @@ class Household:
 
         total_budgeted = self.get_total_budgeted()
         loose_money = self.get_loose_money()
-        total_spent = self.expense_tracker.get_total_spent()
-        total_remaining = total_budgeted - total_spent
+        total_spent = self.get_total_spent()
+        total_remaining = self.get_total_remaining()
 
         # Total presupuestado + total gastado + total restante
         total = {
@@ -236,8 +257,8 @@ class Household:
         for cat in categories:
             by_category[cat] = {
                 "budget": self.budget.get_category_budget(cat),
-                "spent": self.budget.get_category_spent(cat),
-                "remaining": self.budget.get_category_remaining(cat),
+                "spent": self.get_category_spent(cat),
+                "remaining": self.get_category_remaining(cat),
             }
         by_category["loose_money"] = loose_money
 

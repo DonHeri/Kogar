@@ -38,15 +38,8 @@ class Budget:
     def delete_budget_category(self, category: str) -> None:
         """Elimina una categoría del presupuesto"""
         normalized = CategoryLibrary.normalize(category)
-        self._validate_category_is_deletable(normalized)
-        del self.categories[normalized]
-
-    # ====== EXPENSES ======
-    def register_payment(self, category: str, member: str, amount: int) -> None:
-        """Registra un pago en una categoría específica"""
-        normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)
-        self.categories[normalized].register_payment(member, amount)
+        del self.categories[normalized]
 
     # ====== QUERIES ======
     def get_categories_list(self) -> list[str]:
@@ -59,17 +52,10 @@ class Budget:
         self._validate_category_exists(normalized)
         return self.categories[normalized].planned_amount
 
-    def get_category_spent(self,name: str) -> int:
-        """Obtiene gastado en una categoría"""
-        normalized = CategoryLibrary.normalize(name)
-        return self.categories[normalized].spent
-    
-    def get_category_remaining(self,name: str) -> int:
-        """Obtiene lo que falta por pagar en una categoría"""
-        normalized = CategoryLibrary.normalize(name)
-        return self.categories[normalized].remaining()
-        
-    
+    def get_total_budgeted(self) -> int:
+        """Obtiene total presupuestado"""
+        return sum(cat.planned_amount for cat in self.categories.values())
+
     # ====== VALIDATORS ======
     def _validate_active_category(self, name: str) -> None:
         """Valida que la categoría no existe (para agregar nueva)"""
@@ -89,10 +75,3 @@ class Budget:
     def _validate_category_exist_in_library(self, name: str) -> bool:
         """Verifica si la categoría está en la librería"""
         return CategoryLibrary.is_known(name)
-
-    def _validate_category_is_deletable(self, category: str) -> None:
-        """Valida que la categoría no tiene gastos registrados"""
-        self._validate_category_exists(category)
-
-        if self.categories[category].spent > 0:
-            raise ValueError(f"La categoría {category} ya tiene pagos registrados")

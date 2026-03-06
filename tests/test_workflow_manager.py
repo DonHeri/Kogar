@@ -537,7 +537,9 @@ def test_get_registered_incomes_fails_in_registration(wm):
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
 
-    with pytest.raises(ValueError, match="Operación solo permitida en fase planificación"):
+    with pytest.raises(
+        ValueError, match="Operación solo permitida en fase planificación"
+    ):
         wm.get_registered_incomes()
 
 
@@ -565,7 +567,9 @@ def test_get_agreed_percentages_fails_in_planning(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="Operación solo permitida en fase transcurso_mes"):
+    with pytest.raises(
+        ValueError, match="Operación solo permitida en fase transcurso_mes"
+    ):
         wm.get_agreed_percentages()
 
 
@@ -597,5 +601,7 @@ def test_get_agreed_contributions_fails_in_planning(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="Operación solo permitida en fase transcurso_mes"):
+    with pytest.raises(
+        ValueError, match="Operación solo permitida en fase transcurso_mes"
+    ):
         wm.get_agreed_contributions()

@@ -690,3 +690,191 @@ def test_assign_distribution_method_changes_percentages(household_with_members):
 
     # Los porcentajes deben ser diferentes
     assert pct_proportional != pct_equal
+
+
+# ====================================================
+# TESTS: Coordinación Budget vs ExpenseTracker (MONTH phase)
+# ====================================================
+
+
+def test_register_expense_adds_to_tracker(household_with_members):
+    """Test: register_expense() almacena en ExpenseTracker"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    expense = Expense("Member1", "fijos", 25000, "Test expense")
+    household_with_members.register_expense(expense)
+
+    assert len(household_with_members.expense_tracker.expenses) == 1
+    assert household_with_members.expense_tracker.expenses[0] == expense
+
+
+def test_register_expense_validates_member_exists(household_with_members):
+    """Test: register_expense() valida que el miembro existe"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    expense = Expense("NonExistent", "fijos", 25000)
+
+    with pytest.raises(ValueError, match="no existe en el hogar"):
+        household_with_members.register_expense(expense)
+
+
+def test_register_expense_validates_category_exists(household_with_members):
+    """Test: register_expense() valida que la categoría existe"""
+    from src.models.expense import Expense
+
+    expense = Expense("Member1", "nonexistent", 25000)
+
+    with pytest.raises(ValueError, match="debe estar creada"):
+        household_with_members.register_expense(expense)
+
+
+def test_get_category_spent_returns_zero_when_no_expenses(household_with_members):
+    """Test: get_category_spent() retorna 0 cuando no hay gastos"""
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    spent = household_with_members.get_category_spent("fijos")
+
+    assert spent == 0
+
+
+def test_get_category_spent_sums_expenses_for_category(household_with_members):
+    """Test: get_category_spent() suma gastos de una categoría"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    expense1 = Expense("Member1", "fijos", 25000)
+    expense2 = Expense("Member2", "fijos", 15000)
+    household_with_members.register_expense(expense1)
+    household_with_members.register_expense(expense2)
+
+    spent = household_with_members.get_category_spent("fijos")
+
+    assert spent == 40000
+
+
+def test_get_category_spent_only_counts_matching_category(household_with_members):
+    """Test: get_category_spent() solo cuenta gastos de la categoría solicitada"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)
+    household_with_members.set_budget_for_category("variables", 500)
+
+    expense1 = Expense("Member1", "fijos", 25000)
+    expense2 = Expense("Member2", "variables", 15000)
+    household_with_members.register_expense(expense1)
+    household_with_members.register_expense(expense2)
+
+    spent_fijos = household_with_members.get_category_spent("fijos")
+
+    assert spent_fijos == 25000
+
+
+def test_get_total_spent_returns_zero_when_no_expenses(household_with_members):
+    """Test: get_total_spent() retorna 0 cuando no hay gastos"""
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    total_spent = household_with_members.get_total_spent()
+
+    assert total_spent == 0
+
+
+def test_get_total_spent_sums_all_expenses(household_with_members):
+    """Test: get_total_spent() suma todos los gastos de todas las categorías"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)
+    household_with_members.set_budget_for_category("variables", 500)
+
+    expense1 = Expense("Member1", "fijos", 25000)
+    expense2 = Expense("Member2", "variables", 15000)
+    expense3 = Expense("Member1", "fijos", 10000)
+    household_with_members.register_expense(expense1)
+    household_with_members.register_expense(expense2)
+    household_with_members.register_expense(expense3)
+
+    total_spent = household_with_members.get_total_spent()
+
+    assert total_spent == 50000
+
+
+def test_get_category_remaining_when_no_expenses(household_with_members):
+    """Test: get_category_remaining() retorna presupuesto completo si no hay gastos"""
+    household_with_members.set_budget_for_category("fijos", 1000)
+
+    remaining = household_with_members.get_category_remaining("fijos")
+
+    assert remaining == 100000  # 1000€ = 100000 céntimos
+
+
+def test_get_category_remaining_calculates_correctly(household_with_members):
+    """Test: get_category_remaining() calcula presupuesto - gastado correctamente"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)  # 100000 cents
+
+    expense = Expense("Member1", "fijos", 25000)  # 250€
+    household_with_members.register_expense(expense)
+
+    remaining = household_with_members.get_category_remaining("fijos")
+
+    assert remaining == 75000  # 100000 - 25000
+
+
+def test_get_category_remaining_can_be_negative(household_with_members):
+    """Test: get_category_remaining() puede ser negativo (sobregasto)"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)  # 100000 cents
+
+    expense = Expense("Member1", "fijos", 150000)  # 1500€ (más del presupuesto)
+    household_with_members.register_expense(expense)
+
+    remaining = household_with_members.get_category_remaining("fijos")
+
+    assert remaining == -50000  # 100000 - 150000
+
+
+def test_get_total_remaining_when_no_expenses(household_with_members):
+    """Test: get_total_remaining() retorna presupuesto total si no hay gastos"""
+    household_with_members.set_budget_for_category("fijos", 1000)
+    household_with_members.set_budget_for_category("variables", 500)
+
+    total_remaining = household_with_members.get_total_remaining()
+
+    assert total_remaining == 150000  # 1500€
+
+
+def test_get_total_remaining_calculates_correctly(household_with_members):
+    """Test: get_total_remaining() calcula total presupuestado - total gastado"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 1000)  # 100000
+    household_with_members.set_budget_for_category("variables", 500)  # 50000
+
+    expense1 = Expense("Member1", "fijos", 25000)
+    expense2 = Expense("Member2", "variables", 10000)
+    household_with_members.register_expense(expense1)
+    household_with_members.register_expense(expense2)
+
+    total_remaining = household_with_members.get_total_remaining()
+
+    assert total_remaining == 115000  # 150000 - 35000
+
+
+def test_get_total_remaining_can_be_negative(household_with_members):
+    """Test: get_total_remaining() puede ser negativo (sobregasto total)"""
+    from src.models.expense import Expense
+
+    household_with_members.set_budget_for_category("fijos", 500)  # 50000
+
+    expense = Expense("Member1", "fijos", 75000)  # Más del presupuesto
+    household_with_members.register_expense(expense)
+
+    total_remaining = household_with_members.get_total_remaining()
+
+    assert total_remaining == -25000  # 50000 - 75000
