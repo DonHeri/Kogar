@@ -137,14 +137,6 @@ class Household:
         }
 
     # ====== QUERIES - PLANNING ======
-    def get_loose_money(self):
-        """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
-        categories = self.get_active_categories()
-        total_incomes = self.get_total_incomes()
-        total_budgeted = sum(
-            self.budget.categories[cat].planned_amount for cat in categories
-        )
-        return total_incomes - total_budgeted
 
     def preview_budget_contribution_summary(self, method: MetodoReparto):
         """
@@ -179,26 +171,14 @@ class Household:
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
 
-    # ====== QUERIES - MONTH (Coordination Budget vs ExpenseTracker) ======
-    def get_category_spent(self, category: str) -> int:
-        """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
-        return self.expense_tracker.get_total_spent_by_category(category)
-
-    def get_total_spent(self) -> int:
-        """Obtiene total gastado (consulta ExpenseTracker)"""
-        return self.expense_tracker.get_total_spent()
-
-    def get_category_remaining(self, category: str) -> int:
-        """Calcula presupuesto restante de una categoría: planificado - gastado"""
-        budgeted = self.budget.get_category_budget(category)
-        spent = self.get_category_spent(category)
-        return budgeted - spent
-
-    def get_total_remaining(self) -> int:
-        """Calcula total restante: presupuesto total - total gastado"""
-        budgeted = self.get_total_budgeted()
-        spent = self.get_total_spent()
-        return budgeted - spent
+    def get_loose_money(self):
+        """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
+        categories = self.get_active_categories()
+        total_incomes = self.get_total_incomes()
+        total_budgeted = sum(
+            self.budget.categories[cat].planned_amount for cat in categories
+        )
+        return total_incomes - total_budgeted
 
     def get_planning_summary(self) -> dict:
         """
@@ -236,6 +216,81 @@ class Household:
         }
 
     # ====== QUERIES - MONTH ======
+    def get_member_owed_total(self, member_name: str) -> int:
+        """Cuánto acordó pagar el miembro"""
+        self._validate_member_exist(member_name)
+        contributions = self.get_agreed_contributions()
+        total = sum(
+            cat_data["contributions"][member_name]
+            for cat_data in contributions.values()
+        )
+        return total
+
+    def get_member_paid_total(self, member_name: str) -> int:
+        """Total gastado por un miembro"""
+        return self.expense_tracker.get_total_spent_by_member(member_name)
+
+    def get_member_balance(self, member_name: str) -> int:
+        """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""
+        self._validate_member_exist(member_name)
+        owed = self.get_member_owed_total(member_name)
+        paid = self.get_member_paid_total(member_name)
+
+        return paid - owed
+
+    def get_member_status(self, member_name: str) -> dict:
+        """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
+        self._validate_member_exist(member_name)
+        # Totales
+        income = self.get_registered_incomes()
+        owed = self.get_member_owed_total(member_name)
+        paid = self.get_member_paid_total(member_name)
+        balance = self.get_member_balance(member_name)
+
+        # Acordado vs pagado
+        agreed_contributions = self.get_agreed_contributions()
+        by_category = {}
+
+        for cat_name, cat_data in agreed_contributions.items():
+            contribution = cat_data["contribution"][member_name]
+            paid = self.expense_tracker.get_total_spent_by_member_and_category(
+                member=member_name, category=cat_name
+            )
+
+            by_category[cat_name] = {
+                "contribution": contribution,
+                "paid": paid,
+                "remaining": contribution - paid,
+            }
+
+        return {
+            "income": income,
+            "owed": owed,
+            "paid": paid,
+            "balance": balance,
+            "by_category": by_category,  # ← Desglose completo
+        }
+
+    def get_category_spent(self, category: str) -> int:
+        """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
+        return self.expense_tracker.get_total_spent_by_category(category)
+
+    def get_total_spent(self) -> int:
+        """Obtiene total gastado (consulta ExpenseTracker)"""
+        return self.expense_tracker.get_total_spent()
+
+    def get_category_remaining(self, category: str) -> int:
+        """Calcula presupuesto restante de una categoría: planificado - gastado"""
+        budgeted = self.budget.get_category_budget(category)
+        spent = self.get_category_spent(category)
+        return budgeted - spent
+
+    def get_total_remaining(self) -> int:
+        """Calcula total restante: presupuesto total - total gastado"""
+        budgeted = self.get_total_budgeted()
+        spent = self.get_total_spent()
+        return budgeted - spent
+
     def get_month_summary(self):
         """Resumen de ejecución en fase MONTH: planned vs spent"""
         categories = self.get_active_categories()

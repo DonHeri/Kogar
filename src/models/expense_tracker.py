@@ -32,12 +32,20 @@ class ExpenseTracker:
         return sum(e.amount for e in self.expenses)
 
     def get_total_spent_by_category(self, category: str) -> int:
-        """Total por categoría"""
+        """Total gastado por categoría"""
         return sum(e.amount for e in self.expenses if e.category == category)
 
     def get_total_spent_by_member(self, member: str) -> int:
-        """Total por miembro"""
+        """Total gastado por miembro"""
         return sum(e.amount for e in self.expenses if e.member == member)
+
+    def get_total_spent_by_member_and_category(self, member: str, category: str) -> int:
+        """Cuánto gastó un miembro específico en una categoría específica"""
+        return sum(
+            e.amount
+            for e in self.expenses
+            if e.member == member and e.category == category
+        )
 
     def get_category_breakdown(self) -> dict[str, int]:
         """Desglose por categoría
