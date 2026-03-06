@@ -118,6 +118,47 @@ def test_finish_registration_zero_incomes(wm):
         wm.finish_registration()
 
 
+def test_finish_registration_freezes_incomes(wm):
+    """finish_registration congela los ingresos registrados"""
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+
+    # Antes de finish_registration, no hay ingresos congelados
+    assert wm.household._registered_incomes == {}
+
+    wm.finish_registration()
+
+    # Después de finish_registration, ingresos están congelados
+    assert wm.household._registered_incomes == {
+        "Amanda": 300000,  # 3000 EUR en céntimos
+        "Heri": 200000,  # 2000 EUR en céntimos
+    }
+    assert wm.current_phase == Phase.PLANNING
+
+
+def test_planning_phase_uses_frozen_incomes(wm):
+    """PLANNING usa ingresos congelados, no mutables"""
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    # Ingresos congelados: Amanda=3000, Heri=2000, Total=5000
+    total_frozen = wm.get_total_incomes()
+    assert total_frozen == 500000  # 5000 EUR
+
+    # Intentar modificar ingresos MUTABLES directamente (simula bug o acceso directo)
+    wm.household.members["Amanda"].monthly_income = 600000  # 6000 EUR
+
+    # get_total_incomes() debe seguir usando datos CONGELADOS, no mutables
+    total_after_mutation = wm.get_total_incomes()
+    assert total_after_mutation == 500000  # Sigue siendo 5000 EUR (congelado)
+    assert total_after_mutation != 800000  # NO debe ser 8000 EUR (6000 + 2000)
+
+
 def test_finish_registration_partial_incomes_ok(wm):
     """finish_registration es válido si al menos un miembro tiene ingresos > 0"""
     wm.register_member("Amanda")
@@ -354,6 +395,37 @@ def test_finish_planning_with_multiple_members(wm):
     assert wm.current_phase == Phase.MONTH
 
 
+def test_finish_planning_freezes_agreed_state(wm):
+    """finish_planning congela percentages y contributions acordadas"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_budget_for_category("fijos", 5000)
+    wm.set_budget_for_category("variables", 2000)
+
+    # Antes de finish_planning, no hay datos congelados
+    assert wm.household._agreed_percentages == {}
+    assert wm.household._agreed_contributions == {}
+
+    wm.finish_planning()
+
+    # Después de finish_planning, datos están congelados
+    assert wm.household._agreed_percentages == {"Amanda": 6000, "Heri": 4000}
+    assert "fijos" in wm.household._agreed_contributions
+    assert "variables" in wm.household._agreed_contributions
+
+    # Verificar estructura de contributions
+    fijos_contrib = wm.household._agreed_contributions["fijos"]
+    assert "contributions" in fijos_contrib
+    assert fijos_contrib["contributions"]["Amanda"] == 300000  # 60% de 500000
+    assert fijos_contrib["contributions"]["Heri"] == 200000  # 40% de 500000
+
+
 # ====================================================
 # TESTS: PLANNING PHASE - Category Management
 # ====================================================
@@ -440,3 +512,90 @@ def test_assign_distribution_method_changes_summary(wm):
     summary = wm.get_planning_summary()
 
     assert summary["distribution_method"] == "igual"
+
+
+# ====================================================
+# TESTS: Getters de datos congelados
+# ====================================================
+
+
+def test_get_registered_incomes_in_planning(wm):
+    """get_registered_incomes() retorna ingresos congelados en PLANNING"""
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    frozen_incomes = wm.get_registered_incomes()
+
+    assert frozen_incomes == {"Amanda": 300000, "Heri": 200000}
+
+
+def test_get_registered_incomes_fails_in_registration(wm):
+    """get_registered_incomes() lanza error en REGISTRATION"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+
+    with pytest.raises(ValueError, match="Operación solo permitida en fase planificación"):
+        wm.get_registered_incomes()
+
+
+def test_get_agreed_percentages_in_month(wm):
+    """get_agreed_percentages() retorna percentages congelados en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_budget_for_category("fijos", 5000)
+    wm.finish_planning()
+
+    frozen_percentages = wm.get_agreed_percentages()
+
+    assert frozen_percentages == {"Amanda": 6000, "Heri": 4000}  # 60/40
+
+
+def test_get_agreed_percentages_fails_in_planning(wm):
+    """get_agreed_percentages() lanza error en PLANNING"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="Operación solo permitida en fase transcurso_mes"):
+        wm.get_agreed_percentages()
+
+
+def test_get_agreed_contributions_in_month(wm):
+    """get_agreed_contributions() retorna contributions congeladas en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_budget_for_category("fijos", 5000)
+    wm.set_budget_for_category("variables", 2000)
+    wm.finish_planning()
+
+    frozen_contributions = wm.get_agreed_contributions()
+
+    assert "fijos" in frozen_contributions
+    assert "variables" in frozen_contributions
+    assert frozen_contributions["fijos"]["contributions"]["Amanda"] == 300000  # 60%
+    assert frozen_contributions["fijos"]["contributions"]["Heri"] == 200000  # 40%
+
+
+def test_get_agreed_contributions_fails_in_planning(wm):
+    """get_agreed_contributions() lanza error en PLANNING"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="Operación solo permitida en fase transcurso_mes"):
+        wm.get_agreed_contributions()

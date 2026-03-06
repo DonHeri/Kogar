@@ -9,9 +9,9 @@ class WorkflowManager:
     def __init__(self, household: Household) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
+        self._completed_phases = {Phase.REGISTRATION}
 
-    # ====== FASE REGISTRO ======
-    # En esta fase registramos a los usuarios
+    # ====== REGISTRATION PHASE ======
     def register_member(self, name: str):
         """Registra miembros en fase inicial"""
         self.validate_phase(Phase.REGISTRATION)
@@ -19,29 +19,38 @@ class WorkflowManager:
         member = Member(name)
         self.household.register_member(member)
 
-    # Ingresamos salarios
     def set_incomes(self, name: str, amount_eur: float):
         """Registra ingresos"""
         self.validate_phase(Phase.REGISTRATION)
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
-    # Si hay miembros e ingresos > 0; cambiamos de fase
     def finish_registration(self):
-        """Validar y avanzar a planificación"""
+        """Validar, congelar ingresos y avanzar a planificación"""
         if not self.household.members:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
 
-        # Cambiar fase
+        # Congelar ingresos registrados
+        self.household.freeze_registration_state()
+
+        # Cambiar fase y marcarla como accesible
         self.current_phase = Phase.PLANNING
+        self._completed_phases.add(Phase.PLANNING)
 
-    # ====== FASE PLANIFICACIÓN ======
-
+    # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
+        """Configura el método de reparto (PROPORTIONAL, EQUAL, CUSTOM)"""
+        self.validate_phase(Phase.PLANNING)
         self.household.assign_distribution_method(method)
 
+    def set_custom_splits(self, splits: dict[str, float]):
+        """Define porcentajes personalizados (solo para método CUSTOM)"""
+        self.validate_phase(Phase.PLANNING)
+        self.household.set_custom_splits(splits)
+
+    # ====== PLANNING PHASE - Category Management ======
     def add_category(self, name: str):
         """Crea categoría en PLANNING"""
         self.validate_phase(Phase.PLANNING)
@@ -56,16 +65,26 @@ class WorkflowManager:
         self.validate_phase(Phase.PLANNING)
         self.household.remove_category(name)
 
+    # ====== PLANNING PHASE - Budget Assignment ======
     def set_budget_for_category(self, category: str, amount: float):
         """Asigna presupuesto a categoría"""
         self.validate_phase(Phase.PLANNING)
         self.household.set_budget_for_category(category, amount)
 
-    def get_budget_contribution_summary(self, method: MetodoReparto):
+    # ====== PLANNING PHASE - Contribution Queries ======
+    def preview_budget_contribution_summary(self, method: MetodoReparto):
+        """Preview: muestra cómo quedarían las contribuciones con un método específico"""
+        self.validate_phase_accessible(Phase.PLANNING)
         return self.household.preview_budget_contribution_summary(method)
 
+    def get_current_contributions(self):
+        """Obtiene contribuciones con el método ya configurado (self.method)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_current_contributions()
+
+    # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
-        """Validar presupuestos y avanzar a mes"""
+        """Validar presupuestos, congelar acuerdos y avanzar a mes"""
         self.validate_phase(Phase.PLANNING)
 
         # Validar que hay al menos una categoría con presupuesto
@@ -79,10 +98,14 @@ class WorkflowManager:
         if total_budgeted <= 0:
             raise ValueError("Debe asignar presupuesto a al menos una categoría")
 
-        # Cambiar fase
-        self.current_phase = Phase.MONTH
+        # Congelar estado de planificación (cachea percentages y contributions acordadas)
+        self.household.freeze_planning_state()
 
-    # ====== FASE MONTH ======
+        # Cambiar fase y marcarla como accesible
+        self.current_phase = Phase.MONTH
+        self._completed_phases.add(Phase.MONTH)
+
+    # ====== MONTH PHASE - Expense Registration ======
     def register_expense(
         self, member: str, category: str, amount_euros: float, desc=""
     ):
@@ -100,47 +123,74 @@ class WorkflowManager:
         )
         self.household.register_expense(expense=expense)
 
-    # ====== FASE CIERRE ======
-
-    # ==================== QUERIES (Phase-independent) ====================
+    # ====== QUERIES - General (Phase-independent) ======
     def get_registered_members(self) -> list[str]:
         """Muestra miembros registrados"""
         return list(self.household.members.keys())
 
     def get_member_income(self, name: str):
-        """Get a specific member incomes in cents (available in all phases)"""
+        """Obtiene ingreso de un miembro específico en céntimos"""
         if name not in self.household.members:
             raise ValueError(f"{name} does not exist")
-
         return self.household.members[name].monthly_income
 
     def get_total_incomes(self) -> int:
-        """Get total household income in cents (available in all phases)"""
+        """Obtiene ingreso total del hogar en céntimos"""
         return self.household.get_total_incomes()
 
     def get_active_categories(self) -> list[str]:
-        """Ve categorías activas"""
+        """Obtiene lista de categorías activas"""
         return self.household.get_active_categories()
 
+    # ====== QUERIES - Phase Summaries ======
     def get_registration_summary(self):
-        """Obtiene resumen completo de registro (disponible en REGISTRATION)"""
-        self.validate_phase(Phase.REGISTRATION)
+        """Obtiene resumen completo de registro (disponible desde REGISTRATION)"""
+        self.validate_phase_accessible(Phase.REGISTRATION)
         return self.household.get_registration_summary()
 
     def get_planning_summary(self) -> dict:
-        """Obtiene resumen completo de planificación (disponible en PLANNING)"""
-        self.validate_phase(Phase.PLANNING)
+        """Obtiene resumen completo de planificación (disponible desde PLANNING)"""
+        self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_planning_summary()
 
     def get_month_summary(self):
-        """Obtiene resumen completo de month (disponible en MONTH)"""
-        self.validate_phase(Phase.MONTH)
+        """Obtiene resumen completo de month (disponible desde MONTH)"""
+        self.validate_phase_accessible(Phase.MONTH)
         return self.household.get_month_summary()
 
-    # ====== HELPERS ======
+    # ====== QUERIES - Frozen Data ======
+    def get_registered_incomes(self) -> dict[str, int]:
+        """Obtiene ingresos congelados (disponible desde PLANNING)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_registered_incomes()
+
+    def get_agreed_percentages(self) -> dict[str, int]:
+        """Obtiene porcentajes acordados congelados (disponible desde MONTH)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_agreed_percentages()
+
+    def get_agreed_contributions(self):
+        """Obtiene contribuciones acordadas congeladas (disponible desde MONTH)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_agreed_contributions()
+
+    # ====== VALIDATORS ======
     def validate_phase(self, required_phase: Phase):
+        """Valida que la fase actual sea exactamente la requerida"""
         if self.current_phase != required_phase:
             raise ValueError(
                 f"Operación solo permitida en fase {required_phase.value}. "
                 f"Fase actual: {self.current_phase.value}"
             )
+
+    def validate_phase_accessible(self, required_phase: Phase):
+        """Valida que la fase sea accesible (actual o ya completada)"""
+        if (
+            self.current_phase == required_phase
+            or required_phase in self._completed_phases
+        ):
+            return
+        raise ValueError(
+            f"Operación solo permitida en fase {required_phase.value} o posterior. "
+            f"Fase actual: {self.current_phase.value}"
+        )

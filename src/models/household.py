@@ -21,6 +21,7 @@ class Household:
         self.expense_tracker = expense_tracker
         self.method = method
         self._custom_splits = {}
+        self._registered_incomes = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
 
@@ -78,16 +79,42 @@ class Household:
             name: to_percentage_basis(pct) for name, pct in splits.items()
         }
 
+    # ====== REGISTRATION STATE (freeze/unfreeze) ======
+    def freeze_registration_state(self):
+        """Congela los ingresos registrados al pasar a fase PLANNING"""
+        self._registered_incomes = {
+            name: member.monthly_income for name, member in self.members.items()
+        }
+
     # ====== PLANNING STATE (freeze/unfreeze) ======
     def freeze_planning_state(self):
         """Congela el estado de planificación al pasar a fase MONTH"""
         self._agreed_percentages = self.get_percentages_by_method(self.method)
+        self._agreed_contributions = self.get_current_contributions()
 
-        for cat_name, category in self.budget.categories.items():
-            category_budget = category.planned_amount
-            # TODO: calcular contribuciones acordadas
-            # cat_contribution =
-            # self._agreed_contributions[cat_name] =
+    def get_registered_incomes(self) -> dict[str, int]:
+        """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
+        if not self._registered_incomes:
+            raise ValueError(
+                "Los ingresos no han sido congelados. Llama a finish_registration() primero."
+            )
+        return self._registered_incomes.copy()
+
+    def get_agreed_percentages(self) -> dict[str, int]:
+        """Obtiene porcentajes acordados congelados (disponible en MONTH)"""
+        if not self._agreed_percentages:
+            raise ValueError(
+                "Los porcentajes no han sido congelados. Llama a finish_planning() primero."
+            )
+        return self._agreed_percentages.copy()
+
+    def get_agreed_contributions(self):
+        """Obtiene contribuciones acordadas congeladas (disponible en MONTH)"""
+        if not self._agreed_contributions:
+            raise ValueError(
+                "Las contribuciones no han sido congeladas. Llama a finish_planning() primero."
+            )
+        return self._agreed_contributions.copy()
 
     # ====== EXPENSES (MONTH phase) ======
     def register_expense(self, expense: Expense):
@@ -121,7 +148,15 @@ class Household:
         return total_incomes - total_budgeted
 
     def preview_budget_contribution_summary(self, method: MetodoReparto):
-        """Preview: muestra cómo quedarían las contribuciones con un método específico (NO modifica state)"""
+        """
+        Calcula contribuciones por categoría con método de reparto inyectado.
+
+        Returns:
+            dict: Por cada categoría:
+                - planned: presupuesto planificado (céntimos)
+                - contributions: {nombre_miembro: contribución (céntimos)}
+                - total_assigned: suma de contributions
+        """
         percentages = self.get_percentages_by_method(method)
         summary = {}
 
@@ -137,6 +172,13 @@ class Household:
 
         return summary
 
+    def get_current_contributions(self):
+        """Obtiene contribuciones usando el método ya configurado (self.method)"""
+        return self.preview_budget_contribution_summary(self.method)
+
+    def get_total_budgeted(self):
+        return self.budget.get_total_budgeted()
+    
     def get_planning_summary(self) -> dict:
         """
         Resumen completo de fase PLANNING con el método ya configurado.
@@ -147,13 +189,13 @@ class Household:
 
         total_incomes = self.get_total_incomes()
         categories = self.get_active_categories()
-        total_budgeted = sum(
-            self.budget.categories[cat].planned_amount for cat in categories
-        )
+        total_budgeted = self.get_total_budgeted()
+        
         loose_money = total_incomes - total_budgeted
 
-        percentages = self.get_percentages_by_method(self.method)
-        contributions = self.preview_budget_contribution_summary(self.method)
+        percentages = self.get_percentages_by_method(self.method)  # FIXME
+
+        contributions = self.get_current_contributions()
 
         member_incomes = {name: m.monthly_income for name, m in self.members.items()}
 
@@ -177,9 +219,7 @@ class Household:
         """Resumen de ejecución en fase MONTH: planned vs spent"""
         categories = self.get_active_categories()
 
-        total_budgeted = sum(
-            self.budget.categories[cat].planned_amount for cat in categories
-        )
+        total_budgeted = self.get_total_budgeted()
         loose_money = self.get_loose_money()
         total_spent = self.expense_tracker.get_total_spent()
         total_remaining = total_budgeted - total_spent
@@ -208,21 +248,32 @@ class Household:
 
     # ====== INTERNAL HELPERS ======
     def get_total_incomes(self):
-        """Calcula el ingreso total mensual de todos los miembros"""
+        """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
         self._validate_has_members()
         self._validate_total_incomes_positive()
 
-        incomes = [m.monthly_income for m in self.members.values()]
-        total = FinanceCalculator.sum_values(incomes)
+        # Usar datos congelados si están disponibles (PLANNING/MONTH)
+        if self._registered_incomes:
+            incomes = list(self._registered_incomes.values())
+        else:
+            # Usar datos mutables solo en REGISTRATION
+            incomes = [m.monthly_income for m in self.members.values()]
 
+        total = FinanceCalculator.sum_values(incomes)
         return total
 
     def get_percentages_by_method(self, method: MetodoReparto):
-        """Calcula el porcentaje de reparto según método elegido"""
+        """Calcula el porcentaje de reparto (usa datos congelados si están disponibles)"""
         self._validate_has_members()
         self._validate_total_incomes_positive()
 
-        income_map = {name: m.monthly_income for name, m in self.members.items()}
+        # Usar datos congelados si están disponibles (PLANNING/MONTH)
+        if self._registered_incomes:
+            income_map = self._registered_incomes
+        else:
+            # Usar datos mutables solo en REGISTRATION
+            income_map = {name: m.monthly_income for name, m in self.members.items()}
+
         percentages = {}
 
         match method:
@@ -255,10 +306,15 @@ class Household:
             raise ValueError("No hay miembros registrados")
 
     def _validate_total_incomes_positive(self):
-        """Valida que el ingreso total es mayor a 0"""
-        total = FinanceCalculator.sum_values(
-            [m.monthly_income for m in self.members.values()]
-        )
+        """Valida que el ingreso total es mayor a 0 (usa datos congelados si están disponibles)"""
+        # Usar datos congelados si están disponibles (PLANNING/MONTH)
+        if self._registered_incomes:
+            incomes = list(self._registered_incomes.values())
+        else:
+            # Usar datos mutables solo en REGISTRATION
+            incomes = [m.monthly_income for m in self.members.values()]
+
+        total = FinanceCalculator.sum_values(incomes)
         if total <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos > 0")
 
