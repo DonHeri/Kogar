@@ -329,11 +329,11 @@ def test_calculate_contribution_zero_budget(base_household, members_with_incomes
 
 
 # ====================================================
-# TESTS: get_budget_contribution_summary
+# TESTS: preview_budget_contribution_summary
 # ====================================================
 
 
-def test_get_budget_contribution_summary_returns_all_categories(
+def test_preview_budget_contribution_summary_returns_all_categories(
     base_household, members_with_incomes
 ):
     """Retorna contribuciones para TODAS las categorías"""
@@ -347,7 +347,7 @@ def test_get_budget_contribution_summary_returns_all_categories(
     base_household.budget.set_budget("ahorro", 100.0)
 
     # Act
-    summary = base_household.get_budget_contribution_summary(
+    summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
     )
 
@@ -359,7 +359,7 @@ def test_get_budget_contribution_summary_returns_all_categories(
     assert "ahorro" in summary
 
 
-def test_get_budget_contribution_summary_structure(
+def test_preview_budget_contribution_summary_structure(
     base_household, members_with_incomes
 ):
     """Estructura de resumen es correcta"""
@@ -368,7 +368,7 @@ def test_get_budget_contribution_summary_structure(
 
     base_household.budget.set_budget("fijos", 900.0)
 
-    summary = base_household.get_budget_contribution_summary(
+    summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
     )
 
@@ -379,7 +379,7 @@ def test_get_budget_contribution_summary_structure(
     assert isinstance(summary["fijos"]["contributions"], dict)
 
 
-def test_get_budget_contribution_summary_totals_match_budgets(
+def test_preview_budget_contribution_summary_totals_match_budgets(
     base_household, members_with_incomes
 ):
     """Total asignado = presupuesto para cada categoría"""
@@ -389,7 +389,7 @@ def test_get_budget_contribution_summary_totals_match_budgets(
     base_household.budget.set_budget("fijos", 900.0)
     base_household.budget.set_budget("variables", 300.0)
 
-    summary = base_household.get_budget_contribution_summary(
+    summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
     )
 
@@ -399,7 +399,7 @@ def test_get_budget_contribution_summary_totals_match_budgets(
             assert cat_data["total_assigned"] == cat_data["planned"]
 
 
-def test_get_budget_contribution_summary_is_iterable(
+def test_preview_budget_contribution_summary_is_iterable(
     base_household, members_with_incomes
 ):
     """Resumen es iterable y accesible por categoría"""
@@ -409,7 +409,7 @@ def test_get_budget_contribution_summary_is_iterable(
     base_household.budget.set_budget("fijos", 900.0)
     base_household.budget.set_budget("variables", 300.0)
 
-    summary = base_household.get_budget_contribution_summary(
+    summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
     )
 
@@ -425,7 +425,7 @@ def test_get_budget_contribution_summary_is_iterable(
     assert count >= 2
 
 
-def test_get_budget_contribution_summary_with_zero_budgets(
+def test_preview_budget_contribution_summary_with_zero_budgets(
     base_household, members_with_incomes
 ):
     """Maneja correctamente categorías con presupuesto 0"""
@@ -436,7 +436,7 @@ def test_get_budget_contribution_summary_with_zero_budgets(
     base_household.budget.set_budget("fijos", 900.0)
     # variables, deuda y ahorro quedan en 0
 
-    summary = base_household.get_budget_contribution_summary(
+    summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
     )
 

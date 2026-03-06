@@ -21,6 +21,8 @@ class Household:
         self.expense_tracker = expense_tracker
         self.method = method
         self._custom_splits = {}
+        self._agreed_percentages = {}
+        self._agreed_contributions = {}
 
     # ====== MEMBERS MANAGEMENT ======
     def register_member(self, member: Member):
@@ -36,17 +38,6 @@ class Household:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].add_incomes(amount_cents)
-
-    # ====== INCOME CALCULATIONS ======
-    def get_total_incomes(self):
-        """Calcula el ingreso total mensual de todos los miembros"""
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
-
-        incomes = [m.monthly_income for m in self.members.values()]
-        total = FinanceCalculator.sum_values(incomes)
-
-        return total
 
     # ====== CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
@@ -73,10 +64,7 @@ class Household:
         """Asigna presupuesto a una categoría en fase PLANNING"""
         self.budget.set_budget(category, amount)
 
-    # ====== DISTRIBUTION BY CATEGORY ======
-    # Futuro v0.3: set_category_distribution_method() y get_category_preview()
-
-    # ====== DISTRIBUTION METHOD CONFIGURATION ======
+    # ====== DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
         self.method = method
@@ -89,6 +77,145 @@ class Household:
         self._custom_splits = {
             name: to_percentage_basis(pct) for name, pct in splits.items()
         }
+
+    # ====== PLANNING STATE (freeze/unfreeze) ======
+    def freeze_planning_state(self):
+        """Congela el estado de planificación al pasar a fase MONTH"""
+        self._agreed_percentages = self.get_percentages_by_method(self.method)
+
+        for cat_name, category in self.budget.categories.items():
+            category_budget = category.planned_amount
+            # TODO: calcular contribuciones acordadas
+            # cat_contribution =
+            # self._agreed_contributions[cat_name] =
+
+    # ====== EXPENSES (MONTH phase) ======
+    def register_expense(self, expense: Expense):
+        """Registra un pago en una categoría específica"""
+        self._validate_member_exist(expense.member)
+        self._validate_category_exist(expense.category)
+        self.expense_tracker.add_expense(expense)
+        self.budget.register_payment(expense.category, expense.member, expense.amount)
+
+    # ====== QUERIES - REGISTRATION ======
+    def get_registration_summary(self):
+        """Resumen de fase REGISTRATION: miembros e ingresos"""
+        self._validate_has_members()
+        self._validate_total_incomes_positive()
+        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
+        total_incomes = self.get_total_incomes()
+        return {
+            "members": list(self.members.keys()),
+            "member_incomes": member_incomes,
+            "total_household_income": total_incomes,
+        }
+
+    # ====== QUERIES - PLANNING ======
+    def get_loose_money(self):
+        """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
+        categories = self.get_active_categories()
+        total_incomes = self.get_total_incomes()
+        total_budgeted = sum(
+            self.budget.categories[cat].planned_amount for cat in categories
+        )
+        return total_incomes - total_budgeted
+
+    def preview_budget_contribution_summary(self, method: MetodoReparto):
+        """Preview: muestra cómo quedarían las contribuciones con un método específico (NO modifica state)"""
+        percentages = self.get_percentages_by_method(method)
+        summary = {}
+
+        for cat_name, category in self.budget.categories.items():
+            contributions = FinanceCalculator.calculate_contribution(
+                percentages, category.planned_amount
+            )
+            summary[cat_name] = {
+                "planned": category.planned_amount,
+                "contributions": contributions,
+                "total_assigned": sum(contributions.values()),
+            }
+
+        return summary
+
+    def get_planning_summary(self) -> dict:
+        """
+        Resumen completo de fase PLANNING con el método ya configurado.
+        Incluye: miembros, ingresos, método, porcentajes, categorías, presupuestos, loose_money, preview de contribuciones.
+        """
+        self._validate_has_members()
+        self._validate_total_incomes_positive()
+
+        total_incomes = self.get_total_incomes()
+        categories = self.get_active_categories()
+        total_budgeted = sum(
+            self.budget.categories[cat].planned_amount for cat in categories
+        )
+        loose_money = total_incomes - total_budgeted
+
+        percentages = self.get_percentages_by_method(self.method)
+        contributions = self.preview_budget_contribution_summary(self.method)
+
+        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
+
+        return {
+            "members": list(self.members.keys()),
+            "member_incomes": member_incomes,
+            "total_household_income": total_incomes,
+            "distribution_method": self.method.value,
+            "distribution_percentages": percentages,
+            "categories": categories,
+            "budget_by_category": {
+                cat: self.budget.categories[cat].planned_amount for cat in categories
+            },
+            "total_budgeted": total_budgeted,
+            "loose_money": loose_money,
+            "contributions_preview": contributions,
+        }
+
+    # ====== QUERIES - MONTH ======
+    def get_month_summary(self):
+        """Resumen de ejecución en fase MONTH: planned vs spent"""
+        categories = self.get_active_categories()
+
+        total_budgeted = sum(
+            self.budget.categories[cat].planned_amount for cat in categories
+        )
+        loose_money = self.get_loose_money()
+        total_spent = self.expense_tracker.get_total_spent()
+        total_remaining = total_budgeted - total_spent
+
+        # Total presupuestado + total gastado + total restante
+        total = {
+            "total_budgeted": total_budgeted,
+            "total_spent": total_spent,
+            "total_remaining": total_remaining,
+        }
+
+        # Categoría {Presupuestado + Gastado + faltante por pagar} + {loose money}
+        by_category = {}
+        for cat in categories:
+            by_category[cat] = {
+                "budget": self.budget.get_category_budget(cat),
+                "spent": self.budget.get_category_spent(cat),
+                "remaining": self.budget.get_category_remaining(cat),
+            }
+        by_category["loose_money"] = loose_money
+
+        # TODO: Member{category{contribution,spent,remaining}}
+        # TODO: Loose_money{total,members:{loose_money by member}}
+
+        return {"total": total, "by_category": by_category}
+
+    # ====== INTERNAL HELPERS ======
+    def get_total_incomes(self):
+        """Calcula el ingreso total mensual de todos los miembros"""
+        self._validate_has_members()
+        self._validate_total_incomes_positive()
+
+        incomes = [m.monthly_income for m in self.members.values()]
+        total = FinanceCalculator.sum_values(incomes)
+
+        return total
 
     def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto según método elegido"""
@@ -117,75 +244,9 @@ class Household:
 
         return percentages
 
-    # ====== CONTRIBUTION CALCULATIONS ======
     def calculate_member_contribution_for_category(self, percentages, budget_amount):
         """Calcula la contribución de cada miembro para una categoría específica"""
         return FinanceCalculator.calculate_contribution(percentages, budget_amount)
-
-    # ====== EXPENSES ======
-    def register_expense(self, expense: Expense):
-        """Registra un pago en una categoría específica"""
-        self._validate_member_exist(expense.member)
-        self._validate_category_exist(expense.category)
-        self.expense_tracker.add_expense(expense)
-        self.budget.register_payment(expense.category, expense.member, expense.amount)
-
-    # ====== QUERIES ======
-
-    def get_budget_contribution_summary(self, method: MetodoReparto):
-        """Retorna resumen completo de contribuciones por categoría"""
-        percentages = self.get_percentages_by_method(method)
-        summary = {}
-
-        for cat_name, category in self.budget.categories.items():
-            contributions = FinanceCalculator.calculate_contribution(
-                percentages, category.planned_amount
-            )
-            summary[cat_name] = {
-                "planned": category.planned_amount,
-                "contributions": contributions,
-                "total_assigned": sum(contributions.values()),
-            }
-
-        return summary
-
-    def get_planning_summary(self) -> dict:
-        """
-        Retorna resumen completo del estado en fase PLANNING
-        Incluye: miembros, ingresos, categorías, presupuestos, y previsualización de contribuciones
-        """
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
-
-        total_incomes = self.get_total_incomes()
-        categories = self.get_active_categories()
-        total_budgeted = sum(
-            self.budget.categories[cat].planned_amount for cat in categories
-        )
-        loose_money = total_incomes - total_budgeted
-
-        percentages = self.get_percentages_by_method(self.method)
-        contributions = self.get_budget_contribution_summary(self.method)
-
-        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
-
-        return {
-            "members": list(self.members.keys()),
-            "member_incomes": member_incomes,
-            "total_household_income": total_incomes,
-            "distribution_method": self.method.value,
-            "distribution_percentages": percentages,
-            "categories": categories,
-            "budget_by_category": {
-                cat: self.budget.categories[cat].planned_amount for cat in categories
-            },
-            "total_budgeted": total_budgeted,
-            "loose_money": loose_money,
-            "contributions_preview": contributions,
-        }
-
-    def get_month_summary(self):
-        pass
 
     # ====== VALIDATORS ======
     def _validate_has_members(self):
@@ -209,7 +270,7 @@ class Household:
 
     def _validate_category_exist(self, category: str):
         """Valida que una categoría existe en el presupuesto"""
-        return self.budget._validate_active_category(category)
+        return self.budget._validate_category_exists(category)
 
     def _validate_member_exist(self, member: str):
         """Valida que un miembro existe en el hogar"""

@@ -59,6 +59,17 @@ class Budget:
         self._validate_category_exists(normalized)
         return self.categories[normalized].planned_amount
 
+    def get_category_spent(self,name: str) -> int:
+        """Obtiene gastado en una categoría"""
+        normalized = CategoryLibrary.normalize(name)
+        return self.categories[normalized].spent
+    
+    def get_category_remaining(self,name: str) -> int:
+        """Obtiene lo que falta por pagar en una categoría"""
+        normalized = CategoryLibrary.normalize(name)
+        return self.categories[normalized].remaining()
+        
+    
     # ====== VALIDATORS ======
     def _validate_active_category(self, name: str) -> None:
         """Valida que la categoría no existe (para agregar nueva)"""

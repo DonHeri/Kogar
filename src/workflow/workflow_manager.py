@@ -61,6 +61,9 @@ class WorkflowManager:
         self.validate_phase(Phase.PLANNING)
         self.household.set_budget_for_category(category, amount)
 
+    def get_budget_contribution_summary(self, method: MetodoReparto):
+        return self.household.preview_budget_contribution_summary(method)
+
     def finish_planning(self):
         """Validar presupuestos y avanzar a mes"""
         self.validate_phase(Phase.PLANNING)
@@ -119,10 +122,20 @@ class WorkflowManager:
         """Ve categorías activas"""
         return self.household.get_active_categories()
 
+    def get_registration_summary(self):
+        """Obtiene resumen completo de registro (disponible en REGISTRATION)"""
+        self.validate_phase(Phase.REGISTRATION)
+        return self.household.get_registration_summary()
+
     def get_planning_summary(self) -> dict:
         """Obtiene resumen completo de planificación (disponible en PLANNING)"""
         self.validate_phase(Phase.PLANNING)
         return self.household.get_planning_summary()
+
+    def get_month_summary(self):
+        """Obtiene resumen completo de month (disponible en MONTH)"""
+        self.validate_phase(Phase.MONTH)
+        return self.household.get_month_summary()
 
     # ====== HELPERS ======
     def validate_phase(self, required_phase: Phase):
