@@ -1,12 +1,14 @@
 from src.utils.currency import to_euros, to_cents
+from src.utils.text import normalize_name
 
 
 class Member:
     """Representa a una persona con su ingreso base mensual"""
 
     def __init__(self, name: str):
-        self._validate_name(name)
-        self.name: str = name
+        # Storage: lowercase (interno consistente)
+        # Display: usar format_name() en UI cuando sea necesario
+        self.name: str = normalize_name(name)
         self.monthly_income: int = 0
 
     # ====== MUTATIONS ======
@@ -15,12 +17,8 @@ class Member:
         self._validate_income(income_cents)
         self.monthly_income += income_cents
 
+    
     # ====== VALIDATORS ======
-    def _validate_name(self, name: str):
-        """Valida que el nombre no está vacío"""
-        if not name or not name.strip():
-            raise ValueError("Nombre no puede estar vacío")
-
     def _validate_income(self, income_cents: int):
         """Valida que el ingreso es positivo"""
         if income_cents < 0:

@@ -170,7 +170,7 @@ def test_get_expenses_by_member_returns_matching_expenses(tracker_with_expenses)
     amanda_expenses = tracker_with_expenses.get_expenses_by_member("Amanda")
 
     assert len(amanda_expenses) == 2
-    assert all(e.member == "Amanda" for e in amanda_expenses)
+    assert all(e.member == "amanda" for e in amanda_expenses)  # stored as lowercase
 
 
 def test_get_expenses_by_member_returns_empty_if_no_match(tracker_with_expenses):
@@ -321,17 +321,17 @@ def test_get_member_breakdown_returns_dict_with_all_members(tracker_with_expense
     breakdown = tracker_with_expenses.get_member_breakdown()
 
     assert isinstance(breakdown, dict)
-    assert len(breakdown) == 2  # Amanda, Heri
-    assert "Amanda" in breakdown
-    assert "Heri" in breakdown
+    assert len(breakdown) == 2  # amanda, heri
+    assert "amanda" in breakdown  # stored as lowercase
+    assert "heri" in breakdown
 
 
 def test_get_member_breakdown_calculates_totals_correctly(tracker_with_expenses):
     """Test: Los totales por miembro son correctos"""
     breakdown = tracker_with_expenses.get_member_breakdown()
 
-    assert breakdown["Amanda"] == 98000  # 900 + 80
-    assert breakdown["Heri"] == 16550  # 120 + 45.50
+    assert breakdown["amanda"] == 98000  # 900 + 80 (stored as lowercase)
+    assert breakdown["heri"] == 16550  # 120 + 45.50
 
 
 def test_get_member_breakdown_empty_tracker(tracker):
@@ -347,7 +347,7 @@ def test_get_member_breakdown_single_expense(tracker, expense_rent):
 
     breakdown = tracker.get_member_breakdown()
 
-    assert breakdown == {"Amanda": 90000}
+    assert breakdown == {"amanda": 90000}  # stored as lowercase
 
 
 # ====================================================

@@ -10,7 +10,7 @@ from src.utils.currency import to_cents
 
 @pytest.fixture
 def base_member():
-    return Member("Default")
+    return Member("Default")  # Se normaliza a "default" internamente
 
 
 # ====================================================
@@ -20,7 +20,7 @@ def base_member():
 
 def test_create_valid_member(base_member):
     """Crea participante correctamente con valores iniciales"""
-    assert base_member.name == "Default"
+    assert base_member.name == "default"  # Storage: lowercase
     assert base_member.monthly_income == 0
 
 

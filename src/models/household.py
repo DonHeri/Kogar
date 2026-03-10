@@ -5,6 +5,7 @@ from src.models.expense_tracker import ExpenseTracker
 from src.models.expense import Expense
 from src.models.constants import MetodoReparto
 from src.utils.currency import to_percentage_basis
+from src.utils.text import normalize_name
 from typing import Dict
 
 
@@ -35,6 +36,7 @@ class Household:
 
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
+        name = normalize_name(name)
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
@@ -218,6 +220,7 @@ class Household:
     # ====== QUERIES - MONTH ======
     def get_member_owed_total(self, member_name: str) -> int:
         """Cuánto acordó pagar el miembro"""
+        member_name = normalize_name(member_name)
         self._validate_member_exist(member_name)
         contributions = self.get_agreed_contributions()
         total = sum(
@@ -226,25 +229,29 @@ class Household:
         )
         return total
 
-    def get_member_paid_total(self, member_name: str) -> int:
-        """Total gastado por un miembro"""
-        return self.expense_tracker.get_total_spent_by_member(member_name)
+    # def get_member_paid_total(self, member_name: str) -> int:
+    #    """Total gastado por un miembro"""
+    #    member_name = normalize_name(member_name)
+    #    return self.expense_tracker.get_total_spent_by_member(member_name)
 
     def get_member_balance(self, member_name: str) -> int:
         """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""
+        member_name = normalize_name(member_name)
         self._validate_member_exist(member_name)
         owed = self.get_member_owed_total(member_name)
-        paid = self.get_member_paid_total(member_name)
+        paid = self.expense_tracker.get_total_spent_by_member(member_name)
 
         return paid - owed
 
     def get_member_status(self, member_name: str) -> dict:
         """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
+        member_name = normalize_name(member_name)
         self._validate_member_exist(member_name)
         # Totales
-        income = self.get_registered_incomes()
+        member_income = self.members[member_name].monthly_income
+
         owed = self.get_member_owed_total(member_name)
-        paid = self.get_member_paid_total(member_name)
+        paid = self.expense_tracker.get_total_spent_by_member(member_name)
         balance = self.get_member_balance(member_name)
 
         # Acordado vs pagado
@@ -252,19 +259,19 @@ class Household:
         by_category = {}
 
         for cat_name, cat_data in agreed_contributions.items():
-            contribution = cat_data["contribution"][member_name]
-            paid = self.expense_tracker.get_total_spent_by_member_and_category(
+            contribution = cat_data["contributions"][member_name]
+            paid_in_category = self.expense_tracker.get_total_spent_by_member_and_category(
                 member=member_name, category=cat_name
             )
 
             by_category[cat_name] = {
                 "contribution": contribution,
-                "paid": paid,
-                "remaining": contribution - paid,
+                "paid": paid_in_category,
+                "remaining": contribution - paid_in_category,
             }
 
         return {
-            "income": income,
+            "income": member_income,
             "owed": owed,
             "paid": paid,
             "balance": balance,
@@ -406,5 +413,6 @@ class Household:
 
     def _validate_member_exist(self, member: str):
         """Valida que un miembro existe en el hogar"""
+        member = normalize_name(member)
         if member not in self.members:
             raise ValueError(f"{member} no existe en el hogar")

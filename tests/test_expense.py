@@ -13,7 +13,7 @@ def test_expense_creation_valid():
     """Test: Crear un gasto válido almacena todos los atributos correctamente"""
     expense = Expense("Amanda", "fijos", to_cents(900.0), "Alquiler marzo")
 
-    assert expense.member == "Amanda"
+    assert expense.member == "amanda"  # stored as lowercase
     assert expense.category == "fijos"
     assert expense.amount == to_cents(900.0)  # 90000 céntimos
     assert expense.description == "Alquiler marzo"
@@ -25,7 +25,7 @@ def test_expense_creation_without_description():
     expense = Expense("Heri", "variables", to_cents(45.50))
 
     assert expense.description == ""
-    assert expense.member == "Heri"
+    assert expense.member == "heri"  # stored as lowercase
     assert expense.amount == to_cents(45.50)
 
 
@@ -196,7 +196,7 @@ def test_repr_format():
 
     repr_str = repr(expense)
 
-    assert "Amanda" in repr_str
+    assert "amanda" in repr_str  # stored as lowercase
     assert "fijos" in repr_str
     assert "900.00€" in repr_str
     assert "15/03/2026" in repr_str
@@ -209,7 +209,7 @@ def test_repr_without_description():
 
     repr_str = repr(expense)
 
-    assert "Heri" in repr_str
+    assert "heri" in repr_str  # stored as lowercase
     assert "variables" in repr_str
     assert "45.50€" in repr_str
     assert "02/03/2026" in repr_str

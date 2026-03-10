@@ -3,6 +3,7 @@ from src.models.household import Household
 from src.models.expense import Expense
 from src.models.constants import Phase, MetodoReparto
 from src.utils.currency import to_cents, to_euros
+from src.utils.text import normalize_name
 
 
 class WorkflowManager:
@@ -15,13 +16,13 @@ class WorkflowManager:
     def register_member(self, name: str):
         """Registra miembros en fase inicial"""
         self.validate_phase(Phase.REGISTRATION)
-        name = name.strip()
-        member = Member(name)
+        member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
 
     def set_incomes(self, name: str, amount_eur: float):
         """Registra ingresos"""
         self.validate_phase(Phase.REGISTRATION)
+        name = normalize_name(name)  # Normalizar para lookup
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
@@ -109,12 +110,12 @@ class WorkflowManager:
     ):
         """Registrar un gasto"""
         self.validate_phase(Phase.MONTH)
-        member = member.strip()
+        member_normalized = normalize_name(member)
         category = category.strip()
         desc = desc.strip()
         amount_cents = to_cents(amount_euros)
         expense = Expense(
-            member=member,
+            member=member_normalized,
             category=category,
             amount_cents=amount_cents,
             description=desc,
@@ -128,7 +129,8 @@ class WorkflowManager:
 
     def get_member_income(self, name: str):
         """Obtiene ingreso de un miembro específico en céntimos"""
-        if name not in self.household.members:
+        name = normalize_name(name)
+        if name not in self. household.members:
             raise ValueError(f"{name} does not exist")
         return self.household.members[name].monthly_income
 

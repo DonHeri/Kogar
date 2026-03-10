@@ -1,5 +1,6 @@
 from datetime import datetime
 from src.utils.currency import to_cents, to_euros
+from src.utils.text import normalize_name
 
 
 class Expense:
@@ -24,7 +25,7 @@ class Expense:
         self._validate_non_empty_string(category, "category")
         self._validate_positive_amount(amount_cents, "amount")
 
-        self.member = member
+        self.member = normalize_name(member)  # stored as lowercase
         self.category = category
         self.description = description
         self._amount_cents: int = amount_cents

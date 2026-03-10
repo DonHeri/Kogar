@@ -84,7 +84,7 @@ def test_set_members_incomes_updates_correctly(base_household, member_zero_incom
 
 def test_set_members_incomes_raises_if_member_not_exists(base_household):
     """Lanza error si el miembro no está registrado"""
-    with pytest.raises(ValueError, match="NoExiste no existe en el hogar"):
+    with pytest.raises(ValueError, match="noexiste no existe en el hogar"):
         base_household.set_member_income("NoExiste", 500)
 
 
@@ -131,8 +131,8 @@ def test_get_percentages_calculates_correctly(base_household, members_with_incom
         method=MetodoReparto.PROPORTIONAL
     )
 
-    assert percentages["Member1"] == 6667
-    assert percentages["Member2"] == 3333
+    assert percentages["member1"] == 6667
+    assert percentages["member2"] == 3333
 
 
 def test_get_percentages_proportional_sums_to_10000(household_with_members):
@@ -159,8 +159,8 @@ def test_get_percentages_equal_splits_evenly(household_with_members):
         method=MetodoReparto.EQUAL
     )
 
-    assert percentages["Member1"] == 5000
-    assert percentages["Member2"] == 5000
+    assert percentages["member1"] == 5000
+    assert percentages["member2"] == 5000
 
 
 def test_get_percentages_equal_sums_to_10000(household_with_members):
@@ -185,14 +185,14 @@ def test_get_percentages_equal_raises_if_no_members(base_household):
 
 def test_get_percentages_custom_returns_set_splits(household_with_members):
     """Método CUSTOM devuelve los splits definidos previamente"""
-    household_with_members.set_custom_splits({"Member1": 70.0, "Member2": 30.0})
+    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
 
     percentages = household_with_members.get_percentages_by_method(
         method=MetodoReparto.CUSTOM
     )
 
-    assert percentages["Member1"] == 7000
-    assert percentages["Member2"] == 3000
+    assert percentages["member1"] == 7000
+    assert percentages["member2"] == 3000
 
 
 def test_get_percentages_custom_raises_if_splits_not_set(household_with_members):
@@ -221,41 +221,41 @@ def test_get_percentages_custom_raises_if_no_members(base_household):
 
 def test_set_custom_splits_converts_to_basis_points(household_with_members):
     """Convierte porcentajes float a basis points correctamente"""
-    household_with_members.set_custom_splits({"Member1": 55.55, "Member2": 44.45})
+    household_with_members.set_custom_splits({"member1": 55.55, "member2": 44.45})
 
-    assert household_with_members._custom_splits["Member1"] == 5555
-    assert household_with_members._custom_splits["Member2"] == 4445
+    assert household_with_members._custom_splits["member1"] == 5555
+    assert household_with_members._custom_splits["member2"] == 4445
 
 
 def test_set_custom_splits_stores_all_members(household_with_members):
     """Almacena splits para todos los miembros del hogar"""
-    household_with_members.set_custom_splits({"Member1": 60.0, "Member2": 40.0})
+    household_with_members.set_custom_splits({"member1": 60.0, "member2": 40.0})
 
-    assert "Member1" in household_with_members._custom_splits
-    assert "Member2" in household_with_members._custom_splits
+    assert "member1" in household_with_members._custom_splits
+    assert "member2" in household_with_members._custom_splits
 
 
 def test_set_custom_splits_raises_if_no_members(base_household):
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
-        base_household.set_custom_splits({"Member1": 50.0, "Member2": 50.0})
+        base_household.set_custom_splits({"member1": 50.0, "member2": 50.0})
 
 
 def test_set_custom_splits_raises_if_member_missing_from_splits(household_with_members):
     """Lanza error si falta un miembro en el dict de splits"""
     with pytest.raises(
-        ValueError, match="Falta el porcentaje para el miembro: Member2"
+        ValueError, match="Falta el porcentaje para el miembro: member2"
     ):
-        household_with_members.set_custom_splits({"Member1": 100.0})
+        household_with_members.set_custom_splits({"member1": 100.0})
 
 
 def test_set_custom_splits_overwrites_previous(household_with_members):
     """Una segunda llamada sobreescribe los splits anteriores"""
-    household_with_members.set_custom_splits({"Member1": 70.0, "Member2": 30.0})
-    household_with_members.set_custom_splits({"Member1": 40.0, "Member2": 60.0})
+    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
+    household_with_members.set_custom_splits({"member1": 40.0, "member2": 60.0})
 
-    assert household_with_members._custom_splits["Member1"] == 4000
-    assert household_with_members._custom_splits["Member2"] == 6000
+    assert household_with_members._custom_splits["member1"] == 4000
+    assert household_with_members._custom_splits["member2"] == 6000
 
 
 # ====================================================
@@ -283,8 +283,8 @@ def test_calculate_contribution_for_single_category(
 
     # Assert
     assert isinstance(contributions, dict)
-    assert "Member1" in contributions
-    assert "Member2" in contributions
+    assert "member1" in contributions
+    assert "member2" in contributions
     assert sum(contributions.values()) == budget_fijos
 
 
@@ -305,11 +305,11 @@ def test_calculate_contribution_respects_income_proportions(
         percentages, budget
     )
 
-    # Member1 debe pagar ~66.67% de 9000 = ~6000€
-    # Member2 debe pagar ~33.33% de 9000 = ~3000€
-    assert contributions["Member1"] > contributions["Member2"]
-    assert contributions["Member1"] > 590000  # ~5900€
-    assert contributions["Member2"] < 310000  # ~3100€
+    # member1 debe pagar ~66.67% de 9000 = ~6000€
+    # member2 debe pagar ~33.33% de 9000 = ~3000€
+    assert contributions["member1"] > contributions["member2"]
+    assert contributions["member1"] > 590000  # ~5900€
+    assert contributions["member2"] < 310000  # ~3100€
 
 
 def test_calculate_contribution_zero_budget(base_household, members_with_incomes):
@@ -419,8 +419,8 @@ def test_preview_budget_contribution_summary_is_iterable(
         if cat_data["planned"] > 0:
             count += 1
             assert isinstance(cat_data["contributions"], dict)
-            assert "Member1" in cat_data["contributions"]
-            assert "Member2" in cat_data["contributions"]
+            assert "member1" in cat_data["contributions"]
+            assert "member2" in cat_data["contributions"]
 
     assert count >= 2
 
@@ -480,16 +480,16 @@ def test_validate_total_incomes_positive_passes_if_positive(household_with_membe
 def test_validate_all_members_have_split_raises_if_missing(household_with_members):
     """Validador lanza error si falta un miembro en splits"""
     with pytest.raises(
-        ValueError, match="Falta el porcentaje para el miembro: Member2"
+        ValueError, match="Falta el porcentaje para el miembro: member2"
     ):
-        household_with_members._validate_all_members_have_split({"Member1": 50.0})
+        household_with_members._validate_all_members_have_split({"member1": 50.0})
 
 
 def test_validate_all_members_have_split_passes_if_all_present(household_with_members):
     """Validador pasa sin error si todos los miembros están presentes"""
     # No debe lanzar excepción
     household_with_members._validate_all_members_have_split(
-        {"Member1": 60.0, "Member2": 40.0}
+        {"member1": 60.0, "member2": 40.0}
     )
 
 
@@ -545,7 +545,7 @@ def test_get_planning_summary_basic(household_with_members):
     summary = household_with_members.get_planning_summary()
 
     assert isinstance(summary, dict)
-    assert summary["members"] == ["Member1", "Member2"]
+    assert summary["members"] == ["member1", "member2"]
     assert summary["total_household_income"] == 300000
     assert summary["total_budgeted"] == 300000
     assert summary["loose_money"] == 0
@@ -703,7 +703,7 @@ def test_register_expense_adds_to_tracker(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 1000)
 
-    expense = Expense("Member1", "fijos", 25000, "Test expense")
+    expense = Expense("member1", "fijos", 25000, "Test expense")
     household_with_members.register_expense(expense)
 
     assert len(household_with_members.expense_tracker.expenses) == 1
@@ -726,7 +726,7 @@ def test_register_expense_validates_category_exists(household_with_members):
     """Test: register_expense() valida que la categoría existe"""
     from src.models.expense import Expense
 
-    expense = Expense("Member1", "nonexistent", 25000)
+    expense = Expense("member1", "nonexistent", 25000)
 
     with pytest.raises(ValueError, match="debe estar creada"):
         household_with_members.register_expense(expense)
@@ -747,8 +747,8 @@ def test_get_category_spent_sums_expenses_for_category(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 1000)
 
-    expense1 = Expense("Member1", "fijos", 25000)
-    expense2 = Expense("Member2", "fijos", 15000)
+    expense1 = Expense("member1", "fijos", 25000)
+    expense2 = Expense("member2", "fijos", 15000)
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
@@ -764,8 +764,8 @@ def test_get_category_spent_only_counts_matching_category(household_with_members
     household_with_members.set_budget_for_category("fijos", 1000)
     household_with_members.set_budget_for_category("variables", 500)
 
-    expense1 = Expense("Member1", "fijos", 25000)
-    expense2 = Expense("Member2", "variables", 15000)
+    expense1 = Expense("member1", "fijos", 25000)
+    expense2 = Expense("member2", "variables", 15000)
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
@@ -790,9 +790,9 @@ def test_get_total_spent_sums_all_expenses(household_with_members):
     household_with_members.set_budget_for_category("fijos", 1000)
     household_with_members.set_budget_for_category("variables", 500)
 
-    expense1 = Expense("Member1", "fijos", 25000)
-    expense2 = Expense("Member2", "variables", 15000)
-    expense3 = Expense("Member1", "fijos", 10000)
+    expense1 = Expense("member1", "fijos", 25000)
+    expense2 = Expense("member2", "variables", 15000)
+    expense3 = Expense("member1", "fijos", 10000)
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
     household_with_members.register_expense(expense3)
@@ -817,7 +817,7 @@ def test_get_category_remaining_calculates_correctly(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 1000)  # 100000 cents
 
-    expense = Expense("Member1", "fijos", 25000)  # 250€
+    expense = Expense("member1", "fijos", 25000)  # 250€
     household_with_members.register_expense(expense)
 
     remaining = household_with_members.get_category_remaining("fijos")
@@ -831,7 +831,7 @@ def test_get_category_remaining_can_be_negative(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 1000)  # 100000 cents
 
-    expense = Expense("Member1", "fijos", 150000)  # 1500€ (más del presupuesto)
+    expense = Expense("member1", "fijos", 150000)  # 1500€ (más del presupuesto)
     household_with_members.register_expense(expense)
 
     remaining = household_with_members.get_category_remaining("fijos")
@@ -856,8 +856,8 @@ def test_get_total_remaining_calculates_correctly(household_with_members):
     household_with_members.set_budget_for_category("fijos", 1000)  # 100000
     household_with_members.set_budget_for_category("variables", 500)  # 50000
 
-    expense1 = Expense("Member1", "fijos", 25000)
-    expense2 = Expense("Member2", "variables", 10000)
+    expense1 = Expense("member1", "fijos", 25000)
+    expense2 = Expense("member2", "variables", 10000)
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
@@ -872,7 +872,7 @@ def test_get_total_remaining_can_be_negative(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 500)  # 50000
 
-    expense = Expense("Member1", "fijos", 75000)  # Más del presupuesto
+    expense = Expense("member1", "fijos", 75000)  # Más del presupuesto
     household_with_members.register_expense(expense)
 
     total_remaining = household_with_members.get_total_remaining()

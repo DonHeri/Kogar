@@ -121,3 +121,28 @@ def test_delete_budget_category_succeeds(budget):
     budget.delete_budget_category("fijos")
 
     assert "fijos" not in budget.get_categories_list()
+
+
+# ====================================================
+# GET_CATEGORY_LIST
+# ====================================================
+
+
+def test_get_category_budget_is_correct(budget):
+    budget.set_budget("fijos", 100)
+
+    result = budget.get_category_budget("fijos")
+
+    assert result == 10000
+
+
+def test_get_category_budget_normalizes_name(budget):
+    budget.set_budget("fijos", 500)
+
+    result = budget.get_category_budget("  FIJOS  ")
+
+    assert result == 50000
+
+def test_get_category_budget_invalid_category_raises_error(budget):
+    with pytest.raises(ValueError, match="La categoría debe estar creada"):
+        budget.get_category_budget("inexistente")

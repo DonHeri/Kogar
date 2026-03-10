@@ -1,4 +1,5 @@
 from src.models.expense import Expense
+from src.utils.text import normalize_name
 
 
 # Se inyecta en Household
@@ -24,7 +25,8 @@ class ExpenseTracker:
 
     def get_expenses_by_member(self, member: str) -> list[Expense]:
         """Filtra por miembro"""
-        return [e for e in self.expenses if e.member == member]
+        normalized_member = normalize_name(member)
+        return [e for e in self.expenses if e.member == normalized_member]
 
     # ====== AGGREGATIONS ======
     def get_total_spent(self) -> int:
@@ -37,14 +39,16 @@ class ExpenseTracker:
 
     def get_total_spent_by_member(self, member: str) -> int:
         """Total gastado por miembro"""
-        return sum(e.amount for e in self.expenses if e.member == member)
+        normalized_member = normalize_name(member)
+        return sum(e.amount for e in self.expenses if e.member == normalized_member)
 
     def get_total_spent_by_member_and_category(self, member: str, category: str) -> int:
         """Cuánto gastó un miembro específico en una categoría específica"""
+        normalized_member = normalize_name(member)
         return sum(
             e.amount
             for e in self.expenses
-            if e.member == member and e.category == category
+            if e.member == normalized_member and e.category == category
         )
 
     def get_category_breakdown(self) -> dict[str, int]:

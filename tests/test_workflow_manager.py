@@ -39,7 +39,7 @@ def test_workflow_manager_starts_in_registration_phase(wm):
 def test_register_member_in_registration_phase(wm):
     """Un miembro registrado en fase REGISTRATION aparece en get_registered_members"""
     wm.register_member("Amanda")
-    assert "Amanda" in wm.get_registered_members()
+    assert "amanda" in wm.get_registered_members()
 
 
 def test_register_member_wrong_phase(wm):
@@ -61,7 +61,7 @@ def test_register_duplicate_member(wm):
 def test_register_member_strips_whitespace(wm):
     """register_member limpia espacios en blanco del nombre"""
     wm.register_member("  Amanda  ")
-    assert "Amanda" in wm.get_registered_members()
+    assert "amanda" in wm.get_registered_members()
     assert "  Amanda  " not in wm.get_registered_members()
 
 
@@ -74,7 +74,7 @@ def test_set_income_valid(wm):
     """set_incomes actualiza el ingreso del miembro en centavos correctamente"""
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
-    assert wm.get_member_income("Amanda") == 300000
+    assert wm.get_member_income("amanda") == 300000
 
 
 def test_set_income_wrong_phase(wm):
@@ -132,8 +132,8 @@ def test_finish_registration_freezes_incomes(wm):
 
     # Después de finish_registration, ingresos están congelados
     assert wm.household._registered_incomes == {
-        "Amanda": 300000,  # 3000 EUR en céntimos
-        "Heri": 200000,  # 2000 EUR en céntimos
+        "amanda": 300000,  # 3000 EUR en céntimos
+        "heri": 200000,  # 2000 EUR en céntimos
     }
     assert wm.current_phase == Phase.PLANNING
 
@@ -151,7 +151,7 @@ def test_planning_phase_uses_frozen_incomes(wm):
     assert total_frozen == 500000  # 5000 EUR
 
     # Intentar modificar ingresos MUTABLES directamente (simula bug o acceso directo)
-    wm.household.members["Amanda"].monthly_income = 600000  # 6000 EUR
+    wm.household.members["amanda"].monthly_income = 600000  # 6000 EUR
 
     # get_total_incomes() debe seguir usando datos CONGELADOS, no mutables
     total_after_mutation = wm.get_total_incomes()
@@ -184,7 +184,7 @@ def test_get_registered_members_multiple(wm):
     wm.register_member("Amanda")
     wm.register_member("Heri")
     members = wm.get_registered_members()
-    assert set(members) == {"Amanda", "Heri"}
+    assert set(members) == {"amanda", "heri"}
 
 
 def test_get_member_income_nonexistent(wm):
@@ -198,7 +198,7 @@ def test_get_member_income_after_planning(wm):
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
-    assert wm.get_member_income("Amanda") == 500000
+    assert wm.get_member_income("amanda") == 500000
 
 
 def test_get_total_incomes_empty(wm):
@@ -290,7 +290,7 @@ def test_get_planning_summary_in_planning_phase(wm):
 
     summary = wm.get_planning_summary()
 
-    assert summary["members"] == ["Amanda"]
+    assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
     assert summary["total_budgeted"] == 800000
     assert summary["loose_money"] == 200000
@@ -415,15 +415,15 @@ def test_finish_planning_freezes_agreed_state(wm):
     wm.finish_planning()
 
     # Después de finish_planning, datos están congelados
-    assert wm.household._agreed_percentages == {"Amanda": 6000, "Heri": 4000}
+    assert wm.household._agreed_percentages == {"amanda": 6000, "heri": 4000}
     assert "fijos" in wm.household._agreed_contributions
     assert "variables" in wm.household._agreed_contributions
 
     # Verificar estructura de contributions
     fijos_contrib = wm.household._agreed_contributions["fijos"]
     assert "contributions" in fijos_contrib
-    assert fijos_contrib["contributions"]["Amanda"] == 300000  # 60% de 500000
-    assert fijos_contrib["contributions"]["Heri"] == 200000  # 40% de 500000
+    assert fijos_contrib["contributions"]["amanda"] == 300000  # 60% de 500000
+    assert fijos_contrib["contributions"]["heri"] == 200000  # 40% de 500000
 
 
 # ====================================================
@@ -529,7 +529,7 @@ def test_get_registered_incomes_in_planning(wm):
 
     frozen_incomes = wm.get_registered_incomes()
 
-    assert frozen_incomes == {"Amanda": 300000, "Heri": 200000}
+    assert frozen_incomes == {"amanda": 300000, "heri": 200000}
 
 
 def test_get_registered_incomes_fails_in_registration(wm):
@@ -558,7 +558,7 @@ def test_get_agreed_percentages_in_month(wm):
 
     frozen_percentages = wm.get_agreed_percentages()
 
-    assert frozen_percentages == {"Amanda": 6000, "Heri": 4000}  # 60/40
+    assert frozen_percentages == {"amanda": 6000, "heri": 4000}  # 60/40
 
 
 def test_get_agreed_percentages_fails_in_planning(wm):
@@ -591,8 +591,8 @@ def test_get_agreed_contributions_in_month(wm):
 
     assert "fijos" in frozen_contributions
     assert "variables" in frozen_contributions
-    assert frozen_contributions["fijos"]["contributions"]["Amanda"] == 300000  # 60%
-    assert frozen_contributions["fijos"]["contributions"]["Heri"] == 200000  # 40%
+    assert frozen_contributions["fijos"]["contributions"]["amanda"] == 300000  # 60%
+    assert frozen_contributions["fijos"]["contributions"]["heri"] == 200000  # 40%
 
 
 def test_get_agreed_contributions_fails_in_planning(wm):
