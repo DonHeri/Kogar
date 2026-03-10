@@ -4,8 +4,7 @@ class CategoryLibrary:
     STANDARD_CATEGORIES = {
         "fijos": "Gastos fijos mensuales recurrentes",
         "variables": "Gastos variables del día a día",
-        "deuda": "Pagos de deudas y préstamos",
-        "ahorro": "Ahorro mensual",
+        "deuda/ahorro": "Pagos de deudas y préstamos. Ahorro mensual",
     }
 
     EXTENDED_CATEGORIES = {

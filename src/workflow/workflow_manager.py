@@ -59,6 +59,7 @@ class WorkflowManager:
 
     def set_standard_categories(self):
         """Establece categorías estándar [fijos,variables,deuda,ahorro]"""
+        self.validate_phase(Phase.PLANNING)
         self.household.set_standard_categories()
 
     def remove_category(self, name: str):
@@ -74,6 +75,16 @@ class WorkflowManager:
         self.household.set_budget_for_category(category, amount_cents)
 
     # ====== PLANNING PHASE - Contribution Queries ======
+    def get_category_budget(self, category_name: str) -> int:
+        """Consultar presupuesto asignado a una categoría específica"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_category_budget(name=category_name)
+
+    def get_total_budgeted(self) -> int:
+        """Total presupuestado (suma de todas las categorías)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_total_budgeted()
+
     def preview_budget_contribution_summary(self, method: MetodoReparto):
         """Preview: muestra cómo quedarían las contribuciones con un método específico"""
         self.validate_phase_accessible(Phase.PLANNING)
@@ -83,6 +94,16 @@ class WorkflowManager:
         """Obtiene contribuciones con el método ya configurado (self.method)"""
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_current_contributions()
+
+    def get_loose_money(self) -> int:
+        """Dinero suelto total (ingresos - presupuesto)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_loose_money()
+
+    def get_loose_money_by_member(self, member_name: str) -> int:
+        """Calcula dinero no presupuestado de un miembro según su porcentaje"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_loose_money_by_member(member_name)
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
@@ -122,6 +143,48 @@ class WorkflowManager:
             description=desc,
         )
         self.household.register_expense(expense=expense)
+
+    # ====== MONTH PHASE - member balance Queries ======
+    def get_member_owed_total(self, member_name: str) -> int:
+        """Cuánto debe pagar un miembro según el acuerdo"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_member_owed_total(member_name)
+
+    def get_member_paid_total(self, member_name: str) -> int:
+        """Total pagado por un miembro"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_member_paid_total(member_name)
+
+    def get_member_balance(self, member_name: str) -> int:
+        """Balance del miembro (pagado - debido)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_member_balance(member_name)
+
+    def get_member_status(self, member_name: str) -> dict:
+        """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_member_status(member_name)
+
+    # ====== MONTH PHASE - Category spent Queries ======
+    def get_category_spent(self, category_name: str) -> int:
+        """Cuánto se ha gastado en una categoría"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_category_spent(category_name)
+
+    def get_total_spent(self) -> int:
+        """Total gastado en el mes"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_total_spent()
+
+    def get_category_remaining(self, category_name: str) -> int:
+        """Cuánto queda por gastar en una categoría (presupuesto - gastado)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_category_remaining(category_name)
+
+    def get_total_remaining(self) -> int:
+        """Total restante por pagar (presupuesto - gastado)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_total_remaining()
 
     # ====== QUERIES - General (Phase-independent) ======
     def get_registered_members(self) -> list[str]:

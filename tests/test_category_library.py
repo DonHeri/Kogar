@@ -56,8 +56,7 @@ def test_get_standards_categories_returns_dict():
 
     assert "fijos" in standards
     assert "variables" in standards
-    assert "deuda" in standards
-    assert "ahorro" in standards
+    assert "deuda/ahorro" in standards
 
 
 def test_get_all_suggestions_includes_both():

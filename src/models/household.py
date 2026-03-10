@@ -237,17 +237,17 @@ class Household:
         )
         return total
 
-    # def get_member_paid_total(self, member_name: str) -> int:
-    #    """Total gastado por un miembro"""
-    #    member_name = normalize_name(member_name)
-    #    return self.expense_tracker.get_total_spent_by_member(member_name)
+    def get_member_paid_total(self, member_name: str) -> int:
+       """Total gastado por un miembro"""
+       member_name = normalize_name(member_name)
+       return self.expense_tracker.get_total_spent_by_member(member_name)
 
     def get_member_balance(self, member_name: str) -> int:
         """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""
         member_name = normalize_name(member_name)
         self._validate_member_exist(member_name)
         owed = self.get_member_owed_total(member_name)
-        paid = self.expense_tracker.get_total_spent_by_member(member_name)
+        paid = self.get_member_paid_total(member_name)
 
         return paid - owed
 

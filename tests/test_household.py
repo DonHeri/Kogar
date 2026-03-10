@@ -343,8 +343,7 @@ def test_preview_budget_contribution_summary_returns_all_categories(
 
     base_household.budget.set_budget("fijos", 90000)
     base_household.budget.set_budget("variables", 30000)
-    base_household.budget.set_budget("deuda", 20000)
-    base_household.budget.set_budget("ahorro", 10000)
+    base_household.budget.set_budget("deuda/ahorro", 30000)
 
     # Act
     summary = base_household.preview_budget_contribution_summary(
@@ -355,8 +354,7 @@ def test_preview_budget_contribution_summary_returns_all_categories(
     assert isinstance(summary, dict)
     assert "fijos" in summary
     assert "variables" in summary
-    assert "deuda" in summary
-    assert "ahorro" in summary
+    assert "deuda/ahorro" in summary
 
 
 def test_preview_budget_contribution_summary_structure(
@@ -548,7 +546,7 @@ def test_get_planning_summary_basic(household_with_members):
     assert summary["members"] == ["member1", "member2"]
     assert summary["total_household_income"] == 300000
     assert summary["total_budgeted"] == 300000
-    assert summary["loose_money"] == 0
+    assert summary["loose_money"]["total"] == 0
 
 
 def test_get_planning_summary_includes_distribution_method(household_with_members):
@@ -570,7 +568,7 @@ def test_get_planning_summary_with_loose_money(household_with_members):
 
     # Total: 300000, Presupuestado: 200000, Suelto: 100000
     assert summary["total_budgeted"] == 200000
-    assert summary["loose_money"] == 100000
+    assert summary["loose_money"]["total"] == 100000
 
 
 def test_get_planning_summary_includes_contributions_preview(household_with_members):
@@ -597,13 +595,13 @@ def test_get_planning_summary_with_multiple_budgets(household_with_members):
     household_with_members.budget.set_standard_categories()
     household_with_members.set_budget_for_category("fijos", 300000)
     household_with_members.set_budget_for_category("variables", 200000)
-    household_with_members.set_budget_for_category("deuda", 100000)
+    household_with_members.set_budget_for_category("deuda/ahorro", 100000)
 
     summary = household_with_members.get_planning_summary()
 
-    assert summary["categories"] == ["fijos", "variables", "deuda", "ahorro"]
+    assert summary["categories"] == ["fijos", "variables", "deuda/ahorro"]
     assert summary["total_budgeted"] == 600000
-    assert summary["loose_money"] == -300000  # Presupuestó más de lo que tiene
+    assert summary["loose_money"]["total"] == -300000  # Presupuestó más de lo que tiene
 
 
 def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
@@ -645,8 +643,7 @@ def test_set_standard_categories_populates_budget(base_household):
     categories = household.get_active_categories()
     assert "fijos" in categories
     assert "variables" in categories
-    assert "ahorro" in categories
-    assert "deuda" in categories
+    assert "deuda/ahorro" in categories
 
 
 def test_get_active_categories_returns_list(base_household):
@@ -951,7 +948,7 @@ def test_get_member_owed_total_sums_all_category_contributions(household_with_me
     """Debe sumar todas las contribuciones acordadas del miembro"""
     household_with_members.set_budget_for_category("fijos", 60000)
     household_with_members.set_budget_for_category("variables", 40000)
-    household_with_members.set_budget_for_category("ahorro", 20000)
+    household_with_members.set_budget_for_category("deuda/ahorro", 20000)
 
     # Método reparto equitativo -> 120000 / 2 == 60000 por miembro
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
@@ -1103,7 +1100,7 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
 
     household_with_members.set_budget_for_category("fijos", 60000)
     household_with_members.set_budget_for_category("variables", 40000)
-    household_with_members.set_budget_for_category("ahorro", 20000)
+    household_with_members.set_budget_for_category("deuda/ahorro", 20000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.freeze_planning_state()
@@ -1111,7 +1108,7 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
     # member1 gasta en 3 categorías diferentes
     expense1 = Expense("member1", "fijos", 20000)
     expense2 = Expense("member1", "variables", 15000)
-    expense3 = Expense("member1", "ahorro", 5000)
+    expense3 = Expense("member1", "deuda/ahorro", 5000)
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
     household_with_members.register_expense(expense3)

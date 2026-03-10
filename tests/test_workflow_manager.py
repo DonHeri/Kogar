@@ -293,7 +293,7 @@ def test_get_planning_summary_in_planning_phase(wm):
     assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
     assert summary["total_budgeted"] == 800000
-    assert summary["loose_money"] == 200000
+    assert summary["loose_money"]["total"] == 200000
     assert "distribution_percentages" in summary
     assert "contributions_preview" in summary
 
@@ -459,8 +459,7 @@ def test_set_standard_categories_creates_defaults(wm):
     categories = wm.get_active_categories()
     assert "fijos" in categories
     assert "variables" in categories
-    assert "ahorro" in categories
-    assert "deuda" in categories
+    assert "deuda/ahorro" in categories
 
 
 def test_remove_category_in_planning_phase(wm):
