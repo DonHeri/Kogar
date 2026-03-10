@@ -28,12 +28,12 @@ class Budget:
             CategoryLibrary.add_category(normalized)
 
     # ====== BUDGET ASSIGNMENT ======
-    def set_budget(self, category: str, amount: float) -> None:
-        """Establece el monto presupuestado para una categoría"""
+    def set_budget(self, category: str, amount_cents: int) -> None:
+        """Establece el monto presupuestado para una categoría (céntimos)"""
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)
-        self._validate_amount(amount)
-        self.categories[normalized].planned_amount = to_cents(amount)
+        self._validate_amount_cents(amount_cents)
+        self.categories[normalized].planned_amount = amount_cents
 
     def delete_budget_category(self, category: str) -> None:
         """Elimina una categoría del presupuesto"""
@@ -70,6 +70,11 @@ class Budget:
     def _validate_amount(self, amount: float) -> None:
         """Valida que el monto sea válido (>= 0)"""
         if amount < 0:
+            raise ValueError("Monto del presupuesto debe ser superior a 0")
+
+    def _validate_amount_cents(self, amount_cents: int) -> None:
+        """Valida que el monto en céntimos sea válido (>= 0)"""
+        if amount_cents < 0:
             raise ValueError("Monto del presupuesto debe ser superior a 0")
 
     def _validate_category_exist_in_library(self, name: str) -> bool:

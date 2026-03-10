@@ -605,3 +605,228 @@ def test_get_agreed_contributions_fails_in_planning(wm):
         ValueError, match="Operación solo permitida en fase transcurso_mes"
     ):
         wm.get_agreed_contributions()
+
+
+# ====================================================
+# TESTS: set_custom_splits
+# ====================================================
+def test_set_custom_splits_in_planning_phase(wm):
+    """set_custom_splits() establece porcentajes personalizados en PLANNING"""
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.set_custom_splits({"amanda": 70.0, "heri": 30.0})
+
+    assert wm.household._custom_splits == {"amanda": 7000, "heri": 3000}
+
+
+def test_set_custom_splits_raises_if_not_in_planning(wm):
+    """set_custom_splits() lanza error si no estamos en PLANNING"""
+    wm.register_member("Amanda")
+
+    with pytest.raises(ValueError, match="planificación"):
+        wm.set_custom_splits({"Amanda": 100.0})
+
+
+# ====================================================
+# TESTS: preview_budget_contribution_summary y get_current_contributions
+# ====================================================
+def test_preview_budget_contribution_summary_in_planning(wm):
+    """preview_budget_contribution_summary() muestra preview con método específico"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 5000)
+
+    preview = wm.preview_budget_contribution_summary(MetodoReparto.EQUAL)
+
+    assert "fijos" in preview
+    assert preview["fijos"]["contributions"]["amanda"] == 250000
+    assert preview["fijos"]["contributions"]["heri"] == 250000
+
+
+def test_get_current_contributions_in_planning(wm):
+    """get_current_contributions() obtiene contribuciones con método configurado"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+    wm.finish_registration()
+
+    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_budget_for_category("fijos", 5000)
+
+    contributions = wm.get_current_contributions()
+
+    assert "fijos" in contributions
+    assert contributions["fijos"]["contributions"]["amanda"] == 300000  # 60%
+    assert contributions["fijos"]["contributions"]["heri"] == 200000  # 40%
+
+
+# ====================================================
+# TESTS: register_expense (MONTH phase)
+# ====================================================
+def test_register_expense_in_month_phase(wm):
+    """register_expense() registra gasto correctamente en MONTH"""
+    from src.models.expense import Expense
+
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "fijos", 500.50, "Alquiler")
+
+    expenses = wm.household.expense_tracker.expenses
+    assert len(expenses) == 1
+    assert expenses[0].member == "amanda"
+    assert expenses[0].category == "fijos"
+    assert expenses[0].amount == 50050
+    assert expenses[0].description == "Alquiler"
+
+
+def test_register_expense_converts_euros_to_cents(wm):
+    """register_expense() convierte euros a céntimos correctamente"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "fijos", 123.45)
+
+    expense = wm.household.expense_tracker.expenses[0]
+    assert expense.amount == 12345
+
+
+def test_register_expense_normalizes_member_name(wm):
+    """register_expense() normaliza el nombre del miembro"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("AMANDA", "fijos", 100.00)
+
+    expense = wm.household.expense_tracker.expenses[0]
+    assert expense.member == "amanda"
+
+
+def test_register_expense_strips_whitespace(wm):
+    """register_expense() limpia espacios en category y description"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "  fijos  ", 100.00, "  Alquiler  ")
+
+    expense = wm.household.expense_tracker.expenses[0]
+    assert expense.category == "fijos"
+    assert expense.description == "Alquiler"
+
+
+def test_register_expense_raises_if_not_in_month(wm):
+    """register_expense() lanza error si no estamos en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="transcurso_mes"):
+        wm.register_expense("Amanda", "fijos", 100.00)
+
+
+def test_register_expense_empty_description_ok(wm):
+    """register_expense() acepta description vacía"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "fijos", 100.00, "")
+
+    expense = wm.household.expense_tracker.expenses[0]
+    assert expense.description == ""
+
+
+# ====================================================
+# TESTS: get_registration_summary y get_month_summary
+# ====================================================
+def test_get_registration_summary_in_registration_phase(wm):
+    """get_registration_summary() retorna resumen en REGISTRATION"""
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 3000)
+    wm.set_incomes("Heri", 2000)
+
+    summary = wm.get_registration_summary()
+
+    assert "members" in summary
+    assert "member_incomes" in summary
+    assert "total_household_income" in summary
+    assert summary["members"] == ["amanda", "heri"]
+    assert summary["total_household_income"] == 500000
+
+
+def test_get_registration_summary_after_freezing(wm):
+    """get_registration_summary() funciona después de congelar ingresos"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    summary = wm.get_registration_summary()
+
+    assert summary["total_household_income"] == 300000
+
+
+def test_get_month_summary_in_month_phase(wm):
+    """get_month_summary() retorna resumen completo en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "fijos", 500.00)
+
+    summary = wm.get_month_summary()
+
+    assert "total" in summary
+    assert "by_category" in summary
+    assert summary["total"]["total_budgeted"] == 200000
+    assert summary["total"]["total_spent"] == 50000
+
+
+def test_get_month_summary_raises_if_not_in_month(wm):
+    """get_month_summary() lanza error si no estamos en MONTH"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="transcurso_mes"):
+        wm.get_month_summary()

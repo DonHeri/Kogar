@@ -67,10 +67,11 @@ class WorkflowManager:
         self.household.remove_category(name)
 
     # ====== PLANNING PHASE - Budget Assignment ======
-    def set_budget_for_category(self, category: str, amount: float):
-        """Asigna presupuesto a categoría"""
+    def set_budget_for_category(self, category: str, amount_euros: float):
+        """Asigna presupuesto a categoría (recibe euros, convierte a céntimos)"""
         self.validate_phase(Phase.PLANNING)
-        self.household.set_budget_for_category(category, amount)
+        amount_cents = to_cents(amount_euros)
+        self.household.set_budget_for_category(category, amount_cents)
 
     # ====== PLANNING PHASE - Contribution Queries ======
     def preview_budget_contribution_summary(self, method: MetodoReparto):
@@ -130,7 +131,7 @@ class WorkflowManager:
     def get_member_income(self, name: str):
         """Obtiene ingreso de un miembro específico en céntimos"""
         name = normalize_name(name)
-        if name not in self. household.members:
+        if name not in self.household.members:
             raise ValueError(f"{name} does not exist")
         return self.household.members[name].monthly_income
 

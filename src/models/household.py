@@ -63,9 +63,9 @@ class Household:
         return self.budget.get_category_budget(name)
 
     # ====== BUDGET ASSIGNMENT ======
-    def set_budget_for_category(self, category: str, amount: float) -> None:
-        """Asigna presupuesto a una categoría en fase PLANNING"""
-        self.budget.set_budget(category, amount)
+    def set_budget_for_category(self, category: str, amount_cents: int) -> None:
+        """Asigna presupuesto a una categoría en fase PLANNING (céntimos)"""
+        self.budget.set_budget(category, amount_cents)
 
     # ====== DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -175,12 +175,20 @@ class Household:
 
     def get_loose_money(self):
         """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
-        categories = self.get_active_categories()
+
         total_incomes = self.get_total_incomes()
-        total_budgeted = sum(
-            self.budget.categories[cat].planned_amount for cat in categories
-        )
+        total_budgeted = self.budget.get_total_budgeted()
         return total_incomes - total_budgeted
+
+    def get_loose_money_by_member(self, name: str) -> int:
+        """Calcula dinero no presupuestado de un miembro según su porcentaje"""
+        name = normalize_name(name)
+        self._validate_member_exist(name)
+
+        percentage = self.get_percentages_by_method(self.method)[name]
+        loose_money = self.get_loose_money()
+
+        return (loose_money * percentage) // 10000
 
     def get_planning_summary(self) -> dict:
         """
@@ -189,21 +197,21 @@ class Household:
         """
         self._validate_has_members()
         self._validate_total_incomes_positive()
-
+        members = list(self.members.keys())
         total_incomes = self.get_total_incomes()
         categories = self.get_active_categories()
         total_budgeted = self.get_total_budgeted()
 
         loose_money = total_incomes - total_budgeted
-
-        percentages = self.get_percentages_by_method(self.method)  # FIXME
+        loose_money_by_member = {name:self.get_loose_money_by_member(name) for name in members}
+        percentages = self.get_percentages_by_method(self.method)
 
         contributions = self.get_current_contributions()
 
         member_incomes = {name: m.monthly_income for name, m in self.members.items()}
 
         return {
-            "members": list(self.members.keys()),
+            "members": members,
             "member_incomes": member_incomes,
             "total_household_income": total_incomes,
             "distribution_method": self.method.value,
@@ -213,7 +221,7 @@ class Household:
                 cat: self.budget.categories[cat].planned_amount for cat in categories
             },
             "total_budgeted": total_budgeted,
-            "loose_money": loose_money,
+            "loose_money": {"total":loose_money,"by_member":loose_money_by_member},
             "contributions_preview": contributions,
         }
 
@@ -260,8 +268,10 @@ class Household:
 
         for cat_name, cat_data in agreed_contributions.items():
             contribution = cat_data["contributions"][member_name]
-            paid_in_category = self.expense_tracker.get_total_spent_by_member_and_category(
-                member=member_name, category=cat_name
+            paid_in_category = (
+                self.expense_tracker.get_total_spent_by_member_and_category(
+                    member=member_name, category=cat_name
+                )
             )
 
             by_category[cat_name] = {
