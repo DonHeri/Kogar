@@ -67,6 +67,27 @@ class Household:
         """Asigna presupuesto a una categoría en fase PLANNING (céntimos)"""
         self.budget.set_budget(category, amount_cents)
 
+    def set_budget_by_percentage(self, pct_basis: int, category: str):
+        """Asigna presupuesto a una categoría con el porcentaje del total de ingresos"""
+        total_incomes = self.get_total_incomes()
+        amount_cents = (total_incomes * pct_basis) // 10000
+        self.set_budget_for_category(category=category, amount_cents=amount_cents)
+
+    def get_budget_as_percentage(self, category: str):
+        """
+        Retorna qué % del ingreso total representa el presupuesto de la categoría.
+
+        Ejemplo: Ingresos 3000€, Fijos 1500€ → retorna 5000 (50%)
+
+        Returns:
+            int: Porcentaje en basis points (5000 = 50% de ingresos)
+        """
+        
+        category_budget = self.get_category_budget(category)
+        total = self.get_total_incomes()
+        pct_basis = (category_budget * 10000) // total
+        return pct_basis
+    
     # ====== DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
@@ -203,7 +224,9 @@ class Household:
         total_budgeted = self.get_total_budgeted()
 
         loose_money = total_incomes - total_budgeted
-        loose_money_by_member = {name:self.get_loose_money_by_member(name) for name in members}
+        loose_money_by_member = {
+            name: self.get_loose_money_by_member(name) for name in members
+        }
         percentages = self.get_percentages_by_method(self.method)
 
         contributions = self.get_current_contributions()
@@ -221,7 +244,7 @@ class Household:
                 cat: self.budget.categories[cat].planned_amount for cat in categories
             },
             "total_budgeted": total_budgeted,
-            "loose_money": {"total":loose_money,"by_member":loose_money_by_member},
+            "loose_money": {"total": loose_money, "by_member": loose_money_by_member},
             "contributions_preview": contributions,
         }
 
@@ -238,9 +261,9 @@ class Household:
         return total
 
     def get_member_paid_total(self, member_name: str) -> int:
-       """Total gastado por un miembro"""
-       member_name = normalize_name(member_name)
-       return self.expense_tracker.get_total_spent_by_member(member_name)
+        """Total gastado por un miembro"""
+        member_name = normalize_name(member_name)
+        return self.expense_tracker.get_total_spent_by_member(member_name)
 
     def get_member_balance(self, member_name: str) -> int:
         """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""

@@ -2,7 +2,7 @@ from src.models.member import Member
 from src.models.household import Household
 from src.models.expense import Expense
 from src.models.constants import Phase, MetodoReparto
-from src.utils.currency import to_cents, to_euros
+from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 
 
@@ -74,6 +74,57 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_budget_for_category(category, amount_cents)
 
+    def set_budget_by_percentage(self, category: str, pct: float) -> None:
+        """Asigna presupuesto a categoría (recibe porcentaje en float, convierte a centésimas enteras)"""
+        self.validate_phase(Phase.PLANNING)
+        pct_basis = to_percentage_basis(pct)
+        self.household.set_budget_by_percentage(pct_basis=pct_basis, category=category)
+
+    def get_budget_as_percentage(self, category: str):
+        """
+        Retorna qué % del ingreso total representa el presupuesto de la categoría.
+
+        Ejemplo: Ingresos 3000€, Fijos 1500€ → retorna 5000 (50%)
+
+        Returns:
+            int: Porcentaje en basis points (5000 = 50% de ingresos)
+        """
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_budget_as_percentage(category=category)
+
+    def apply_percentage_distribution(self, percentages: dict[str, float]) -> None:
+        """
+        Asigna presupuestos a múltiples categorías como % del ingreso.
+
+        IMPORTANTE: Las categorías deben existir previamente.
+        Llama a set_standard_categories() o add_category() primero.
+
+        Args:
+            percentages: {category: pct} donde pct es 0-100
+
+        Raises:
+            ValueError: Si alguna categoría no existe o suma >100%
+        """
+        self.validate_phase(Phase.PLANNING)
+
+        # Validar suma ≤ 100
+        total_pct = sum(percentages.values())
+        if total_pct > 100:
+            raise ValueError(f"Los porcentajes suman {total_pct}%, máximo 100%")
+
+        # Validar que todas las categorías existen ANTES de aplicar
+        active_categories = self.household.get_active_categories()
+        missing = [cat for cat in percentages.keys() if cat not in active_categories]
+        if missing: #FIXME O crear standard_categories???
+            raise ValueError(
+                f"Categorías no existen: {missing}. "
+                f"Llama a set_standard_categories() o add_category() primero."
+            )
+
+        # Aplicar (ahora seguro que todas existen)
+        for category, pct in percentages.items():
+            self.set_budget_by_percentage(category, pct)
+    
     # ====== PLANNING PHASE - Contribution Queries ======
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
