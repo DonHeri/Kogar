@@ -829,3 +829,216 @@ def test_get_month_summary_raises_if_not_in_month(wm):
 
     with pytest.raises(ValueError, match="transcurso_mes"):
         wm.get_month_summary()
+
+
+# ====================================================
+# TESTS: set_budget_by_percentage (WorkflowManager)
+# ====================================================
+
+
+def test_set_budget_by_percentage_wrong_phase(wm):
+    """set_budget_by_percentage lanza error si no estamos en PLANNING"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    # Aún en REGISTRATION, no en PLANNING
+    with pytest.raises(ValueError, match="planificación"):
+        wm.set_budget_by_percentage("fijos", 50.0)
+
+
+def test_set_budget_by_percentage_converts_float_to_basis(wm):
+    """Convierte porcentaje float a basis points y llama a Household"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_by_percentage("fijos", 50.0)
+
+    # 50% de 300000 céntimos = 150000
+    assert wm.household.budget.get_category_budget("fijos") == 150000
+
+
+def test_set_budget_by_percentage_fractional(wm):
+    """Maneja correctamente porcentajes fraccionarios"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_by_percentage("variables", 33.33)
+
+    # 33.33% de 300000 = 99990 céntimos
+    assert wm.household.budget.get_category_budget("variables") == 99990
+
+
+def test_set_budget_by_percentage_zero(wm):
+    """Asigna 0 cuando el porcentaje es 0"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_by_percentage("deuda/ahorro", 0.0)
+
+    assert wm.household.budget.get_category_budget("deuda/ahorro") == 0
+
+
+# ====================================================
+# TESTS: get_budget_as_percentage (WorkflowManager)
+# ====================================================
+
+
+def test_get_budget_as_percentage_wrong_phase(wm):
+    """get_budget_as_percentage lanza error si no estamos en PLANNING"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    # Aún en REGISTRATION, no en PLANNING
+    with pytest.raises(ValueError, match="planificación"):
+        wm.get_budget_as_percentage("fijos")
+
+
+def test_get_budget_as_percentage_returns_basis_points(wm):
+    """Retorna basis points representando % de ingresos"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("fijos", 1500)  # 50% de 3000€
+
+    pct_basis = wm.get_budget_as_percentage("fijos")
+
+    assert pct_basis == 5000  # 50%
+
+
+def test_get_budget_as_percentage_zero_budget(wm):
+    """Retorna 0 cuando presupuesto es 0"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_for_category("variables", 0)
+
+    pct_basis = wm.get_budget_as_percentage("variables")
+
+    assert pct_basis == 0
+
+
+def test_get_budget_as_percentage_roundtrip(wm):
+    """set_budget_by_percentage + get_budget_as_percentage es consistente"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.set_budget_by_percentage("deuda/ahorro", 40.0)
+    retrieved = wm.get_budget_as_percentage("deuda/ahorro")
+
+    assert retrieved == 4000  # 40%
+
+
+# ====================================================
+# TESTS: apply_percentage_distribution (WorkflowManager)
+# ====================================================
+
+
+def test_apply_percentage_distribution_basic(wm):
+    """Asigna presupuestos basados en distribución porcentual"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.apply_percentage_distribution(
+        {"fijos": 50.0, "variables": 30.0, "deuda/ahorro": 20.0}
+    )
+
+    # Ingresos: 300000 céntimos
+    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
+    assert wm.household.budget.get_category_budget("variables") == 90000  # 30%
+    assert wm.household.budget.get_category_budget("deuda/ahorro") == 60000  # 20%
+
+
+def test_apply_percentage_distribution_sum_exceeds_100(wm):
+    """Lanza error si la suma de porcentajes excede 100%"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="suman.*%.*máximo.*100%"):
+        wm.apply_percentage_distribution(
+            {"fijos": 60.0, "variables": 50.0, "deuda/ahorro": 20.0}
+        )
+
+
+def test_apply_percentage_distribution_missing_category(wm):
+    """Lanza error si alguna categoría no existe en el presupuesto"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="Categorías no existen"):
+        wm.apply_percentage_distribution(
+            {"fijos": 50.0, "categoria_falsa": 30.0, "otra_falsa": 20.0}
+        )
+
+
+def test_apply_percentage_distribution_partial_allocation(wm):
+    """Permite distribución parcial (suma < 100%)"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.apply_percentage_distribution({"fijos": 50.0, "variables": 20.0})
+
+    # Ingresos: 300000 céntimos
+    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
+    assert wm.household.budget.get_category_budget("variables") == 60000  # 20%
+    # deuda/ahorro queda sin asignar (0 o valor anterior)
+
+
+def test_apply_percentage_distribution_wrong_phase(wm):
+    """Lanza error si no estamos en PLANNING"""
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    # Aún en REGISTRATION
+
+    with pytest.raises(ValueError, match="planificación"):
+        wm.apply_percentage_distribution({"fijos": 50.0})
+
+
+def test_apply_percentage_distribution_empty_dict(wm):
+    """Maneja correctamente diccionario vacío (no hace nada)"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    # No debe lanzar error, simplemente no asigna nada
+    wm.apply_percentage_distribution({})
+
+    # Presupuestos deben quedar en 0 (sin cambios)
+    assert wm.household.budget.get_category_budget("fijos") == 0
+
+
+def test_apply_percentage_distribution_fractional_percentages(wm):
+    """Maneja correctamente porcentajes fraccionarios en distribución"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    wm.apply_percentage_distribution(
+        {"fijos": 33.33, "variables": 33.33, "deuda/ahorro": 33.34}
+    )
+
+    # Ingresos: 300000 céntimos (3000€)
+    # 33.33% = 99990, 33.34% = 100020
+    assert wm.household.budget.get_category_budget("fijos") == 99990
+    assert wm.household.budget.get_category_budget("variables") == 99990
+    assert wm.household.budget.get_category_budget("deuda/ahorro") == 100020
+    # Total: 300000 (sin pérdida por redondeo)

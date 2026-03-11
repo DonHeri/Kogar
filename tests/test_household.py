@@ -1317,3 +1317,111 @@ def test_get_agreed_contributions_returns_frozen_contributions(household_with_me
     assert contributions["fijos"]["contributions"]["member2"] == 50000
     assert contributions["variables"]["contributions"]["member1"] == 25000
     assert contributions["variables"]["contributions"]["member2"] == 25000
+
+
+# ====================================================
+# TESTS: set_budget_by_percentage
+# ====================================================
+
+
+def test_set_budget_by_percentage_basic(household_with_members):
+    """Asigna presupuesto basado en porcentaje de ingresos totales"""
+    # Ingresos totales: 300000 céntimos (3000€)
+    # 50% = 150000 céntimos (1500€)
+    pct_basis = 5000  # 50%
+    household_with_members.set_budget_by_percentage(pct_basis, "fijos")
+
+    assert household_with_members.budget.get_category_budget("fijos") == 150000
+
+
+def test_set_budget_by_percentage_fractional(household_with_members):
+    """Maneja correctamente porcentajes fraccionarios"""
+    # 33.33% de 300000 = 99990 céntimos (floor division)
+    pct_basis = 3333  # 33.33%
+    household_with_members.set_budget_by_percentage(pct_basis, "variables")
+
+    assert household_with_members.budget.get_category_budget("variables") == 99990
+
+
+def test_set_budget_by_percentage_zero(household_with_members):
+    """Asigna 0 cuando el porcentaje es 0"""
+    pct_basis = 0  # 0%
+    household_with_members.set_budget_by_percentage(pct_basis, "fijos")
+
+    assert household_with_members.budget.get_category_budget("fijos") == 0
+
+
+def test_set_budget_by_percentage_full(household_with_members):
+    """Asigna el total de ingresos cuando el porcentaje es 100%"""
+    # 100% de 300000 = 300000 céntimos
+    pct_basis = 10000  # 100%
+    household_with_members.set_budget_by_percentage(pct_basis, "deuda/ahorro")
+
+    assert household_with_members.budget.get_category_budget("deuda/ahorro") == 300000
+
+
+def test_set_budget_by_percentage_delegates_to_set_budget(household_with_members):
+    """Delegación a set_budget_for_category preserva validaciones"""
+    pct_basis = 5000
+    with pytest.raises(ValueError, match="debe estar creada"):
+        household_with_members.set_budget_by_percentage(pct_basis, "categoria_falsa")
+
+
+# ====================================================
+# TESTS: get_budget_as_percentage
+# ====================================================
+
+
+def test_get_budget_as_percentage_basic(household_with_members):
+    """Retorna porcentaje correcto del presupuesto sobre ingresos"""
+    # Ingresos: 300000, Presupuesto: 150000 → 50% = 5000 basis
+    household_with_members.set_budget_for_category("fijos", 150000)
+
+    pct_basis = household_with_members.get_budget_as_percentage("fijos")
+
+    assert pct_basis == 5000  # 50%
+
+
+def test_get_budget_as_percentage_zero_budget(household_with_members):
+    """Retorna 0 cuando el presupuesto de categoría es 0"""
+    household_with_members.set_budget_for_category("variables", 0)
+
+    pct_basis = household_with_members.get_budget_as_percentage("variables")
+
+    assert pct_basis == 0
+
+
+def test_get_budget_as_percentage_full_budget(household_with_members):
+    """Retorna 10000 (100%) cuando presupuesto = ingresos totales"""
+    # Ingresos totales: 300000
+    household_with_members.set_budget_for_category("deuda/ahorro", 300000)
+
+    pct_basis = household_with_members.get_budget_as_percentage("deuda/ahorro")
+
+    assert pct_basis == 10000  # 100%
+
+
+def test_get_budget_as_percentage_fractional_result(household_with_members):
+    """Maneja correctamente resultados fraccionarios con floor division"""
+    # 100000 / 300000 = 0.33333... → (100000 * 10000) // 300000 = 3333 basis
+    household_with_members.set_budget_for_category("variables", 100000)
+
+    pct_basis = household_with_members.get_budget_as_percentage("variables")
+
+    assert pct_basis == 3333  # 33.33%
+
+
+def test_get_budget_as_percentage_nonexistent_category(household_with_members):
+    """Lanza error si la categoría no existe"""
+    with pytest.raises(ValueError, match="debe estar creada"):
+        household_with_members.get_budget_as_percentage("categoria_falsa")
+
+
+def test_get_budget_as_percentage_roundtrip_consistency(household_with_members):
+    """set + get debe ser consistente (considerando floor division)"""
+    # Set 50%
+    household_with_members.set_budget_by_percentage(5000, "fijos")
+    # Get debería retornar 5000 (o muy cercano debido a floor division)
+    retrieved_pct = household_with_members.get_budget_as_percentage("fijos")
+
+    assert retrieved_pct == 5000

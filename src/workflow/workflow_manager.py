@@ -89,7 +89,7 @@ class WorkflowManager:
         Returns:
             int: Porcentaje en basis points (5000 = 50% de ingresos)
         """
-        self.validate_phase_accessible(Phase.MONTH)
+        self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_budget_as_percentage(category=category)
 
     def apply_percentage_distribution(self, percentages: dict[str, float]) -> None:
