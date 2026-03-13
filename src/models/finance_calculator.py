@@ -7,16 +7,17 @@ class FinanceCalculator:
         """Suma una lista de valores numéricos"""
         return sum(values)
 
-    # ====== PERCENTAGE CALCULATIONS ======
+    # ====== PERCENTAGE CALCULATIONS (solo para display) ======
     @staticmethod
     def calculate_percentage_based_on_weight_of_income(
         income_map: dict[str, int],
     ) -> dict[str, int]:
         """
-        Calcula porcentajes proporcionales al ingreso de cada miembro
-        
+        Calcula porcentajes proporcionales al ingreso de cada miembro.
+        Solo para display — los cálculos reales de contribución usan calculate_contribution_from_incomes.
+
         Retorna porcentajes × 100 (5357 = 53.57%)
-        Garantiza suma exacta = 10000
+        Garantiza suma exacta = 10000 usando largest remainder method.
         """
         total = sum(income_map.values())
 
@@ -24,17 +25,21 @@ class FinanceCalculator:
             raise ValueError("Total de ingresos debe ser superior a 0")
 
         percentages = {}
+        remainders = {}
         assigned = 0
 
-        # Calcular todos con división entera
         for name, income in income_map.items():
-            pct = (income * 10000) // total
-            percentages[name] = pct
-            assigned += pct
+            exact = income * 10000 / total
+            floored = int(exact)
+            percentages[name] = floored
+            remainders[name] = exact - floored
+            assigned += floored
 
-        # Sobrante al miembro con mayor ingreso
-        max_member = max(income_map, key=lambda k: income_map[k])
-        percentages[max_member] += 10000 - assigned
+        diferencia = 10000 - assigned
+        for name in sorted(remainders, key=lambda k: remainders[k], reverse=True)[
+            :diferencia
+        ]:
+            percentages[name] += 1
 
         return percentages
 
@@ -42,47 +47,115 @@ class FinanceCalculator:
     def calculate_equal_percentage(members: dict[str, int]) -> dict[str, int]:
         """
         Calcula porcentajes equitativos (50/50, 33/33/33, etc.)
-        
+        Solo para display — los cálculos reales usan calculate_contribution_from_incomes.
+
         Retorna porcentajes × 100
-        Si existe descuadre de céntimos, se aporta al miembro con mayor ingreso
+        Garantiza suma exacta = 10000 usando largest remainder method.
         """
         num_members = len(members)
-        base_pct = 10000 // num_members
+        base_exact = 10000 / num_members
 
-        percentages = {name: base_pct for name in members}
-        assigned = base_pct * num_members
+        percentages = {}
+        remainders = {}
+        assigned = 0
 
-        max_member = max(members, key=lambda k: members[k])
-        percentages[max_member] += 10000 - assigned
+        for name in members:
+            floored = int(base_exact)
+            percentages[name] = floored
+            remainders[name] = base_exact - floored
+            assigned += floored
+
+        diferencia = 10000 - assigned
+        for name in sorted(remainders, key=lambda k: remainders[k], reverse=True)[
+            :diferencia
+        ]:
+            percentages[name] += 1
+
         return percentages
 
     # ====== CONTRIBUTION CALCULATIONS ======
     @staticmethod
-    def calculate_contribution(
-        percentages: dict[str, int], budget_amount: int
+    def calculate_contribution_from_incomes(
+        income_map: dict[str, int], budget_amount: int
     ) -> dict[str, int]:
         """
-        Aplica porcentajes a un monto presupuestado
-        
-        Retorna contribución de cada miembro
-        Garantiza suma exacta del presupuesto (sin pérdida de céntimos)
+        Calcula contribuciones directamente desde ingresos, sin porcentajes intermedios.
+        Elimina acumulación de errores de redondeo entre categorías.
+
+        Garantiza:
+        - Suma exacta del presupuesto (sin pérdida de céntimos)
+        - Ningún miembro excede su ingreso proporcional
+        - Error máximo: 1 céntimo por categoría, no acumulable
+
+        Returns:
+            {
+                "member_a": 100000,  # céntimos
+                "member_b": 50000,   # céntimos
+            }
+        """
+        total_income = sum(income_map.values())
+
+        if total_income <= 0:
+            raise ValueError("Total de ingresos debe ser superior a 0")
+
+        contributions = {}
+        remainders = {}
+        assigned = 0
+
+        for member, income in income_map.items():
+            exact = budget_amount * income / total_income
+            floored = int(exact)
+            contributions[member] = floored
+            remainders[member] = exact - floored
+            assigned += floored
+
+        # Distribuir céntimos sobrantes al que más perdió por truncamiento
+        diferencia = budget_amount - assigned
+        for member in sorted(remainders, key=lambda k: remainders[k], reverse=True)[
+            :diferencia
+        ]:
+            contributions[member] += 1
+
+        if sum(contributions.values()) != budget_amount:
+            raise ValueError(
+                "El total asignado en contribution es diferente al monto presupuestado"
+            )
+
+        return contributions
+
+    @staticmethod
+    def calculate_contribution_from_custom_splits(
+        custom_splits: dict[str, int], budget_amount: int
+    ) -> dict[str, int]:
+        """
+        Calcula contribuciones desde porcentajes custom (basis points × 100).
+        Usado solo para MetodoReparto.CUSTOM donde el usuario define porcentajes explícitos.
+
+        Garantiza suma exacta del presupuesto usando largest remainder method.
+
+        Returns:
+            {
+                "member_a": 65000,  # céntimos
+                "member_b": 35000,  # céntimos
+            }
         """
         contributions = {}
-        total_assigned = 0
+        remainders = {}
+        assigned = 0
 
-        for member_name, percentage in percentages.items():
-            member_contribution = (budget_amount * percentage) // 10000
-            total_assigned += member_contribution
-            contributions[member_name] = member_contribution
+        for member, pct in custom_splits.items():
+            exact = budget_amount * pct / 10000
+            floored = int(exact)
+            contributions[member] = floored
+            remainders[member] = exact - floored
+            assigned += floored
 
-        # Sobrante de céntimos al miembro con mayor porcentaje
-        diferencia = budget_amount - total_assigned
+        diferencia = budget_amount - assigned
+        for member in sorted(remainders, key=lambda k: remainders[k], reverse=True)[
+            :diferencia
+        ]:
+            contributions[member] += 1
 
-        if total_assigned != 0:
-            max_member = max(percentages, key=lambda k: percentages[k])
-            contributions[max_member] += diferencia
-
-        # Validación: verificar que el total cuadra
         if sum(contributions.values()) != budget_amount:
             raise ValueError(
                 "El total asignado en contribution es diferente al monto presupuestado"

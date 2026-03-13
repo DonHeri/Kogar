@@ -82,12 +82,12 @@ class Household:
         Returns:
             int: Porcentaje en basis points (5000 = 50% de ingresos)
         """
-        
+
         category_budget = self.get_category_budget(category)
         total = self.get_total_incomes()
         pct_basis = (category_budget * 10000) // total
         return pct_basis
-    
+
     # ====== DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
@@ -171,13 +171,35 @@ class Household:
                 - contributions: {nombre_miembro: contribución (céntimos)}
                 - total_assigned: suma de contributions
         """
-        percentages = self.get_percentages_by_method(method)
+        income_map = self._registered_incomes or {
+            name: m.monthly_income for name, m in self.members.items()
+        }
         summary = {}
 
         for cat_name, category in self.budget.categories.items():
-            contributions = FinanceCalculator.calculate_contribution(
-                percentages, category.planned_amount
-            )
+            if method == MetodoReparto.CUSTOM:
+                contributions = (
+                    FinanceCalculator.calculate_contribution_from_custom_splits(
+                        self._custom_splits, category.planned_amount
+                    )
+                )
+            else:
+                # PROPORTIONAL y EQUAL ambos calculan desde ingresos directamente
+                # La diferencia está en cómo se ponderan (por ingreso o igual)
+                if method == MetodoReparto.EQUAL:
+                    equal_income_map = {name: 1 for name in income_map}
+                    contributions = (
+                        FinanceCalculator.calculate_contribution_from_incomes(
+                            equal_income_map, category.planned_amount
+                        )
+                    )
+                else:
+                    contributions = (
+                        FinanceCalculator.calculate_contribution_from_incomes(
+                            income_map, category.planned_amount
+                        )
+                    )
+
             summary[cat_name] = {
                 "planned": category.planned_amount,
                 "contributions": contributions,
@@ -185,6 +207,8 @@ class Household:
             }
 
         return summary
+
+        
 
     def get_current_contributions(self):
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
@@ -411,9 +435,6 @@ class Household:
 
         return percentages
 
-    def calculate_member_contribution_for_category(self, percentages, budget_amount):
-        """Calcula la contribución de cada miembro para una categoría específica"""
-        return FinanceCalculator.calculate_contribution(percentages, budget_amount)
 
     # ====== VALIDATORS ======
     def _validate_has_members(self):

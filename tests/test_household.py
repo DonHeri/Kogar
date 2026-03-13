@@ -258,75 +258,6 @@ def test_set_custom_splits_overwrites_previous(household_with_members):
     assert household_with_members._custom_splits["member2"] == 6000
 
 
-# ====================================================
-# TESTS: calculate_member_contribution_for_category
-# ====================================================
-
-
-def test_calculate_contribution_for_single_category(
-    base_household, members_with_incomes
-):
-    """Calcula contribuciones para UNA categoría específica"""
-    # Setup
-    for member in members_with_incomes.values():
-        base_household.register_member(member)
-
-    percentages = base_household.get_percentages_by_method(
-        method=MetodoReparto.PROPORTIONAL
-    )
-    budget_fijos = 90000  # 900€
-
-    # Act
-    contributions = base_household.calculate_member_contribution_for_category(
-        percentages, budget_fijos
-    )
-
-    # Assert
-    assert isinstance(contributions, dict)
-    assert "member1" in contributions
-    assert "member2" in contributions
-    assert sum(contributions.values()) == budget_fijos
-
-
-def test_calculate_contribution_respects_income_proportions(
-    base_household, members_with_incomes
-):
-    """Contribución refleja proporción de ingresos"""
-    # Member1: 200000 (66.67%), Member2: 100000 (33.33%)
-    for member in members_with_incomes.values():
-        base_household.register_member(member)
-
-    percentages = base_household.get_percentages_by_method(
-        method=MetodoReparto.PROPORTIONAL
-    )
-    budget = 900000  # 9000€
-
-    contributions = base_household.calculate_member_contribution_for_category(
-        percentages, budget
-    )
-
-    # member1 debe pagar ~66.67% de 9000 = ~6000€
-    # member2 debe pagar ~33.33% de 9000 = ~3000€
-    assert contributions["member1"] > contributions["member2"]
-    assert contributions["member1"] > 590000  # ~5900€
-    assert contributions["member2"] < 310000  # ~3100€
-
-
-def test_calculate_contribution_zero_budget(base_household, members_with_incomes):
-    """Maneja presupuesto cero correctamente"""
-    for member in members_with_incomes.values():
-        base_household.register_member(member)
-
-    percentages = base_household.get_percentages_by_method(
-        method=MetodoReparto.PROPORTIONAL
-    )
-
-    contributions = base_household.calculate_member_contribution_for_category(
-        percentages, 0
-    )
-
-    assert all(contrib == 0 for contrib in contributions.values())
-
 
 # ====================================================
 # TESTS: preview_budget_contribution_summary
@@ -384,8 +315,8 @@ def test_preview_budget_contribution_summary_totals_match_budgets(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 900.0)
-    base_household.budget.set_budget("variables", 300.0)
+    base_household.budget.set_budget("fijos", 90000)
+    base_household.budget.set_budget("variables", 30000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
