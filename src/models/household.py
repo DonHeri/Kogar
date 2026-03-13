@@ -208,8 +208,6 @@ class Household:
 
         return summary
 
-        
-
     def get_current_contributions(self):
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
@@ -226,14 +224,26 @@ class Household:
         return total_incomes - total_budgeted
 
     def get_loose_money_by_member(self, name: str) -> int:
-        """Calcula dinero no presupuestado de un miembro según su porcentaje"""
         name = normalize_name(name)
         self._validate_member_exist(name)
-
-        percentage = self.get_percentages_by_method(self.method)[name]
+        income_map = self._registered_incomes or {
+            n: m.monthly_income for n, m in self.members.items()
+        }
         loose_money = self.get_loose_money()
 
-        return (loose_money * percentage) // 10000
+        if self.method == MetodoReparto.CUSTOM:
+            return FinanceCalculator.calculate_contribution_from_custom_splits(
+                self._custom_splits, loose_money
+            )[name]
+        elif self.method == MetodoReparto.EQUAL:
+            equal_map = {n: 1 for n in income_map}
+            return FinanceCalculator.calculate_contribution_from_incomes(
+                equal_map, loose_money
+            )[name]
+        else:
+            return FinanceCalculator.calculate_contribution_from_incomes(
+                income_map, loose_money
+            )[name]
 
     def get_planning_summary(self) -> dict:
         """
@@ -356,11 +366,54 @@ class Household:
         return budgeted - spent
 
     def get_month_summary(self):
-        """Resumen de ejecución en fase MONTH: planned vs spent"""
-        categories = self.get_active_categories()
+        """
+        Retorna resumen financiero completo del mes:
 
+        {
+            "totals": {
+                "total_budgeted":  300000,   # céntimos presupuestados
+                "total_spent":      95000,   # céntimos gastados
+                "total_remaining": 205000    # céntimos restantes
+            },
+            "by_category": {
+                "fijos": {
+                    "budget":    150000,
+                    "spent":      80000,
+                    "remaining":  70000
+                }
+            },
+            "by_member": {
+                "amanda": {
+                    "income":  200000,
+                    "owed":    200000,
+                    "paid":     80000,
+                    "balance": -120000,      # negativo = debe dinero
+                    "by_category": {
+                        "fijos": {
+                            "contribution": 100000,
+                            "paid":          80000,
+                            "remaining":     20000
+                        }
+                    }
+                }
+            },
+            "loose_money": {
+                "total": 0,
+                "by_member": {
+                    "amanda": 0,
+                    "heri":   0
+                }
+            }
+        }
+        """
+
+        categories = self.get_active_categories()
+        members = self.members.keys()
         total_budgeted = self.get_total_budgeted()
-        loose_money = self.get_loose_money()
+        loose_money_total = self.get_loose_money()
+        loose_money_by_member = {
+            member: self.get_loose_money_by_member(member) for member in members
+        }
         total_spent = self.get_total_spent()
         total_remaining = self.get_total_remaining()
 
@@ -379,13 +432,38 @@ class Household:
                 "spent": self.get_category_spent(cat),
                 "remaining": self.get_category_remaining(cat),
             }
-        by_category["loose_money"] = loose_money
+        by_member = {member: self.get_member_status(member) for member in members}
 
-        # TODO: Member{category{contribution,spent,remaining}}
-        # TODO: Loose_money{total,members:{loose_money by member}}
+        return {
+            "totals": total,
+            "by_category": by_category,
+            "by_member": by_member,
+            "loose_money": {
+                "total": loose_money_total,
+                "by_member": loose_money_by_member,
+            },
+        }
 
-        return {"total": total, "by_category": by_category}
+    def get_settlement(self) -> dict:
+        """
+        Calcula las transferencias necesarias para saldar deudas entre miembros.
+        Basado en balances reales: pagado - acordado.
 
+        Solo tiene sentido al cierre del mes, cuando los gastos son definitivos.
+
+        Returns:
+            list[dict]: Lista de transferencias necesarias.
+            [{"from": "heri", "to": "amanda", "amount": 50000}]
+            Lista vacía si nadie debe a nadie (todos balance <= 0 o todos >= 0).
+
+        Ejemplo:
+            Amanda balance +80000 → acreedor
+            Heri   balance -80000 → deudor
+            → [{"from": "heri", "to": "amanda", "amount": 80000}]
+        """
+        #TODO Separar primero Ahorro + bool para categorías compartidas
+        # No tiene sentido que user b deba a user a en ahorro, ahorro es individual
+        pass
     # ====== INTERNAL HELPERS ======
     def get_total_incomes(self):
         """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
@@ -434,7 +512,6 @@ class Household:
                 return self._custom_splits
 
         return percentages
-
 
     # ====== VALIDATORS ======
     def _validate_has_members(self):
