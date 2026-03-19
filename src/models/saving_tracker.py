@@ -1,5 +1,6 @@
 from src.models.saving_account import SavingAccount
 from src.models.constants import SavingDestination
+from datetime import datetime
 
 
 class SavingTracker:
@@ -30,6 +31,36 @@ class SavingTracker:
         if member_name not in self._accounts:
             self._accounts[member_name] = SavingAccount(member_name)
 
+    def deposit(
+        self,
+        member_name: str,
+        amount_cents: int,
+        destination: SavingDestination,
+        description="",
+        date=None,
+    ):
+        self._accounts[member_name].deposit(
+            amount_cents=amount_cents,
+            destination=destination,
+            description=description,
+            date=date,
+        )
+
+    def withdraw(
+        self,
+        member_name: str,
+        amount_cents: int,
+        destination: SavingDestination,
+        description="",
+        date=None,
+    ):
+        self._accounts[member_name].withdraw(
+            amount_cents=amount_cents,
+            destination=destination,
+            description=description,
+            date=date,
+        )
+
     # ====== QUERIES INDIVIDUALES ======
 
     def get_shared_balance(self, member_name: str) -> int:
@@ -56,6 +87,20 @@ class SavingTracker:
         """
         history = self._accounts[member_name].get_history()
         return [e for e in history if e.destination == SavingDestination.SHARED]
+
+    def get_member_summary(self, member_name: str) -> dict:
+        """Retorna summary de ahorro del usuario"""
+        self._validate_member_has_account(member_name)
+        account = self._accounts[member_name]
+        now = datetime.now()
+
+        return {
+            "balance_total": account.balance_total,
+            "balance_personal": account.balance_personal,
+            "balance_shared": account.balance_shared,
+            "history": account.get_history(),
+            "actual_month": account.get_monthly_summary(now.month, now.year),
+        }
 
     # ====== QUERIES AGREGADAS ======
 
@@ -92,3 +137,20 @@ class SavingTracker:
             ]
 
         return result
+
+    def get_total_shared_history(self) -> dict[str, list]:
+        """Historial completo de movimientos compartidos de todos los miembros"""
+        return {
+            name: [
+                e
+                for e in account.get_history()
+                if e.destination == SavingDestination.SHARED
+            ]
+            for name, account in self._accounts.items()
+        }
+
+    # ====== Validadores ======
+    def _validate_member_has_account(self, member_name: str):
+        """Valida que el miembro tiene cuenta"""
+        if member_name not in self._accounts:
+            raise ValueError("Miembro no tiene SavingAccount en tracker")

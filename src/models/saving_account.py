@@ -44,12 +44,14 @@ class SavingAccount:
         """
         self._validate_valid_amount(amount_cents, "amount_cents")
 
-        self._entries.append(SavingEntry(
-            amount_cents=amount_cents,
-            destination=destination,
-            description=description.lower().strip(),
-            date=date or datetime.now(),
-        ))
+        self._entries.append(
+            SavingEntry(
+                amount_cents=amount_cents,
+                destination=destination,
+                description=description.lower().strip(),
+                date=date or datetime.now(),
+            )
+        )
 
     def withdraw(
         self,
@@ -83,12 +85,14 @@ class SavingAccount:
                 f"Disponible: {available} céntimos"
             )
 
-        self._entries.append(SavingEntry(
-            amount_cents=-amount_cents,
-            destination=destination,
-            description=description.lower().strip(),
-            date=date or datetime.now(),
-        ))
+        self._entries.append(
+            SavingEntry(
+                amount_cents=-amount_cents,
+                destination=destination,
+                description=description.lower().strip(),
+                date=date or datetime.now(),
+            )
+        )
 
     # ====== BALANCES ======
 
@@ -116,6 +120,26 @@ class SavingAccount:
     def get_history(self) -> list[SavingEntry]:
         """Retorna copia del historial completo de movimientos"""
         return self._entries.copy()
+
+    # ====== QUERIES ======
+    
+    def get_monthly_summary(self, month: int, year: int) -> dict:
+        """ Resumen del usuario en el mes actual """
+        entries = [
+            e for e in self._entries if e.date.month == month and e.date.year == year
+        ]
+        return {
+            "personal": sum(
+                e.amount_cents
+                for e in entries
+                if e.destination == SavingDestination.PERSONAL
+            ),
+            "shared": sum(
+                e.amount_cents
+                for e in entries
+                if e.destination == SavingDestination.SHARED
+            ),
+        }
 
     # ====== VALIDACIONES ======
 
