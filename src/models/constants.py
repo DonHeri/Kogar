@@ -1,6 +1,11 @@
 from enum import Enum
 
 
+class SavingDestination(Enum):
+    SHARED = "ahorro que contribuye al fondo conjunto del hogar"
+    PERSONAL = "ahorro que solo pertenece al miembro, no se agrega al hogar"
+
+
 class MetodoReparto(Enum):
     PROPORTIONAL = "proporcional"
     EQUAL = "igual"

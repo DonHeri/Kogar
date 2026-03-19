@@ -33,7 +33,8 @@ class Household:
             raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
-
+        #self.savings_tracker.create_account(member.name)
+    
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
         name = normalize_name(name)
