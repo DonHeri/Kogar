@@ -21,12 +21,13 @@ class Household:
 
         self.members: Dict[str, Member] = {}
         self.budget = budget
-        self.expense_tracker = expense_tracker
-        self.savings_tracker = saving_tracker
-        self.method = method
+        self.expense_tracker:ExpenseTracker = expense_tracker
+        self.savings_tracker:SavingTracker = saving_tracker
+        self.method:MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
         self._agreed_percentages = {}
+        self._member_debts: dict[str, int] = {}  # {member_name: amount_cents}
         self._agreed_contributions = {}
 
     # ====== MEMBERS MANAGEMENT ======
@@ -45,6 +46,17 @@ class Household:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].add_incomes(amount_cents)
+
+    # ====== REGISTRATION STATE (freeze/unfreeze) ======
+    def freeze_registration_state(self):
+        """Congela los ingresos registrados al pasar a fase PLANNING"""
+        self._registered_incomes = {
+            name: member.monthly_income for name, member in self.members.items()
+        }
+        for name in self.members:
+            self.savings_tracker.create_account(
+                name
+            )  # ← solo cuando el registro es definitivo
 
     # ====== CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
@@ -92,6 +104,12 @@ class Household:
         pct_basis = (category_budget * 10000) // total
         return pct_basis
 
+    # ====== SET DEBT - Declarar deuda para cada miembro ======
+    def set_member_debt(self, member_name: str, amount_cents: int) -> None:
+        """Declara la deuda personal mensual de un miembro (PLANNING)"""
+        self._validate_member_exist(member_name)
+        self._member_debts[member_name] = amount_cents
+
     # ====== DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
@@ -105,17 +123,6 @@ class Household:
         self._custom_splits = {
             name: to_percentage_basis(pct) for name, pct in splits.items()
         }
-
-    # ====== REGISTRATION STATE (freeze/unfreeze) ======
-    def freeze_registration_state(self):
-        """Congela los ingresos registrados al pasar a fase PLANNING"""
-        self._registered_incomes = {
-            name: member.monthly_income for name, member in self.members.items()
-        }
-        for name in self.members:
-            self.savings_tracker.create_account(
-                name
-            )  # ← solo cuando el registro es definitivo
 
     # ====== PLANNING STATE (freeze/unfreeze) ======
     def freeze_planning_state(self):
@@ -147,14 +154,7 @@ class Household:
             )
         return self._agreed_contributions.copy()
 
-    # ====== EXPENSES (MONTH phase) ======
-    def register_expense(self, expense: Expense):
-        """Registra un gasto (almacena solo en ExpenseTracker)"""
-        self._validate_member_exist(expense.member)
-        self._validate_category_exist(expense.category)
-        self.expense_tracker.add_expense(expense)
-
-    # ====== SAVINGS (PLANNING-MONTH phase) ======
+    # ====== SAVINGS (MONTH phase) ======
     def register_savings_deposit(
         self,
         member_name: str,
@@ -165,7 +165,6 @@ class Household:
     ):
         """"""
         self._validate_member_exist(member_name)
-        
 
         self.savings_tracker.deposit(
             member_name=member_name,
@@ -185,7 +184,6 @@ class Household:
     ):
         """"""
         self._validate_member_exist(member_name)
-        
 
         self.savings_tracker.withdraw(
             member_name=member_name,
@@ -197,18 +195,25 @@ class Household:
 
     def get_member_savings_summary(self, member_name: str):
         """Retorna dict resumen:
-            {
-            "balance_total" : int -> total ahorrado por el miembro,
-            "balance_personal": int -> total ahorrado por el miembro, destino PERSONAL, 
-            "balance_shared": int -> total ahorrado por el miembro, destino SHARED,
-            "history": list[SavingEntry] -> Copia completa de movimientos del miembro, 
-            "actual_month": {
-                "personal":int -> suma de ahorro personal del mes actual,
-                "shared":int -> suma de ahorro compartido del mes actual
-            }
-            }
-            """
+        {
+        "balance_total" : int -> total ahorrado por el miembro,
+        "balance_personal": int -> total ahorrado por el miembro, destino PERSONAL,
+        "balance_shared": int -> total ahorrado por el miembro, destino SHARED,
+        "history": list[SavingEntry] -> Copia completa de movimientos del miembro,
+        "actual_month": {
+            "personal":int -> suma de ahorro personal del mes actual,
+            "shared":int -> suma de ahorro compartido del mes actual
+        }
+        }
+        """
         return self.savings_tracker.get_member_summary(member_name)
+
+    # ====== EXPENSES (MONTH phase) ======
+    def register_expense(self, expense: Expense):
+        """Registra un gasto (almacena solo en ExpenseTracker)"""
+        self._validate_member_exist(expense.member)
+        self._validate_category_exist(expense.category)
+        self.expense_tracker.add_expense(expense)
 
     # ====== QUERIES - REGISTRATION ======
     def get_registration_summary(self):
@@ -282,10 +287,12 @@ class Household:
 
     def get_loose_money(self):
         """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
-
         total_incomes = self.get_total_incomes()
         total_budgeted = self.budget.get_total_budgeted()
-        return total_incomes - total_budgeted
+        loose = total_incomes - total_budgeted
+        if loose < 0:
+            raise ValueError("El presupuesto supera los ingresos del hogar")
+        return loose
 
     def get_loose_money_by_member(self, name: str) -> int:
         name = normalize_name(name)

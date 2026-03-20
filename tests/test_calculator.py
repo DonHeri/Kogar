@@ -3,6 +3,7 @@ from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
 from src.models.budget import Budget
 from src.models.expense_tracker import ExpenseTracker
+from src.models.saving_tracker import SavingTracker
 from src.models.member import Member
 from src.models.constants import MetodoReparto
 
@@ -41,8 +42,9 @@ def percentages_66_33():
 def household_base():
     b = Budget()
     e = ExpenseTracker()
+    s = SavingTracker()
     b.set_standard_categories()
-    return Household(budget=b, expense_tracker=e)
+    return Household(budget=b, expense_tracker=e, saving_tracker=s)
 
 
 # ====================================================
@@ -226,7 +228,9 @@ def test_calculate_contribution_remainder_distributed_by_largest_truncation_loss
 def test_calculate_contribution_three_members():
     income_map = {"A": 500000, "B": 300000, "C": 200000}
     budget = 100000
-    contributions = FinanceCalculator.calculate_contribution_from_incomes(income_map, budget)
+    contributions = FinanceCalculator.calculate_contribution_from_incomes(
+        income_map, budget
+    )
     assert contributions["A"] == 50000
     assert contributions["B"] == 30000
     assert contributions["C"] == 20000
@@ -235,7 +239,9 @@ def test_calculate_contribution_three_members():
 
 def test_calculate_contribution_totals_always_match_budget(incomes_map):
     for budget in [90000, 300000, 500000, 1000000]:
-        contributions = FinanceCalculator.calculate_contribution_from_incomes(incomes_map, budget)
+        contributions = FinanceCalculator.calculate_contribution_from_incomes(
+            incomes_map, budget
+        )
         assert sum(contributions.values()) == budget
 
 
@@ -256,7 +262,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
 
     household_base.set_budget_for_category("fijos", 150000)
     household_base.set_budget_for_category("variables", 90000)
-    household_base.set_budget_for_category("deuda/ahorro", 60000)
+    household_base.set_budget_for_category("reserva", 60000)
 
     contributions = household_base.get_current_contributions()
 
@@ -312,7 +318,7 @@ def test_edge_case_five_members_equal_split(household_base):
 
     household_base.set_budget_for_category("fijos", 150000)
     household_base.set_budget_for_category("variables", 90000)
-    household_base.set_budget_for_category("deuda/ahorro", 60000)
+    household_base.set_budget_for_category("reserva", 60000)
 
     contributions = household_base.get_current_contributions()
 
@@ -339,7 +345,7 @@ def test_edge_case_one_cent_per_category(household_base):
 
     household_base.set_budget_for_category("fijos", 1)
     household_base.set_budget_for_category("variables", 1)
-    household_base.set_budget_for_category("deuda/ahorro", 1)
+    household_base.set_budget_for_category("reserva", 1)
 
     contributions = household_base.get_current_contributions()
 

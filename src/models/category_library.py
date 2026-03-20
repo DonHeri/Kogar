@@ -4,10 +4,11 @@ class CategoryLibrary:
     STANDARD_CATEGORIES = {
         "fijos": "Gastos fijos mensuales recurrentes",
         "variables": "Gastos variables del día a día",
-        "deuda/ahorro": "Pagos de deudas y préstamos. Ahorro mensual",
+        "reserva": "Reserva personal: deuda y ahorro individual",
     }
 
     EXTENDED_CATEGORIES = {
+        "deuda": "Préstamos e intereses personales",
         "salud": "Gastos médicos y farmacia",
         "transporte": "Coche, gasolina, transporte público",
         "ocio": "Entretenimiento y hobbies",

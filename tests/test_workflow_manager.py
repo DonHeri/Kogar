@@ -2,6 +2,7 @@ import pytest
 from src.models.household import Household
 from src.models.budget import Budget
 from src.models.expense_tracker import ExpenseTracker
+from src.models.saving_tracker import SavingTracker
 from src.models.constants import Phase, MetodoReparto
 from src.workflow.workflow_manager import WorkflowManager
 
@@ -13,7 +14,7 @@ from src.workflow.workflow_manager import WorkflowManager
 
 @pytest.fixture
 def household():
-    return Household(Budget(), ExpenseTracker())
+    return Household(Budget(), ExpenseTracker(), SavingTracker())
 
 
 @pytest.fixture
@@ -125,15 +126,13 @@ def test_finish_registration_freezes_incomes(wm):
     wm.set_incomes("Amanda", 3000)
     wm.set_incomes("Heri", 2000)
 
-    # Antes de finish_registration, no hay ingresos congelados
     assert wm.household._registered_incomes == {}
 
     wm.finish_registration()
 
-    # Después de finish_registration, ingresos están congelados
     assert wm.household._registered_incomes == {
-        "amanda": 300000,  # 3000 EUR en céntimos
-        "heri": 200000,  # 2000 EUR en céntimos
+        "amanda": 300000,
+        "heri": 200000,
     }
     assert wm.current_phase == Phase.PLANNING
 
@@ -146,17 +145,15 @@ def test_planning_phase_uses_frozen_incomes(wm):
     wm.set_incomes("Heri", 2000)
     wm.finish_registration()
 
-    # Ingresos congelados: Amanda=3000, Heri=2000, Total=5000
     total_frozen = wm.get_total_incomes()
-    assert total_frozen == 500000  # 5000 EUR
+    assert total_frozen == 500000
 
-    # Intentar modificar ingresos MUTABLES directamente (simula bug o acceso directo)
-    wm.household.members["amanda"].monthly_income = 600000  # 6000 EUR
+    # Mutamos directamente — los congelados no deben cambiar
+    wm.household.members["amanda"].monthly_income = 600000
 
-    # get_total_incomes() debe seguir usando datos CONGELADOS, no mutables
     total_after_mutation = wm.get_total_incomes()
-    assert total_after_mutation == 500000  # Sigue siendo 5000 EUR (congelado)
-    assert total_after_mutation != 800000  # NO debe ser 8000 EUR (6000 + 2000)
+    assert total_after_mutation == 500000
+    assert total_after_mutation != 800000
 
 
 def test_finish_registration_partial_incomes_ok(wm):
@@ -244,7 +241,6 @@ def test_set_budget_for_category_in_planning_phase(wm):
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
-    # En PLANNING, asignar presupuesto
     wm.set_budget_for_category("fijos", 2000)
     assert wm.household.get_category_budget("fijos") == 200000
 
@@ -254,7 +250,6 @@ def test_set_budget_for_category_raises_if_not_in_planning(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
 
-    # Aún en REGISTRATION
     with pytest.raises(ValueError, match="planificación"):
         wm.set_budget_for_category("fijos", 2000)
 
@@ -330,6 +325,21 @@ def test_get_planning_summary_includes_all_key_data(wm):
     assert required_keys.issubset(set(summary.keys()))
 
 
+def test_get_planning_summary_raises_if_budget_exceeds_income(wm):
+    """get_planning_summary lanza ValueError si el presupuesto supera los ingresos"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    # Ingresos: 300000 — presupuesto: 700000
+    wm.set_budget_for_category("fijos", 4000)
+    wm.set_budget_for_category("variables", 3000)
+
+    with pytest.raises(ValueError, match="El presupuesto supera los ingresos del hogar"):
+        wm.get_planning_summary()
+
+
 # ====================================================
 # TESTS: PLANNING PHASE - Transitions to MONTH
 # ====================================================
@@ -362,7 +372,6 @@ def test_finish_planning_raises_if_no_categories(wm):
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
-    # No agregamos categorías
     with pytest.raises(ValueError, match="al menos una categoría"):
         wm.finish_planning()
 
@@ -374,7 +383,6 @@ def test_finish_planning_raises_if_no_budget_assigned(wm):
     wm.set_incomes("Amanda", 5000)
     wm.finish_registration()
 
-    # Categorías existen pero sin presupuesto asignado
     with pytest.raises(ValueError, match="presupuesto"):
         wm.finish_planning()
 
@@ -408,22 +416,19 @@ def test_finish_planning_freezes_agreed_state(wm):
     wm.set_budget_for_category("fijos", 5000)
     wm.set_budget_for_category("variables", 2000)
 
-    # Antes de finish_planning, no hay datos congelados
     assert wm.household._agreed_percentages == {}
     assert wm.household._agreed_contributions == {}
 
     wm.finish_planning()
 
-    # Después de finish_planning, datos están congelados
     assert wm.household._agreed_percentages == {"amanda": 6000, "heri": 4000}
     assert "fijos" in wm.household._agreed_contributions
     assert "variables" in wm.household._agreed_contributions
 
-    # Verificar estructura de contributions
     fijos_contrib = wm.household._agreed_contributions["fijos"]
     assert "contributions" in fijos_contrib
     assert fijos_contrib["contributions"]["amanda"] == 300000  # 60% de 500000
-    assert fijos_contrib["contributions"]["heri"] == 200000  # 40% de 500000
+    assert fijos_contrib["contributions"]["heri"] == 200000   # 40% de 500000
 
 
 # ====================================================
@@ -459,7 +464,7 @@ def test_set_standard_categories_creates_defaults(wm):
     categories = wm.get_active_categories()
     assert "fijos" in categories
     assert "variables" in categories
-    assert "deuda/ahorro" in categories
+    assert "reserva" in categories
 
 
 def test_remove_category_in_planning_phase(wm):
@@ -591,7 +596,7 @@ def test_get_agreed_contributions_in_month(wm):
     assert "fijos" in frozen_contributions
     assert "variables" in frozen_contributions
     assert frozen_contributions["fijos"]["contributions"]["amanda"] == 300000  # 60%
-    assert frozen_contributions["fijos"]["contributions"]["heri"] == 200000  # 40%
+    assert frozen_contributions["fijos"]["contributions"]["heri"] == 200000   # 40%
 
 
 def test_get_agreed_contributions_fails_in_planning(wm):
@@ -609,6 +614,7 @@ def test_get_agreed_contributions_fails_in_planning(wm):
 # ====================================================
 # TESTS: set_custom_splits
 # ====================================================
+
 def test_set_custom_splits_in_planning_phase(wm):
     """set_custom_splits() establece porcentajes personalizados en PLANNING"""
     wm.register_member("Amanda")
@@ -633,6 +639,7 @@ def test_set_custom_splits_raises_if_not_in_planning(wm):
 # ====================================================
 # TESTS: preview_budget_contribution_summary y get_current_contributions
 # ====================================================
+
 def test_preview_budget_contribution_summary_in_planning(wm):
     """preview_budget_contribution_summary() muestra preview con método específico"""
     wm.household.budget.set_standard_categories()
@@ -667,12 +674,13 @@ def test_get_current_contributions_in_planning(wm):
 
     assert "fijos" in contributions
     assert contributions["fijos"]["contributions"]["amanda"] == 300000  # 60%
-    assert contributions["fijos"]["contributions"]["heri"] == 200000  # 40%
+    assert contributions["fijos"]["contributions"]["heri"] == 200000   # 40%
 
 
 # ====================================================
 # TESTS: register_expense (MONTH phase)
 # ====================================================
+
 def test_register_expense_in_month_phase(wm):
     """register_expense() registra gasto correctamente en MONTH"""
     from src.models.expense import Expense
@@ -774,6 +782,7 @@ def test_register_expense_empty_description_ok(wm):
 # ====================================================
 # TESTS: get_registration_summary y get_month_summary
 # ====================================================
+
 def test_get_registration_summary_in_registration_phase(wm):
     """get_registration_summary() retorna resumen en REGISTRATION"""
     wm.register_member("Amanda")
@@ -815,10 +824,10 @@ def test_get_month_summary_in_month_phase(wm):
 
     summary = wm.get_month_summary()
 
-    assert "total" in summary
+    assert "totals" in summary
     assert "by_category" in summary
-    assert summary["total"]["total_budgeted"] == 200000
-    assert summary["total"]["total_spent"] == 50000
+    assert summary["totals"]["total_budgeted"] == 200000
+    assert summary["totals"]["total_spent"] == 50000
 
 
 def test_get_month_summary_raises_if_not_in_month(wm):
@@ -840,7 +849,7 @@ def test_set_budget_by_percentage_wrong_phase(wm):
     """set_budget_by_percentage lanza error si no estamos en PLANNING"""
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
-    # Aún en REGISTRATION, no en PLANNING
+
     with pytest.raises(ValueError, match="planificación"):
         wm.set_budget_by_percentage("fijos", 50.0)
 
@@ -878,9 +887,9 @@ def test_set_budget_by_percentage_zero(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentage("deuda/ahorro", 0.0)
+    wm.set_budget_by_percentage("reserva", 0.0)
 
-    assert wm.household.budget.get_category_budget("deuda/ahorro") == 0
+    assert wm.household.budget.get_category_budget("reserva") == 0
 
 
 # ====================================================
@@ -892,7 +901,7 @@ def test_get_budget_as_percentage_wrong_phase(wm):
     """get_budget_as_percentage lanza error si no estamos en PLANNING"""
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
-    # Aún en REGISTRATION, no en PLANNING
+
     with pytest.raises(ValueError, match="planificación"):
         wm.get_budget_as_percentage("fijos")
 
@@ -932,8 +941,8 @@ def test_get_budget_as_percentage_roundtrip(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentage("deuda/ahorro", 40.0)
-    retrieved = wm.get_budget_as_percentage("deuda/ahorro")
+    wm.set_budget_by_percentage("reserva", 40.0)
+    retrieved = wm.get_budget_as_percentage("reserva")
 
     assert retrieved == 4000  # 40%
 
@@ -951,13 +960,13 @@ def test_apply_percentage_distribution_basic(wm):
     wm.finish_registration()
 
     wm.apply_percentage_distribution(
-        {"fijos": 50.0, "variables": 30.0, "deuda/ahorro": 20.0}
+        {"fijos": 50.0, "variables": 30.0, "reserva": 20.0}
     )
 
     # Ingresos: 300000 céntimos
-    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
+    assert wm.household.budget.get_category_budget("fijos") == 150000    # 50%
     assert wm.household.budget.get_category_budget("variables") == 90000  # 30%
-    assert wm.household.budget.get_category_budget("deuda/ahorro") == 60000  # 20%
+    assert wm.household.budget.get_category_budget("reserva") == 60000   # 20%
 
 
 def test_apply_percentage_distribution_sum_exceeds_100(wm):
@@ -969,7 +978,7 @@ def test_apply_percentage_distribution_sum_exceeds_100(wm):
 
     with pytest.raises(ValueError, match="suman.*%.*máximo.*100%"):
         wm.apply_percentage_distribution(
-            {"fijos": 60.0, "variables": 50.0, "deuda/ahorro": 20.0}
+            {"fijos": 60.0, "variables": 50.0, "reserva": 20.0}
         )
 
 
@@ -995,17 +1004,14 @@ def test_apply_percentage_distribution_partial_allocation(wm):
 
     wm.apply_percentage_distribution({"fijos": 50.0, "variables": 20.0})
 
-    # Ingresos: 300000 céntimos
-    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
+    assert wm.household.budget.get_category_budget("fijos") == 150000   # 50%
     assert wm.household.budget.get_category_budget("variables") == 60000  # 20%
-    # deuda/ahorro queda sin asignar (0 o valor anterior)
 
 
 def test_apply_percentage_distribution_wrong_phase(wm):
     """Lanza error si no estamos en PLANNING"""
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
-    # Aún en REGISTRATION
 
     with pytest.raises(ValueError, match="planificación"):
         wm.apply_percentage_distribution({"fijos": 50.0})
@@ -1018,10 +1024,8 @@ def test_apply_percentage_distribution_empty_dict(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    # No debe lanzar error, simplemente no asigna nada
     wm.apply_percentage_distribution({})
 
-    # Presupuestos deben quedar en 0 (sin cambios)
     assert wm.household.budget.get_category_budget("fijos") == 0
 
 
@@ -1033,12 +1037,10 @@ def test_apply_percentage_distribution_fractional_percentages(wm):
     wm.finish_registration()
 
     wm.apply_percentage_distribution(
-        {"fijos": 33.33, "variables": 33.33, "deuda/ahorro": 33.34}
+        {"fijos": 33.33, "variables": 33.33, "reserva": 33.34}
     )
 
     # Ingresos: 300000 céntimos (3000€)
-    # 33.33% = 99990, 33.34% = 100020
     assert wm.household.budget.get_category_budget("fijos") == 99990
     assert wm.household.budget.get_category_budget("variables") == 99990
-    assert wm.household.budget.get_category_budget("deuda/ahorro") == 100020
-    # Total: 300000 (sin pérdida por redondeo)
+    assert wm.household.budget.get_category_budget("reserva") == 100020

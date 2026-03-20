@@ -197,8 +197,13 @@ class WorkflowManager:
         self.household.register_expense(expense=expense)
 
     # ====== PLANNING PHASE - SAVING ======
-    def set_member_debt(self): ...
-
+    def set_member_debt(self, member: str, amount_euros: float) -> None:
+        """Declara la deuda personal mensual de un miembro (PLANNING)"""
+        self.validate_phase(Phase.PLANNING)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.set_member_debt(member, amount_cents)
+    
     def register_savings_deposit(
         self,
         member: str,
