@@ -165,7 +165,7 @@ class Household:
     ):
         """"""
         self._validate_member_exist(member_name)
-        self.savings_tracker._validate_member_has_account(member_name)
+        
 
         self.savings_tracker.deposit(
             member_name=member_name,
@@ -185,7 +185,7 @@ class Household:
     ):
         """"""
         self._validate_member_exist(member_name)
-        self.savings_tracker._validate_member_has_account(member_name)
+        
 
         self.savings_tracker.withdraw(
             member_name=member_name,

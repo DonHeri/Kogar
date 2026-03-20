@@ -1,7 +1,7 @@
 from src.models.member import Member
 from src.models.household import Household
 from src.models.expense import Expense
-from src.models.constants import Phase, MetodoReparto
+from src.models.constants import Phase, MetodoReparto,SavingDestination
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -115,7 +115,7 @@ class WorkflowManager:
         # Validar que todas las categorías existen ANTES de aplicar
         active_categories = self.household.get_active_categories()
         missing = [cat for cat in percentages.keys() if cat not in active_categories]
-        if missing: #FIXME O crear standard_categories???
+        if missing:  # FIXME O crear standard_categories???
             raise ValueError(
                 f"Categorías no existen: {missing}. "
                 f"Llama a set_standard_categories() o add_category() primero."
@@ -124,7 +124,7 @@ class WorkflowManager:
         # Aplicar (ahora seguro que todas existen)
         for category, pct in percentages.items():
             self.set_budget_by_percentage(category, pct)
-    
+
     # ====== PLANNING PHASE - Contribution Queries ======
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
@@ -178,6 +178,7 @@ class WorkflowManager:
         self._completed_phases.add(Phase.MONTH)
 
     # ====== MONTH PHASE - Expense Registration ======
+
     def register_expense(
         self, member: str, category: str, amount_euros: float, desc=""
     ):
@@ -194,6 +195,47 @@ class WorkflowManager:
             description=desc,
         )
         self.household.register_expense(expense=expense)
+
+    # ====== PLANNING PHASE - SAVING ======
+    def set_member_debt(self): ...
+
+    def register_savings_deposit(
+        self,
+        member: str,
+        amount_euros: float,
+        destination: SavingDestination,
+        description: str = "",
+        date=None,
+    ) -> None:
+        """Registra un depósito en la cuenta de ahorro de un miembro (MONTH)"""
+        self.validate_phase(Phase.MONTH)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.register_savings_deposit(
+            member, amount_cents, destination, description, date
+        )
+    
+    def register_savings_withdrawal(
+        self,
+        member: str,
+        amount_euros: float,
+        destination: SavingDestination,
+        description: str = "",
+        date=None,
+    ) -> None:
+        """Registra un retiro de la cuenta de ahorro de un miembro (MONTH)"""
+        self.validate_phase(Phase.MONTH)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.register_savings_withdrawal(
+            member, amount_cents, destination, description, date
+        )
+    
+    def get_member_savings_summary(self, member: str) -> dict:
+        """Retorna resumen de ahorro de un miembro (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member)
+        return self.household.get_member_savings_summary(member)
 
     # ====== MONTH PHASE - member balance Queries ======
     def get_member_owed_total(self, member_name: str) -> int:
