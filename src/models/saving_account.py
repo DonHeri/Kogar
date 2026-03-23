@@ -113,7 +113,11 @@ class SavingAccount:
     @property
     def balance_personal(self) -> int:
         """Total ahorrado en el fondo personal"""
-        return self.balance_total - self.balance_shared
+        return sum(
+            entry.amount_cents
+            for entry in self._entries
+            if entry.destination == SavingDestination.PERSONAL
+        )
 
     # ====== HISTORIAL ======
 
@@ -151,4 +155,4 @@ class SavingAccount:
         if not isinstance(value, int):
             raise ValueError(f"{field_name} debe ser entero")
         if value <= 0:
-            raise ValueError(f"{field_name} debe ser superior a 0")
+            raise ValueError(f"{field_name} debe ser distinto a 0")

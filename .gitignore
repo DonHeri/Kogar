@@ -77,6 +77,8 @@ docs/
 PRODUCT.md
 TODO.md
 LEARNING.md
+CLAUDE.md
+CONTEXT.md
 
 # Logs de error y salidas de texto
 *.log

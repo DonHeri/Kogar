@@ -175,6 +175,16 @@ def test_calculate_equal_percentage_ignores_income_for_base_split():
 # ====================================================
 
 
+def test_calculate_contribution_from_custom_splits_raises_if_mismatch():
+    """Test: Lanza error de seguridad si el total repartido no coincide con el presupuesto"""
+    # Pasando un diccionario vacío forzamos que reparta 0 céntimos de un budget de 1000
+    with pytest.raises(
+        ValueError,
+        match="El total asignado en contribution es diferente al monto presupuestado",
+    ):
+        FinanceCalculator.calculate_contribution_from_custom_splits({}, 1000)
+
+
 def test_calculate_contribution_basic_67_33(percentages_66_33):
     budget = 90000
     contributions = FinanceCalculator.calculate_contribution_from_custom_splits(
@@ -374,3 +384,5 @@ def test_edge_case_ten_categories_accumulate_remainders(household_base):
     )
 
     assert amanda_total <= 200000, f"Amanda excede: {amanda_total - 200000}¢"
+
+

@@ -72,13 +72,4 @@ class CategoryLibrary:
 
         return normalized
 
-    @staticmethod
-    def find_similar(user_input: str) -> list[str]:  # TODO
-        """
-        Busca categorías similares si el usuario escribe mal
-        "fixos" → ["fijos"] (distancia de edición)
-        "transporte" → ["transporte"] si no existe, sugerir
 
-        Usa difflib.SequenceMatcher (como dijiste en LEARNING.md)
-        """
-        pass

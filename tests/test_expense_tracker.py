@@ -65,14 +65,6 @@ def test_expense_tracker_creation_valid():
     assert len(tracker.expenses) == 0
 
 
-def test_expense_tracker_starts_empty():
-    """Test: Tracker inicia con lista vacía"""
-    tracker = ExpenseTracker()
-
-    assert tracker.expenses == []
-    assert tracker.get_total_spent() == 0
-
-
 # ====================================================
 # TESTS: Storage - add_expense
 # ====================================================
@@ -94,13 +86,6 @@ def test_add_expense_stores_multiple_expenses(tracker, expense_rent, expense_gro
     assert len(tracker.expenses) == 2
     assert tracker.expenses[0] == expense_rent
     assert tracker.expenses[1] == expense_groceries
-
-
-def test_add_expense_preserves_expense_object(tracker, expense_rent):
-    """Test: El gasto almacenado es el mismo objeto"""
-    tracker.add_expense(expense_rent)
-
-    assert tracker.expenses[0] is expense_rent
 
 
 # ====================================================

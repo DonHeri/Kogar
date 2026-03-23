@@ -1,10 +1,12 @@
 import pytest
+from datetime import datetime
 from src.models.member import Member
 from src.models.household import Household
 from src.models.budget import Budget
 from src.models.expense_tracker import ExpenseTracker
 from src.models.saving_tracker import SavingTracker
-from src.models.constants import MetodoReparto
+from src.models.constants import MetodoReparto, SavingDestination
+
 
 # ====================================================
 # FIXTURES
@@ -484,7 +486,9 @@ def test_get_planning_summary_with_loose_money(household_with_members):
 
 def test_get_planning_summary_includes_contributions_preview(household_with_members):
     """get_planning_summary incluye preview de contribuciones"""
-    household_with_members.set_budget_for_category("fijos", 200000)  # <= 300000 ingresos
+    household_with_members.set_budget_for_category(
+        "fijos", 200000
+    )  # <= 300000 ingresos
 
     summary = household_with_members.get_planning_summary()
 
@@ -507,13 +511,17 @@ def test_get_planning_summary_raises_if_budget_exceeds_income(household_with_mem
     household_with_members.set_budget_for_category("variables", 200000)
     household_with_members.set_budget_for_category("reserva", 100000)
 
-    with pytest.raises(ValueError, match="El presupuesto supera los ingresos del hogar"):
+    with pytest.raises(
+        ValueError, match="El presupuesto supera los ingresos del hogar"
+    ):
         household_with_members.get_planning_summary()
 
 
 def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
     """get_planning_summary percentages siempre suman 10000 (100%)"""
-    household_with_members.set_budget_for_category("fijos", 200000)  # <= 300000 ingresos
+    household_with_members.set_budget_for_category(
+        "fijos", 200000
+    )  # <= 300000 ingresos
 
     summary = household_with_members.get_planning_summary()
 
@@ -570,6 +578,7 @@ def test_get_category_budget_returns_amount(household_with_members):
 # ====================================================
 # TESTS: get_registered_incomes
 # ====================================================
+
 
 def test_get_registered_incomes_raises_if_not_frozen(household_with_members):
     """Debe fallar si intentas obtener ingresos antes de congelarlos"""
@@ -796,6 +805,7 @@ def test_get_total_remaining_can_be_negative(household_with_members):
 # TESTS: get_registration_summary
 # ====================================================
 
+
 def test_get_registration_summary_returns_correct_structure(household_with_members):
     """Debe retornar members, member_incomes, total_household_income"""
     summary = household_with_members.get_registration_summary()
@@ -816,6 +826,7 @@ def test_get_registration_summary_returns_correct_structure(household_with_membe
 # ====================================================
 # TESTS: get_loose_money
 # ====================================================
+
 
 def test_get_loose_money_returns_difference_between_income_and_budget(
     household_with_members,
@@ -841,13 +852,16 @@ def test_get_loose_money_raises_if_budget_exceeds_income(household_with_members)
     """Presupuestar más de los ingresos lanza ValueError"""
     household_with_members.set_budget_for_category("fijos", 350000)
 
-    with pytest.raises(ValueError, match="El presupuesto supera los ingresos del hogar"):
+    with pytest.raises(
+        ValueError, match="El presupuesto supera los ingresos del hogar"
+    ):
         household_with_members.get_loose_money()
 
 
 # ====================================================
 # TESTS: get_member_owed_total()
 # ====================================================
+
 
 def test_get_member_owed_total_sums_all_category_contributions(household_with_members):
     """Debe sumar todas las contribuciones acordadas del miembro"""
@@ -886,6 +900,7 @@ def test_get_member_owed_total_raises_if_member_not_exists(household_with_member
 # ====================================================
 # TESTS: get_member_balance()
 # ====================================================
+
 
 def test_get_member_balance_negative_when_owes_money(household_with_members):
     """Balance negativo cuando el miembro debe dinero (paid < owed)"""
@@ -966,6 +981,7 @@ def test_get_member_balance_raises_if_member_not_exists(household_with_members):
 # ====================================================
 # TESTS: get_member_status()
 # ====================================================
+
 
 def test_get_member_status_returns_complete_structure(household_with_members):
     """Debe retornar dict con: income, owed, paid, balance, by_category"""
@@ -1076,6 +1092,7 @@ def test_get_member_status_raises_if_member_not_exists(household_with_members):
 # TESTS: get_month_summary()
 # ====================================================
 
+
 def test_get_month_summary_returns_complete_structure(household_with_members):
     """Debe retornar dict con 'totals' y 'by_category'"""
     from src.models.expense import Expense
@@ -1171,6 +1188,7 @@ def test_get_month_summary_by_category_has_correct_structure(household_with_memb
 # ====================================================
 # TESTS: get_agreed_percentages() y get_agreed_contributions()
 # ====================================================
+
 
 def test_get_agreed_percentages_raises_if_not_frozen(household_with_members):
     """Debe fallar si finish_planning() no ha sido llamado"""
@@ -1325,3 +1343,60 @@ def test_get_budget_as_percentage_roundtrip_consistency(household_with_members):
     retrieved_pct = household_with_members.get_budget_as_percentage("fijos")
 
     assert retrieved_pct == 5000
+
+
+# ====================================================
+# TESTS: Savings y Loose Money
+# ====================================================
+
+
+def test_register_savings_deposit_delegates_to_tracker(household_with_members):
+    """Test: registrar un depósito de ahorro funciona y actualiza el balance"""
+    # Congelamos para que se creen las cuentas en el SavingTracker
+    household_with_members.freeze_registration_state()
+
+    household_with_members.register_savings_deposit(
+        "member1", 5000, SavingDestination.PERSONAL, "Ahorro test", datetime.now()
+    )
+
+    summary = household_with_members.get_member_savings_summary("member1")
+    assert summary["balance_personal"] == 5000
+
+
+def test_register_savings_withdrawal_delegates_to_tracker(household_with_members):
+    """Test: registrar un retiro de ahorro reduce el balance"""
+    household_with_members.freeze_registration_state()
+    household_with_members.register_savings_deposit(
+        "member1", 10000, SavingDestination.SHARED, "Fondo común"
+    )
+
+    household_with_members.register_savings_withdrawal(
+        "member1", 4000, SavingDestination.SHARED, "Gasto casa"
+    )
+
+    summary = household_with_members.get_member_savings_summary("member1")
+    assert summary["balance_shared"] == 6000
+
+
+def test_get_loose_money_by_member_with_equal_method(household_with_members):
+    """Test: calcula el dinero suelto equitativamente por miembro"""
+    household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
+    household_with_members.set_budget_for_category("fijos", 200000)
+    # Ingresos 300000 - Presupuesto 200000 = Loose 100000. Mitad = 50000.
+
+    loose_m1 = household_with_members.get_loose_money_by_member("member1")
+    loose_m2 = household_with_members.get_loose_money_by_member("member2")
+
+    assert loose_m1 == 50000
+    assert loose_m2 == 50000
+
+
+def test_get_loose_money_by_member_with_custom_method(household_with_members):
+    """Test: calcula el dinero suelto según porcentajes custom por miembro"""
+    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
+    household_with_members.assign_distribution_method(MetodoReparto.CUSTOM)
+    household_with_members.set_budget_for_category("fijos", 200000)
+    # Loose 100000. 70% = 70000.
+
+    loose_m1 = household_with_members.get_loose_money_by_member("member1")
+    assert loose_m1 == 70000

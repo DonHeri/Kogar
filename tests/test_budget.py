@@ -146,3 +146,4 @@ def test_get_category_budget_normalizes_name(budget):
 def test_get_category_budget_invalid_category_raises_error(budget):
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
         budget.get_category_budget("inexistente")
+
