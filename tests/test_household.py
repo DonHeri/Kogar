@@ -35,7 +35,9 @@ def base_household():
     e = ExpenseTracker()
     s = SavingTracker()
     b.set_standard_categories()
-    return Household(budget=b, expense_tracker=e, saving_tracker=s)
+    return Household(
+        budget=b, expense_tracker=e, saving_tracker=s, method=MetodoReparto.EQUAL
+    )
 
 
 @pytest.fixture
@@ -460,8 +462,13 @@ def test_get_planning_summary_basic(household_with_members):
     assert isinstance(summary, dict)
     assert summary["members"] == ["member1", "member2"]
     assert summary["total_household_income"] == 300000
+
     assert summary["total_budgeted"] == 300000
     assert summary["loose_money"]["total"] == 0
+    assert summary["debt"]["member1"] == 0
+    assert summary["debt"]["member2"] == 0
+    assert summary["saving_goals"]["member1"] == 0
+    assert summary["saving_goals"]["member2"] == 0
 
 
 def test_get_planning_summary_includes_distribution_method(household_with_members):
@@ -470,7 +477,7 @@ def test_get_planning_summary_includes_distribution_method(household_with_member
 
     summary = household_with_members.get_planning_summary()
 
-    assert summary["distribution_method"] == MetodoReparto.PROPORTIONAL.value
+    assert summary["distribution_method"] == MetodoReparto.EQUAL.value
 
 
 def test_get_planning_summary_with_loose_money(household_with_members):
@@ -497,6 +504,16 @@ def test_get_planning_summary_includes_contributions_preview(household_with_memb
     contributions = summary["contributions_preview"]["fijos"]["contributions"]
     assert sum(contributions.values()) == 200000
 
+def test_get_planning_summary_includes_debts(household_with_members):
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
+    household_with_members.set_budget_for_category("reserva", 0)
+    
+    summary = household_with_members.get_planning_summary()
+    
+    assert summary["loose_money"]["total"] == 150000
+    
+    pass
 
 def test_get_planning_summary_raises_if_no_members(base_household):
     """get_planning_summary lanza ValueError si no hay miembros"""
@@ -504,17 +521,18 @@ def test_get_planning_summary_raises_if_no_members(base_household):
         base_household.get_planning_summary()
 
 
-def test_get_planning_summary_raises_if_budget_exceeds_income(household_with_members):
-    """get_planning_summary lanza ValueError si el presupuesto supera los ingresos"""
+def test_get_planning_summary_returns_negative_loose_money_when_over_budget(
+    household_with_members,
+):
+    """get_planning_summary permite over-budget y muestra loose_money negativo"""
     # Ingresos totales: 300000 — presupuesto: 600000
     household_with_members.set_budget_for_category("fijos", 300000)
     household_with_members.set_budget_for_category("variables", 200000)
     household_with_members.set_budget_for_category("reserva", 100000)
 
-    with pytest.raises(
-        ValueError, match="El presupuesto supera los ingresos del hogar"
-    ):
-        household_with_members.get_planning_summary()
+    summary = household_with_members.get_planning_summary()
+
+    assert summary["loose_money"]["total"] == -300000
 
 
 def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
@@ -848,14 +866,13 @@ def test_get_loose_money_zero_when_budget_equals_income(household_with_members):
     assert loose_money == 0
 
 
-def test_get_loose_money_raises_if_budget_exceeds_income(household_with_members):
-    """Presupuestar más de los ingresos lanza ValueError"""
+def test_get_loose_money_returns_negative_when_over_budget(household_with_members):
+    """Over-budget devuelve loose_money negativo, no lanza excepción"""
     household_with_members.set_budget_for_category("fijos", 350000)
 
-    with pytest.raises(
-        ValueError, match="El presupuesto supera los ingresos del hogar"
-    ):
-        household_with_members.get_loose_money()
+    loose = household_with_members.get_loose_money()
+
+    assert loose == -50000
 
 
 # ====================================================
@@ -1400,3 +1417,53 @@ def test_get_loose_money_by_member_with_custom_method(household_with_members):
 
     loose_m1 = household_with_members.get_loose_money_by_member("member1")
     assert loose_m1 == 70000
+
+
+# ====================================================
+# TESTS: validate_debt_and_saving_dont_exceed_capacity
+# ====================================================
+
+
+def test_validate_debt_and_saving_passes_within_reserva(household_with_members):
+    """Deuda + ahorro dentro de la parte de reserva no lanza"""
+    # EQUAL: reserva 120000 / 2 = 60000 por miembro
+    household_with_members.set_budget_for_category("reserva", 120000)
+    household_with_members.set_member_saving_goal("member1", 40000)
+    household_with_members.set_member_debt("member1", 10000)
+
+    # 40000 + 10000 = 50000 <= 60000 → OK
+    household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+
+
+def test_validate_debt_and_saving_raises_when_exceeds_reserva(household_with_members):
+    """Deuda + ahorro mayor que la parte de reserva del miembro lanza ValueError"""
+    # EQUAL: reserva 120000 / 2 = 60000 por miembro
+    household_with_members.set_budget_for_category("reserva", 120000)
+    household_with_members.set_member_saving_goal("member1", 50000)
+    household_with_members.set_member_debt("member1", 20000)
+
+    # 50000 + 20000 = 70000 > 60000 → lanza
+    with pytest.raises(ValueError, match="member1"):
+        household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+
+
+def test_validate_debt_and_saving_no_reserva_raises_if_commitments(
+    household_with_members,
+):
+    """Sin categoría reserva, cualquier compromiso supera capacidad 0"""
+    household_with_members.set_member_saving_goal("member1", 1)
+
+    with pytest.raises(ValueError, match="member1"):
+        household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+
+
+def test_validate_debt_and_saving_ignores_loose_money(household_with_members):
+    """La validación usa solo la parte de reserva, no loose_money"""
+    # fijos presupuestado menor que ingresos → hay loose_money
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva = 0 (no presupuestado) → capacidad = 0
+    household_with_members.set_member_saving_goal("member1", 1)
+
+    # Aunque haya loose_money disponible, no computa como capacidad
+    with pytest.raises(ValueError, match="member1"):
+        household_with_members.validate_debt_and_saving_dont_exceed_capacity()

@@ -1,7 +1,7 @@
 from src.models.member import Member
 from src.models.household import Household
 from src.models.expense import Expense
-from src.models.constants import Phase, MetodoReparto,SavingDestination
+from src.models.constants import Phase, MetodoReparto, SavingDestination
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -125,6 +125,22 @@ class WorkflowManager:
         for category, pct in percentages.items():
             self.set_budget_by_percentage(category, pct)
 
+    # ====== SET SAVING GOAL  ======
+    def set_member_saving_goal(self, member: str, amount_euros: float) -> None:
+        """Declara el ahorro personal de un miembro (PLANNING)"""
+        self.validate_phase(Phase.PLANNING)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.set_member_saving_goal(member, amount_cents)
+
+    # ====== SET DEBT - Declarar deuda para cada miembro ======
+    def set_member_debt(self, member: str, amount_euros: float) -> None:
+        """Declara la deuda personal mensual de un miembro (PLANNING)"""
+        self.validate_phase(Phase.PLANNING)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.set_member_debt(member, amount_cents)
+
     # ====== PLANNING PHASE - Contribution Queries ======
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
@@ -170,9 +186,10 @@ class WorkflowManager:
         if total_budgeted <= 0:
             raise ValueError("Debe asignar presupuesto a al menos una categoría")
 
+        self.household.validate_debt_and_saving_dont_exceed_capacity()
+
         # Congelar estado de planificación (cachea percentages y contributions acordadas)
         self.household.freeze_planning_state()
-
         # Cambiar fase y marcarla como accesible
         self.current_phase = Phase.MONTH
         self._completed_phases.add(Phase.MONTH)
@@ -197,13 +214,7 @@ class WorkflowManager:
         self.household.register_expense(expense=expense)
 
     # ====== PLANNING PHASE - SAVING ======
-    def set_member_debt(self, member: str, amount_euros: float) -> None:
-        """Declara la deuda personal mensual de un miembro (PLANNING)"""
-        self.validate_phase(Phase.PLANNING)
-        member = normalize_name(member)
-        amount_cents = to_cents(amount_euros)
-        self.household.set_member_debt(member, amount_cents)
-    
+
     def register_savings_deposit(
         self,
         member: str,
@@ -219,7 +230,7 @@ class WorkflowManager:
         self.household.register_savings_deposit(
             member, amount_cents, destination, description, date
         )
-    
+
     def register_savings_withdrawal(
         self,
         member: str,
@@ -235,7 +246,7 @@ class WorkflowManager:
         self.household.register_savings_withdrawal(
             member, amount_cents, destination, description, date
         )
-    
+
     def get_member_savings_summary(self, member: str) -> dict:
         """Retorna resumen de ahorro de un miembro (PLANNING+)"""
         self.validate_phase_accessible(Phase.PLANNING)

@@ -325,19 +325,20 @@ def test_get_planning_summary_includes_all_key_data(wm):
     assert required_keys.issubset(set(summary.keys()))
 
 
-def test_get_planning_summary_raises_if_budget_exceeds_income(wm):
-    """get_planning_summary lanza ValueError si el presupuesto supera los ingresos"""
+def test_get_planning_summary_returns_negative_loose_money_when_over_budget(wm):
+    """get_planning_summary permite over-budget y muestra loose_money negativo"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    # Ingresos: 300000 — presupuesto: 700000
+    # Ingresos: 300000€ — presupuesto: 700000€
     wm.set_budget_for_category("fijos", 4000)
     wm.set_budget_for_category("variables", 3000)
 
-    with pytest.raises(ValueError, match="El presupuesto supera los ingresos del hogar"):
-        wm.get_planning_summary()
+    summary = wm.get_planning_summary()
+
+    assert summary["loose_money"]["total"] == -400000
 
 
 # ====================================================
@@ -429,6 +430,22 @@ def test_finish_planning_freezes_agreed_state(wm):
     assert "contributions" in fijos_contrib
     assert fijos_contrib["contributions"]["amanda"] == 300000  # 60% de 500000
     assert fijos_contrib["contributions"]["heri"] == 200000   # 40% de 500000
+
+
+def test_finish_planning_allows_over_budget(wm):
+    """finish_planning no bloquea aunque el presupuesto supere los ingresos"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 1000)
+    wm.finish_registration()
+
+    # Presupuesto total: 1500€ > ingresos: 1000€
+    wm.set_budget_for_category("fijos", 1500)
+
+    wm.finish_planning()  # no debe lanzar
+
+    from src.models.constants import Phase
+    assert wm.current_phase == Phase.MONTH
 
 
 # ====================================================

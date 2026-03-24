@@ -134,7 +134,7 @@ def test_get_shared_balance_returns_only_shared_funds(tracker_with_funds):
 
 
 def test_get_history_shared_returns_only_shared_entries(tracker_with_funds):
-    """Test: get_history_shared filtra entries con destination PERSONAL"""
+    """Test: get_history_shared retorna solo entries SHARED, ignora PERSONAL"""
     # Arrange & Act
     history = tracker_with_funds.get_history_shared("amanda")
 
@@ -148,9 +148,7 @@ def test_get_member_summary_returns_complete_structure(tracker_with_funds):
     """Test: get_member_summary retorna diccionario con balances e historial"""
     # Arrange
     now = datetime.now()
-    tracker_with_funds.deposit(
-        "amanda", to_cents(20.0), SavingDestination.PERSONAL, date=now
-    )
+    tracker_with_funds.deposit("amanda", 2000, SavingDestination.PERSONAL, date=now)
 
     # Act
     summary = tracker_with_funds.get_member_summary("amanda")
@@ -161,7 +159,20 @@ def test_get_member_summary_returns_complete_structure(tracker_with_funds):
     assert summary["balance_shared"] == 10000
     assert isinstance(summary["history"], list)
     assert isinstance(summary["actual_month"], dict)
-    assert summary["actual_month"]["personal"] >= 2000
+
+
+def test_summary_actual_month_is_correct(tracker_with_accounts):
+    now = datetime.now()
+
+    # Act
+    tracker_with_accounts.deposit("amanda", 2000, SavingDestination.PERSONAL, date=now)
+    tracker_with_accounts.deposit("amanda", 2000, SavingDestination.SHARED, date=now)
+    tracker_with_accounts.deposit("amanda", 1000, SavingDestination.PERSONAL, date=now)
+    tracker_with_accounts.deposit("amanda", 1500, SavingDestination.SHARED, date=now)
+
+    summary = tracker_with_accounts.get_member_summary("amanda")
+
+    assert summary["actual_month"]["personal"] == 3000
 
 
 def test_get_member_summary_raises_error_if_no_account(tracker):

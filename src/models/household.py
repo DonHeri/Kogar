@@ -21,13 +21,14 @@ class Household:
 
         self.members: Dict[str, Member] = {}
         self.budget = budget
-        self.expense_tracker:ExpenseTracker = expense_tracker
-        self.savings_tracker:SavingTracker = saving_tracker
-        self.method:MetodoReparto = method
+        self.expense_tracker: ExpenseTracker = expense_tracker
+        self.savings_tracker: SavingTracker = saving_tracker
+        self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._agreed_percentages = {}
         self._member_debts: dict[str, int] = {}  # {member_name: amount_cents}
+        self._saving_goals: dict[str, int] = {}  # {member_name: amount_cents}
+        self._agreed_percentages = {}
         self._agreed_contributions = {}
 
     # ====== MEMBERS MANAGEMENT ======
@@ -37,7 +38,8 @@ class Household:
             raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
-        # self.savings_tracker.create_account(member.name)
+        self._saving_goals[member.name] = 0
+        self._member_debts[member.name] = 0
 
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
@@ -58,7 +60,7 @@ class Household:
                 name
             )  # ← solo cuando el registro es definitivo
 
-    # ====== CATEGORY MANAGEMENT ======
+    # ====== PLANNING - CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
         """Agrega categoría y la propaga a Budget"""
         self.budget.add_category(name)
@@ -78,7 +80,7 @@ class Household:
         """Obtiene presupuesto asignado a una categoría"""
         return self.budget.get_category_budget(name)
 
-    # ====== BUDGET ASSIGNMENT ======
+    # ====== PLANNING - BUDGET ASSIGNMENT ======
     def set_budget_for_category(self, category: str, amount_cents: int) -> None:
         """Asigna presupuesto a una categoría en fase PLANNING (céntimos)"""
         self.budget.set_budget(category, amount_cents)
@@ -104,13 +106,19 @@ class Household:
         pct_basis = (category_budget * 10000) // total
         return pct_basis
 
-    # ====== SET DEBT - Declarar deuda para cada miembro ======
+    # ====== PLANNING -  SET DEBT - Declarar deuda para cada miembro ======
     def set_member_debt(self, member_name: str, amount_cents: int) -> None:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
         self._validate_member_exist(member_name)
         self._member_debts[member_name] = amount_cents
 
-    # ====== DISTRIBUTION CONFIGURATION ======
+    # ====== PLANNING -  SET SAVING GOAL  ======
+    def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
+        """Declara el ahorro personal mensual de un miembro (PLANNING)"""
+        self._validate_member_exist(member_name)
+        self._saving_goals[member_name] = amount_cents  # (+=)
+
+    # ====== PLANNING -  DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
         self.method = method
@@ -125,34 +133,32 @@ class Household:
         }
 
     # ====== PLANNING STATE (freeze/unfreeze) ======
+    def validate_debt_and_saving_dont_exceed_capacity(self):
+        """
+        Valida que los compromisos personales (deuda + ahorro) no superen
+        la parte de 'reserva' que le corresponde a cada miembro.
+        """
+        contributions = self.get_current_contributions()
+
+        reserva_contributions = {}
+        if "reserva" in contributions:
+            reserva_contributions = contributions["reserva"]["contributions"]
+
+        for member in self.members:
+            capacity = reserva_contributions.get(member, 0)
+            debt = self._member_debts.get(member, 0)
+            saving = self._saving_goals.get(member, 0)
+
+            if (debt + saving) > capacity:
+                raise ValueError(
+                    f"Compromisos ({debt + saving}¢) de {member} superan su "
+                    f"parte de reserva ({capacity}¢)"
+                )
+
     def freeze_planning_state(self):
         """Congela el estado de planificación al pasar a fase MONTH"""
         self._agreed_percentages = self.get_percentages_by_method(self.method)
         self._agreed_contributions = self.get_current_contributions()
-
-    def get_registered_incomes(self) -> dict[str, int]:
-        """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
-        if not self._registered_incomes:
-            raise ValueError(
-                "Los ingresos no han sido congelados. Llama a finish_registration() primero."
-            )
-        return self._registered_incomes.copy()
-
-    def get_agreed_percentages(self) -> dict[str, int]:
-        """Obtiene porcentajes acordados congelados (disponible en MONTH)"""
-        if not self._agreed_percentages:
-            raise ValueError(
-                "Los porcentajes no han sido congelados. Llama a finish_planning() primero."
-            )
-        return self._agreed_percentages.copy()
-
-    def get_agreed_contributions(self):
-        """Obtiene contribuciones acordadas congeladas (disponible en MONTH)"""
-        if not self._agreed_contributions:
-            raise ValueError(
-                "Las contribuciones no han sido congeladas. Llama a finish_planning() primero."
-            )
-        return self._agreed_contributions.copy()
 
     # ====== SAVINGS (MONTH phase) ======
     def register_savings_deposit(
@@ -229,7 +235,6 @@ class Household:
         }
 
     # ====== QUERIES - PLANNING ======
-
     def preview_budget_contribution_summary(self, method: MetodoReparto):
         """
         Calcula contribuciones por categoría con método de reparto inyectado.
@@ -281,18 +286,46 @@ class Household:
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
 
+    def get_registered_incomes(self) -> dict[str, int]:
+        """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
+        if not self._registered_incomes:
+            raise ValueError(
+                "Los ingresos no han sido congelados. Llama a finish_registration() primero."
+            )
+        return self._registered_incomes.copy()
+
+    def get_agreed_percentages(self) -> dict[str, int]:
+        """Obtiene porcentajes acordados congelados (disponible en MONTH)"""
+        if not self._agreed_percentages:
+            raise ValueError(
+                "Los porcentajes no han sido congelados. Llama a finish_planning() primero."
+            )
+        return self._agreed_percentages.copy()
+
+    def get_agreed_contributions(self):
+        """Obtiene contribuciones acordadas congeladas (disponible en MONTH)"""
+        if not self._agreed_contributions:
+            raise ValueError(
+                "Las contribuciones no han sido congeladas. Llama a finish_planning() primero."
+            )
+        return self._agreed_contributions.copy()
+
+    def get_member_debts(self):
+        return self._member_debts
+
+    def get_saving_goals(self):
+        return self._saving_goals
+
     def get_total_budgeted(self):
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
 
     def get_loose_money(self):
-        """Calcula dinero no presupuestado (ingresos - total_budgeted)"""
+        """Calcula dinero no presupuestado (ingresos - total_budgeted).
+        Puede ser negativo si el presupuesto supera los ingresos."""
         total_incomes = self.get_total_incomes()
         total_budgeted = self.budget.get_total_budgeted()
-        loose = total_incomes - total_budgeted
-        if loose < 0:
-            raise ValueError("El presupuesto supera los ingresos del hogar")
-        return loose
+        return total_incomes - total_budgeted
 
     def get_loose_money_by_member(self, name: str) -> int:
         name = normalize_name(name)
@@ -326,8 +359,9 @@ class Household:
         members = list(self.members.keys())
         total_incomes = self.get_total_incomes()
         categories = self.get_active_categories()
+        debts = self.get_member_debts()
+        saving_goals = self.get_saving_goals()
         total_budgeted = self.get_total_budgeted()
-
         loose_money = total_incomes - total_budgeted
         loose_money_by_member = {
             name: self.get_loose_money_by_member(name) for name in members
@@ -348,6 +382,8 @@ class Household:
             "budget_by_category": {
                 cat: self.budget.categories[cat].planned_amount for cat in categories
             },
+            "debt": debts,
+            "saving_goals": saving_goals,
             "total_budgeted": total_budgeted,
             "loose_money": {"total": loose_money, "by_member": loose_money_by_member},
             "contributions_preview": contributions,

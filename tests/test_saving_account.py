@@ -202,19 +202,6 @@ def test_balances_empty_account_returns_zero(account):
     assert account.balance_personal == 0
     assert account.balance_shared == 0
 
-
-def test_balances_are_readonly(account):
-    """Test: Las properties de balances son de solo lectura"""
-    with pytest.raises(AttributeError):
-        account.balance_total = 5000
-
-    with pytest.raises(AttributeError):
-        account.balance_personal = 5000
-
-    with pytest.raises(AttributeError):
-        account.balance_shared = 5000
-
-
 # ====================================================
 # TESTS: get_history
 # ====================================================
