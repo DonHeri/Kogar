@@ -1,41 +1,78 @@
+from dataclasses import dataclass, field
+from src.models.constants import CategoryBehavior
+
+_S = CategoryBehavior.SHARED
+_P = CategoryBehavior.PERSONAL
+
+
+@dataclass
+class CategoryInfo:
+    description: str
+    behavior: CategoryBehavior = field(default=CategoryBehavior.SHARED)
+
+
 class CategoryLibrary:
-    """Biblioteca de categorías estándar y extendidas con validación normalizada"""
+    """Biblioteca de categorías estándar y extendidas.
+    Las categorías custom son por instancia — cada Budget tiene su propia librería."""
 
-    STANDARD_CATEGORIES = {
-        "fijos": "Gastos fijos mensuales recurrentes",
-        "variables": "Gastos variables del día a día",
-        "reserva": "Reserva personal: deuda y ahorro individual",
+    STANDARD_CATEGORIES: dict[str, CategoryInfo] = {
+        "fijos":     CategoryInfo("Gastos fijos mensuales recurrentes", _S),
+        "variables": CategoryInfo("Gastos variables del día a día",     _P),
+        "reserva":   CategoryInfo("Reserva personal: deuda y ahorro",   _P),
     }
 
-    EXTENDED_CATEGORIES = {
-        "deuda": "Préstamos e intereses personales",
-        "salud": "Gastos médicos y farmacia",
-        "transporte": "Coche, gasolina, transporte público",
-        "ocio": "Entretenimiento y hobbies",
-        "educacion": "Formación, cursos, libros",
-        "mascotas": "Cuidado y gastos de mascotas",
-        "regalos": "Regalos y celebraciones",
-        "viajes": "Vacaciones y escapadas",
-        "tecnologia": "Dispositivos, software, suscripciones digitales",
+    EXTENDED_CATEGORIES: dict[str, CategoryInfo] = {
+        "deuda":      CategoryInfo("Préstamos e intereses personales",         _P),
+        "salud":      CategoryInfo("Gastos médicos y farmacia",                _P),
+        "transporte": CategoryInfo("Coche, gasolina, transporte público",      _P),
+        "ocio":       CategoryInfo("Entretenimiento y hobbies",                _P),
+        "educacion":  CategoryInfo("Formación, cursos, libros",                _P),
+        "mascotas":   CategoryInfo("Cuidado y gastos de mascotas",             _P),
+        "regalos":    CategoryInfo("Regalos y celebraciones",                  _P),
+        "viajes":     CategoryInfo("Vacaciones y escapadas",                   _P),
+        "tecnologia": CategoryInfo("Dispositivos, software, suscripciones",    _P),
     }
+
+    def __init__(self):
+        self._custom_categories: dict[str, CategoryInfo] = {}
 
     # ====== MUTATIONS ======
-    @classmethod
-    def add_category(cls, name: str) -> None:
-        """Agrega una nueva categoría a la librería extendida"""
-        normalized = cls.normalize(name)
-        cls.EXTENDED_CATEGORIES[normalized] = ""
+    def add_category(
+        self, name: str, behavior: CategoryBehavior = CategoryBehavior.SHARED
+    ) -> None:
+        """Registra una categoría custom en esta instancia"""
+        normalized = self.normalize(name)
+        self._custom_categories[normalized] = CategoryInfo("", behavior)
 
     # ====== QUERIES ======
-    @classmethod
-    def get_standards_categories(cls) -> dict[str, str]:
-        """Retorna copia de las categorías estándar"""
-        return cls.STANDARD_CATEGORIES.copy()
+    def get_default_behavior(self, name: str) -> CategoryBehavior:
+        """Retorna el behavior por defecto de una categoría. Fallback: SHARED."""
+        normalized = self.normalize(name)
+        all_cats = {
+            **self.STANDARD_CATEGORIES,
+            **self.EXTENDED_CATEGORIES,
+            **self._custom_categories,
+        }
+        if normalized in all_cats:
+            return all_cats[normalized].behavior
+        return CategoryBehavior.SHARED
 
     @classmethod
-    def get_all_suggestions(cls) -> dict[str, str]:
-        """Retorna todas las categorías (estándar + extendida)"""
-        return {**cls.STANDARD_CATEGORIES, **cls.EXTENDED_CATEGORIES}
+    def get_standards_categories(cls) -> dict[str, str]:
+        """Retorna {nombre: descripción} de las categorías estándar"""
+        return {
+            name: info.description
+            for name, info in cls.STANDARD_CATEGORIES.items()
+        }
+
+    def get_all_suggestions(self) -> dict[str, str]:
+        """Retorna {nombre: descripción} de todas las categorías"""
+        all_cats = {
+            **self.STANDARD_CATEGORIES,
+            **self.EXTENDED_CATEGORIES,
+            **self._custom_categories,
+        }
+        return {name: info.description for name, info in all_cats.items()}
 
     @classmethod
     def is_standard(cls, name: str) -> bool:
@@ -47,12 +84,14 @@ class CategoryLibrary:
         """Verifica si una categoría está en la librería extendida"""
         return name in cls.EXTENDED_CATEGORIES
 
-    @classmethod
-    def is_known(cls, name: str) -> bool:
-        """Verifica si una categoría es conocida (estándar o extendida)"""
-        normalized = cls.normalize(name)
-        all_categories = {**cls.STANDARD_CATEGORIES, **cls.EXTENDED_CATEGORIES}
-        return normalized in all_categories
+    def is_known(self, name: str) -> bool:
+        """Verifica si una categoría es conocida (estándar, extendida o custom)"""
+        normalized = self.normalize(name)
+        return (
+            normalized in self.STANDARD_CATEGORIES
+            or normalized in self.EXTENDED_CATEGORIES
+            or normalized in self._custom_categories
+        )
 
     # ====== NORMALIZATION ======
     @staticmethod

@@ -8,24 +8,25 @@ class Budget:
 
     def __init__(self) -> None:
         self.categories = {}
+        self.library = CategoryLibrary()
 
     # ====== INITIALIZATION ======
     def set_standard_categories(self):
         """Establece las categorías estándar predefinidas"""
-        standard_categories = CategoryLibrary.get_standards_categories()
-
-        for name in standard_categories.keys():
-            self.categories[name] = BudgetCategory(name, 0)
+        for name in CategoryLibrary.get_standards_categories().keys():
+            behavior = self.library.get_default_behavior(name)
+            self.categories[name] = BudgetCategory(name, 0, behavior)
 
     # ====== CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
         """Agrega una nueva categoría al presupuesto"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_active_category(normalized)
-        self.categories[normalized] = BudgetCategory(normalized, 0)
+        behavior = self.library.get_default_behavior(normalized)
+        self.categories[normalized] = BudgetCategory(normalized, 0, behavior)
 
-        if not CategoryLibrary.is_known(normalized):
-            CategoryLibrary.add_category(normalized)
+        if not self.library.is_known(normalized):
+            self.library.add_category(normalized)
 
     # ====== BUDGET ASSIGNMENT ======
     def set_budget(self, category: str, amount_cents: int) -> None:
@@ -79,4 +80,4 @@ class Budget:
 
     def _validate_category_exist_in_library(self, name: str) -> bool:
         """Verifica si la categoría está en la librería"""
-        return CategoryLibrary.is_known(name)
+        return self.library.is_known(name)

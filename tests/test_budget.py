@@ -67,6 +67,33 @@ def test_set_budget_negative_amount_raises_error(budget):
 
 
 # ====================================================
+# TESTS: CategoryBehavior heredado desde librería
+# ====================================================
+
+
+def test_standard_categories_inherit_behavior_from_library(budget):
+    from src.models.constants import CategoryBehavior
+
+    assert budget.categories["fijos"].behavior == CategoryBehavior.SHARED
+    assert budget.categories["variables"].behavior == CategoryBehavior.PERSONAL
+    assert budget.categories["reserva"].behavior == CategoryBehavior.PERSONAL
+
+
+def test_add_known_category_inherits_behavior(budget):
+    from src.models.constants import CategoryBehavior
+
+    budget.add_category("ocio")
+    assert budget.categories["ocio"].behavior == CategoryBehavior.PERSONAL
+
+
+def test_add_unknown_category_defaults_to_shared(budget):
+    from src.models.constants import CategoryBehavior
+
+    budget.add_category("nueva_custom")
+    assert budget.categories["nueva_custom"].behavior == CategoryBehavior.SHARED
+
+
+# ====================================================
 # ADD_CATEGORY
 # ====================================================
 
@@ -90,13 +117,9 @@ def test_add_category_already_exists_raises_error(budget):
 
 
 def test_add_category_adds_to_library_if_unknown(budget):
-    from src.models.category_library import CategoryLibrary
-
-    # Asegurarse que "nueva_categoria" no existe en library
     budget.add_category("nueva_categoria")
 
-    # Verificar que se agregó a CategoryLibrary
-    assert CategoryLibrary.is_known("nueva_categoria")
+    assert budget.library.is_known("nueva_categoria")
 
 
 # ====================================================

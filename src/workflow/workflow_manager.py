@@ -115,7 +115,7 @@ class WorkflowManager:
         # Validar que todas las categorías existen ANTES de aplicar
         active_categories = self.household.get_active_categories()
         missing = [cat for cat in percentages.keys() if cat not in active_categories]
-        if missing:  # FIXME O crear standard_categories???
+        if missing:
             raise ValueError(
                 f"Categorías no existen: {missing}. "
                 f"Llama a set_standard_categories() o add_category() primero."
