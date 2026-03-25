@@ -30,6 +30,7 @@ class Expense:
         self.description = description
         self._amount_cents: int = amount_cents
         self._date: datetime = datetime.now()
+ 
 
     @property
     def amount(self) -> int:

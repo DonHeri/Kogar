@@ -288,7 +288,7 @@ def test_get_planning_summary_in_planning_phase(wm):
     assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
     assert summary["total_budgeted"] == 800000
-    assert summary["loose_money"]["total"] == 200000
+    assert summary["missing_money"]["total"] == 200000
     assert "distribution_percentages" in summary
     assert "contributions_preview" in summary
 
@@ -318,15 +318,15 @@ def test_get_planning_summary_includes_all_key_data(wm):
         "categories",
         "budget_by_category",
         "total_budgeted",
-        "loose_money",
+        "missing_money",
         "contributions_preview",
     }
 
     assert required_keys.issubset(set(summary.keys()))
 
 
-def test_get_planning_summary_returns_negative_loose_money_when_over_budget(wm):
-    """get_planning_summary permite over-budget y muestra loose_money negativo"""
+def test_get_planning_summary_returns_negative_missing_money_when_over_budget(wm):
+    """get_planning_summary permite over-budget y muestra missing_money negativo"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
@@ -338,7 +338,7 @@ def test_get_planning_summary_returns_negative_loose_money_when_over_budget(wm):
 
     summary = wm.get_planning_summary()
 
-    assert summary["loose_money"]["total"] == -400000
+    assert summary["missing_money"]["total"] == -400000
 
 
 # ====================================================
