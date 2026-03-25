@@ -852,7 +852,7 @@ def test_get_missing_money_returns_difference_between_income_and_budget(
     """missing_money = ingresos totales - presupuesto total"""
     household_with_members.set_budget_for_category("fijos", 250000)
 
-    loose_money = household_with_members.get_loose_money()
+    loose_money = household_with_members.get_missing_money()
 
     assert missing_money == 50000
 
@@ -861,7 +861,7 @@ def test_get_missing_money_zero_when_budget_equals_income(household_with_members
     """missing_money = 0 cuando presupuesto = ingresos"""
     household_with_members.set_budget_for_category("fijos", 300000)
 
-    loose_money = household_with_members.get_loose_money()
+    loose_money = household_with_members.get_missing_money()
 
     assert missing_money == 0
 
@@ -870,7 +870,7 @@ def test_get_missing_money_returns_negative_when_over_budget(household_with_memb
     """Over-budget devuelve missing_money negativo, no lanza excepción"""
     household_with_members.set_budget_for_category("fijos", 350000)
 
-    loose = household_with_members.get_loose_money()
+    loose = household_with_members.get_missing_money()
 
     assert missing == -50000
 

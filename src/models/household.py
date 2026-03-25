@@ -385,7 +385,10 @@ class Household:
             "debt": debts,
             "saving_goal": saving_goals,
             "total_budgeted": total_budgeted,
-            "missing_money": {"total": missing_money, "by_member": missing_money_by_member},
+            "missing_money": {
+                "total": missing_money,
+                "by_member": missing_money_by_member,
+            },
             "contributions_preview": contributions,
         }
 
@@ -659,8 +662,3 @@ class Household:
         member_name = normalize_name(member_name)
         if member_name not in self.members:
             raise ValueError(f"{member_name} no existe en el hogar")
-
-    # def _validate_member_has_account(self, member_name: str):
-    #    """Valida que un miembro tiene cuenta de ahorro abierta"""
-    #    member_name = normalize_name(member_name)
-    #    self.savings_tracker._validate_member_has_account(member_name=member_name)
