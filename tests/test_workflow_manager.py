@@ -288,7 +288,7 @@ def test_get_planning_summary_in_planning_phase(wm):
     assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
     assert summary["total_budgeted"] == 800000
-    assert summary["loose_money"]["total"] == 200000
+    assert summary["missing_money"]["total"] == 200000
     assert "distribution_percentages" in summary
     assert "contributions_preview" in summary
 
@@ -318,7 +318,7 @@ def test_get_planning_summary_includes_all_key_data(wm):
         "categories",
         "budget_by_category",
         "total_budgeted",
-        "loose_money",
+        "missing_money",
         "contributions_preview",
     }
 
@@ -338,7 +338,7 @@ def test_get_planning_summary_returns_negative_loose_money_when_over_budget(wm):
 
     summary = wm.get_planning_summary()
 
-    assert summary["loose_money"]["total"] == -400000
+    assert summary["missing_money"]["total"] == -400000
 
 
 # ====================================================

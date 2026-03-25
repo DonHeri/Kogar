@@ -464,11 +464,11 @@ def test_get_planning_summary_basic(household_with_members):
     assert summary["total_household_income"] == 300000
 
     assert summary["total_budgeted"] == 300000
-    assert summary["loose_money"]["total"] == 0
+    assert summary["missing_money"]["total"] == 0
     assert summary["debt"]["member1"] == 0
     assert summary["debt"]["member2"] == 0
-    assert summary["saving_goals"]["member1"] == 0
-    assert summary["saving_goals"]["member2"] == 0
+    assert summary["saving_goal"]["member1"] == 0
+    assert summary["saving_goal"]["member2"] == 0
 
 
 def test_get_planning_summary_includes_distribution_method(household_with_members):
@@ -488,7 +488,7 @@ def test_get_planning_summary_with_loose_money(household_with_members):
 
     # Total: 300000, Presupuestado: 200000, Suelto: 100000
     assert summary["total_budgeted"] == 200000
-    assert summary["loose_money"]["total"] == 100000
+    assert summary["missing_money"]["total"] == 100000
 
 
 def test_get_planning_summary_includes_contributions_preview(household_with_members):
@@ -511,7 +511,7 @@ def test_get_planning_summary_includes_debts(household_with_members):
     
     summary = household_with_members.get_planning_summary()
     
-    assert summary["loose_money"]["total"] == 150000
+    assert summary["missing_money"]["total"] == 150000
     
     pass
 
@@ -532,7 +532,7 @@ def test_get_planning_summary_returns_negative_loose_money_when_over_budget(
 
     summary = household_with_members.get_planning_summary()
 
-    assert summary["loose_money"]["total"] == -300000
+    assert summary["missing_money"]["total"] == -300000
 
 
 def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
@@ -852,7 +852,7 @@ def test_get_loose_money_returns_difference_between_income_and_budget(
     """Loose money = ingresos totales - presupuesto total"""
     household_with_members.set_budget_for_category("fijos", 250000)
 
-    loose_money = household_with_members.get_loose_money()
+    loose_money = household_with_members.get_missing_money()
 
     assert loose_money == 50000
 
@@ -861,7 +861,7 @@ def test_get_loose_money_zero_when_budget_equals_income(household_with_members):
     """Loose money = 0 cuando presupuesto = ingresos"""
     household_with_members.set_budget_for_category("fijos", 300000)
 
-    loose_money = household_with_members.get_loose_money()
+    loose_money = household_with_members.get_missing_money()
 
     assert loose_money == 0
 
@@ -870,7 +870,7 @@ def test_get_loose_money_returns_negative_when_over_budget(household_with_member
     """Over-budget devuelve loose_money negativo, no lanza excepción"""
     household_with_members.set_budget_for_category("fijos", 350000)
 
-    loose = household_with_members.get_loose_money()
+    loose = household_with_members.get_missing_money()
 
     assert loose == -50000
 
@@ -1001,7 +1001,7 @@ def test_get_member_balance_raises_if_member_not_exists(household_with_members):
 
 
 def test_get_member_status_returns_complete_structure(household_with_members):
-    """Debe retornar dict con: income, owed, paid, balance, by_category"""
+    """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
     from src.models.expense import Expense
 
     household_with_members.set_budget_for_category("fijos", 100000)
@@ -1021,12 +1021,16 @@ def test_get_member_status_returns_complete_structure(household_with_members):
     assert "owed" in status
     assert "paid" in status
     assert "balance" in status
+    assert "debt" in status
+    assert "saving_goal" in status
     assert "by_category" in status
 
     assert status["income"] == 200000
     assert status["owed"] == 75000
     assert status["paid"] == 40000
     assert status["balance"] == -35000
+    assert status["debt"] == 0
+    assert status["saving_goal"] == 0
 
 
 def test_get_member_status_paid_is_total_not_per_category(household_with_members):
@@ -1099,6 +1103,22 @@ def test_get_member_status_normalizes_name(household_with_members):
     assert status["income"] == 200000
 
 
+def test_get_member_status_includes_debt_and_saving_goal(household_with_members):
+    """debt y saving_goal deben reflejar los valores declarados en PLANNING"""
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("reserva", 100000)
+    household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
+    household_with_members.set_member_debt("member1", 20000)
+    household_with_members.set_member_saving_goal("member1", 30000)
+    household_with_members.freeze_registration_state()
+    household_with_members.freeze_planning_state()
+
+    status = household_with_members.get_member_status("member1")
+
+    assert status["debt"] == 20000
+    assert status["saving_goal"] == 30000
+
+
 def test_get_member_status_raises_if_member_not_exists(household_with_members):
     """Debe fallar si el miembro no existe"""
     with pytest.raises(ValueError, match="no existe en el hogar"):
@@ -1144,8 +1164,8 @@ def test_get_month_summary_includes_loose_money(household_with_members):
 
     summary = household_with_members.get_month_summary()
 
-    assert "loose_money" in summary
-    assert summary["loose_money"]["total"] == 100000
+    assert "missing_money" in summary
+    assert summary["missing_money"]["total"] == 100000
 
 
 def test_get_month_summary_calculates_correctly(household_with_members):
@@ -1401,8 +1421,8 @@ def test_get_loose_money_by_member_with_equal_method(household_with_members):
     household_with_members.set_budget_for_category("fijos", 200000)
     # Ingresos 300000 - Presupuesto 200000 = Loose 100000. Mitad = 50000.
 
-    loose_m1 = household_with_members.get_loose_money_by_member("member1")
-    loose_m2 = household_with_members.get_loose_money_by_member("member2")
+    loose_m1 = household_with_members.get_missing_money_by_member("member1")
+    loose_m2 = household_with_members.get_missing_money_by_member("member2")
 
     assert loose_m1 == 50000
     assert loose_m2 == 50000
@@ -1415,7 +1435,7 @@ def test_get_loose_money_by_member_with_custom_method(household_with_members):
     household_with_members.set_budget_for_category("fijos", 200000)
     # Loose 100000. 70% = 70000.
 
-    loose_m1 = household_with_members.get_loose_money_by_member("member1")
+    loose_m1 = household_with_members.get_missing_money_by_member("member1")
     assert loose_m1 == 70000
 
 

@@ -320,39 +320,39 @@ class Household:
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
 
-    def get_loose_money(self):
+    def get_missing_money(self):
         """Calcula dinero no presupuestado (ingresos - total_budgeted).
         Puede ser negativo si el presupuesto supera los ingresos."""
         total_incomes = self.get_total_incomes()
         total_budgeted = self.budget.get_total_budgeted()
         return total_incomes - total_budgeted
 
-    def get_loose_money_by_member(self, name: str) -> int:
+    def get_missing_money_by_member(self, name: str) -> int:
         name = normalize_name(name)
         self._validate_member_exist(name)
         income_map = self._registered_incomes or {
             n: m.monthly_income for n, m in self.members.items()
         }
-        loose_money = self.get_loose_money()
+        missing_money = self.get_missing_money()
 
         if self.method == MetodoReparto.CUSTOM:
             return FinanceCalculator.calculate_contribution_from_custom_splits(
-                self._custom_splits, loose_money
+                self._custom_splits, missing_money
             )[name]
         elif self.method == MetodoReparto.EQUAL:
             equal_map = {n: 1 for n in income_map}
             return FinanceCalculator.calculate_contribution_from_incomes(
-                equal_map, loose_money
+                equal_map, missing_money
             )[name]
         else:
             return FinanceCalculator.calculate_contribution_from_incomes(
-                income_map, loose_money
+                income_map, missing_money
             )[name]
 
     def get_planning_summary(self) -> dict:
         """
         Resumen completo de fase PLANNING con el método ya configurado.
-        Incluye: miembros, ingresos, método, porcentajes, categorías, presupuestos, loose_money, preview de contribuciones.
+        Incluye: miembros, ingresos, método, porcentajes, categorías, presupuestos, missing_money, preview de contribuciones.
         """
         self._validate_has_members()
         self._validate_total_incomes_positive()
@@ -362,9 +362,9 @@ class Household:
         debts = self.get_member_debts()
         saving_goals = self.get_saving_goals()
         total_budgeted = self.get_total_budgeted()
-        loose_money = total_incomes - total_budgeted
-        loose_money_by_member = {
-            name: self.get_loose_money_by_member(name) for name in members
+        missing_money = total_incomes - total_budgeted
+        missing_money_by_member = {
+            name: self.get_missing_money_by_member(name) for name in members
         }
         percentages = self.get_percentages_by_method(self.method)
 
@@ -383,9 +383,9 @@ class Household:
                 cat: self.budget.categories[cat].planned_amount for cat in categories
             },
             "debt": debts,
-            "saving_goals": saving_goals,
+            "saving_goal": saving_goals,
             "total_budgeted": total_budgeted,
-            "loose_money": {"total": loose_money, "by_member": loose_money_by_member},
+            "missing_money": {"total": missing_money, "by_member": missing_money_by_member},
             "contributions_preview": contributions,
         }
 
@@ -449,7 +449,9 @@ class Household:
             "owed": owed,
             "paid": paid,
             "balance": balance,
-            "by_category": by_category,  # ← Desglose completo
+            "debt": self._member_debts.get(member_name, 0),
+            "saving_goal": self._saving_goals.get(member_name, 0),
+            "by_category": by_category,
         }
 
     def get_category_spent(self, category: str) -> int:
@@ -495,6 +497,8 @@ class Household:
                     "owed":    200000,
                     "paid":     80000,
                     "balance": -120000,      # negativo = debe dinero
+                    "debt": cuanto paga cada miembro de deuda,
+                    "saving_goal": cuanto ahorra cada miembro,
                     "by_category": {
                         "fijos": {
                             "contribution": 100000,
@@ -504,7 +508,7 @@ class Household:
                     }
                 }
             },
-            "loose_money": {
+            "missing_money": {
                 "total": 0,
                 "by_member": {
                     "amanda": 0,
@@ -517,9 +521,10 @@ class Household:
         categories = self.get_active_categories()
         members = self.members.keys()
         total_budgeted = self.get_total_budgeted()
-        loose_money_total = self.get_loose_money()
-        loose_money_by_member = {
-            member: self.get_loose_money_by_member(member) for member in members
+
+        missing_money_total = self.get_missing_money()
+        missing_money_by_member = {
+            member: self.get_missing_money_by_member(member) for member in members
         }
         total_spent = self.get_total_spent()
         total_remaining = self.get_total_remaining()
@@ -531,7 +536,7 @@ class Household:
             "total_remaining": total_remaining,
         }
 
-        # Categoría {Presupuestado + Gastado + faltante por pagar} + {loose money}
+        # Categoría {Presupuestado + Gastado + faltante por pagar} + {missing_money}
         by_category = {}
         for cat in categories:
             by_category[cat] = {
@@ -545,9 +550,9 @@ class Household:
             "totals": total,
             "by_category": by_category,
             "by_member": by_member,
-            "loose_money": {
-                "total": loose_money_total,
-                "by_member": loose_money_by_member,
+            "missing_money": {
+                "total": missing_money_total,
+                "by_member": missing_money_by_member,
             },
         }
 

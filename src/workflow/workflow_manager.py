@@ -165,12 +165,12 @@ class WorkflowManager:
     def get_loose_money(self) -> int:
         """Dinero suelto total (ingresos - presupuesto)"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_loose_money()
+        return self.household.get_missing_money()
 
     def get_loose_money_by_member(self, member_name: str) -> int:
         """Calcula dinero no presupuestado de un miembro según su porcentaje"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_loose_money_by_member(member_name)
+        return self.household.get_missing_money_by_member(member_name)
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
