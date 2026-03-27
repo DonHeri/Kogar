@@ -796,6 +796,41 @@ def test_register_expense_empty_description_ok(wm):
     assert expense.description == ""
 
 
+def test_register_expense_derives_is_shared_from_category_behavior(wm):
+    """Sin is_shared explícito, se deriva del CategoryBehavior de la categoría"""
+    from src.models.constants import CategoryBehavior
+
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    wm.register_expense("Amanda", "fijos", 100.00)     # SHARED → is_shared=True
+    wm.register_expense("Amanda", "variables", 50.00)  # PERSONAL → is_shared=False
+
+    expenses = wm.household.expense_tracker.expenses
+    assert expenses[0].is_shared is True
+    assert expenses[1].is_shared is False
+
+
+def test_register_expense_explicit_is_shared_overrides_behavior(wm):
+    """is_shared explícito sobreescribe el default de la categoría"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+    wm.set_budget_for_category("variables", 1000)
+    wm.finish_planning()
+
+    # variables es PERSONAL por defecto, pero el usuario lo marca como compartido
+    wm.register_expense("Amanda", "variables", 80.00, is_shared=True)
+
+    expense = wm.household.expense_tracker.expenses[0]
+    assert expense.is_shared is True
+
+
 # ====================================================
 # TESTS: get_registration_summary y get_month_summary
 # ====================================================

@@ -2,6 +2,7 @@ from src.models.member import Member
 from src.models.household import Household
 from src.models.expense import Expense
 from src.models.constants import Phase, MetodoReparto, SavingDestination
+from src.models.constants import CategoryBehavior
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -197,19 +198,34 @@ class WorkflowManager:
     # ====== MONTH PHASE - Expense Registration ======
 
     def register_expense(
-        self, member: str, category: str, amount_euros: float, desc=""
+        self,
+        member: str,
+        category: str,
+        amount_euros: float,
+        desc: str = "",
+        is_shared: bool | None = None,
     ):
-        """Registrar un gasto"""
+        """Registrar un gasto.
+
+        is_shared: si None, se deriva del CategoryBehavior de la categoría.
+        Pasarlo explícitamente sobreescribe el default.
+        """
         self.validate_phase(Phase.MONTH)
         member_normalized = normalize_name(member)
         category = category.strip()
         desc = desc.strip()
         amount_cents = to_cents(amount_euros)
+
+        if is_shared is None:
+            behavior = self.household.get_category_behavior(category)
+            is_shared = behavior == CategoryBehavior.SHARED
+
         expense = Expense(
             member=member_normalized,
             category=category,
             amount_cents=amount_cents,
             description=desc,
+            is_shared=is_shared,
         )
         self.household.register_expense(expense=expense)
 

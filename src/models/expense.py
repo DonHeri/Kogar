@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.utils.currency import to_cents, to_euros
+from src.utils.currency import to_euros
 from src.utils.text import normalize_name
 
 
@@ -7,7 +7,12 @@ class Expense:
     """Representa un gasto realizado por un miembro en una categoría específica"""
 
     def __init__(
-        self, member: str, category: str, amount_cents: int, description: str = ""
+        self,
+        member: str,
+        category: str,
+        amount_cents: int,
+        description: str = "",
+        is_shared: bool = True,
     ) -> None:
         """
         Crea un gasto con validaciones básicas
@@ -25,12 +30,19 @@ class Expense:
         self._validate_non_empty_string(category, "category")
         self._validate_positive_amount(amount_cents, "amount")
 
+        self._date: datetime = datetime.now()
         self.member = normalize_name(member)  # stored as lowercase
         self.category = category
-        self.description = description
         self._amount_cents: int = amount_cents
-        self._date: datetime = datetime.now()
- 
+        self._is_shared = is_shared
+        self.description = description
+
+    @property
+    def is_shared(self):
+        return self._is_shared
+
+    def change_is_shared(self, status: bool):
+        self._is_shared = status
 
     @property
     def amount(self) -> int:

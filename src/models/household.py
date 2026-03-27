@@ -5,7 +5,7 @@ from src.models.expense import Expense
 from src.models.saving_tracker import SavingTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
-from src.models.constants import MetodoReparto, SavingDestination
+from src.models.constants import MetodoReparto, SavingDestination, CategoryBehavior
 from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -309,6 +309,11 @@ class Household:
                 "Las contribuciones no han sido congeladas. Llama a finish_planning() primero."
             )
         return self._agreed_contributions.copy()
+
+    def get_category_behavior(self, category: str) -> CategoryBehavior:
+        """Retorna el behavior de una categoría activa"""
+        self._validate_category_exist(category)
+        return self.budget.categories[category].behavior
 
     def get_member_debts(self):
         return self._member_debts
