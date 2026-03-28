@@ -311,6 +311,11 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.MONTH)
         return self.household.get_total_remaining()
 
+    def get_settlement(self) -> list[dict]:
+        """Transferencias mínimas para saldar gastos compartidos entre miembros"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_settlement()
+
     # ====== QUERIES - General (Phase-independent) ======
     def get_registered_members(self) -> list[str]:
         """Muestra miembros registrados"""

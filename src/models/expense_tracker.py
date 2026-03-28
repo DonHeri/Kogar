@@ -10,13 +10,27 @@ class ExpenseTracker:
         self.expenses = []
 
     # ====== STORAGE ======
-    def add_expense(self, expense: Expense) -> None:
+    def add_expense(self, expense: Expense | list) -> None:  # TODO quitar opción lista
         """Añade gasto a la colección"""
-        self.expenses.append(expense)
+        if isinstance(expense, Expense):
+            self.expenses.append(expense)
+
+        if isinstance(expense, list):
+            self.expenses.extend(expense)
 
     def get_all_expenses(self) -> list[Expense]:
         """Retorna todos los gastos"""
         return self.expenses.copy()
+
+    def get_shared_expenses_by_members(self):
+        """"""
+        shared_expenses_by_member = {}
+        for expense in self.expenses:
+            if expense.is_shared:
+                shared_expenses_by_member[expense.member] = (
+                    shared_expenses_by_member.get(expense.member, 0) + expense.amount
+                )
+        return shared_expenses_by_member
 
     # ====== FILTERS ======
     def get_expenses_by_category(self, category: str) -> list[Expense]:

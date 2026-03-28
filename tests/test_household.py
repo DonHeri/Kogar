@@ -1520,3 +1520,112 @@ def test_validate_debt_and_saving_ignores_missing_money(household_with_members):
     # Aunque haya missing_money disponible, no computa como capacidad
     with pytest.raises(ValueError, match="member1"):
         household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+
+
+# ====================================================
+# TESTS: get_settlement
+# ====================================================
+
+
+def _setup_settlement(hh):
+    """Congela estados para habilitar get_settlement()"""
+    hh.freeze_registration_state()
+    hh.freeze_planning_state()
+
+
+def test_get_settlement_empty_when_no_shared_expenses(household_with_members):
+    """Sin gastos compartidos el settlement es vacío"""
+    from src.models.expense import Expense
+    _setup_settlement(household_with_members)
+
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", "variables", 50000, is_shared=False)
+    )
+
+    assert household_with_members.get_settlement() == []
+
+
+def test_get_settlement_empty_when_no_expenses(household_with_members):
+    """Sin gastos en absoluto el settlement es vacío"""
+    _setup_settlement(household_with_members)
+    assert household_with_members.get_settlement() == []
+
+
+def test_get_settlement_one_paid_all_equal_split(household_with_members):
+    """member1 pagó todo lo compartido — member2 le debe la mitad (EQUAL)"""
+    from src.models.expense import Expense
+    _setup_settlement(household_with_members)
+
+    # member1 paga 10000 compartido, member2 no paga nada
+    # EQUAL: cada uno debe 5000 → member2 debe 5000 a member1
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", "fijos", 10000, is_shared=True)
+    )
+
+    transfers = household_with_members.get_settlement()
+
+    assert len(transfers) == 1
+    assert transfers[0]["from"] == "member2"
+    assert transfers[0]["to"] == "member1"
+    assert transfers[0]["amount"] == 5000
+
+
+def test_get_settlement_ignores_non_shared_expenses(household_with_members):
+    """Los gastos is_shared=False no entran en el settlement"""
+    from src.models.expense import Expense
+    _setup_settlement(household_with_members)
+
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", "fijos", 10000, is_shared=True)
+    )
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", "variables", 99999, is_shared=False)
+    )
+
+    transfers = household_with_members.get_settlement()
+
+    assert len(transfers) == 1
+    assert transfers[0]["amount"] == 5000  # solo el gasto compartido cuenta
+
+
+def test_get_settlement_already_balanced(household_with_members):
+    """Si cada uno pagó exactamente su parte no hay transferencias"""
+    from src.models.expense import Expense
+    _setup_settlement(household_with_members)
+
+    # EQUAL → cada uno debe 5000 de 10000 total
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", "fijos", 5000, is_shared=True)
+    )
+    household_with_members.expense_tracker.add_expense(
+        Expense("member2", "fijos", 5000, is_shared=True)
+    )
+
+    assert household_with_members.get_settlement() == []
+
+
+def test_get_settlement_three_members_equal(base_household):
+    """3 miembros EQUAL: uno paga todo → los otros dos le deben a partes iguales"""
+    from src.models.expense import Expense
+    from src.models.member import Member
+
+    m1, m2, m3 = Member("alice"), Member("bob"), Member("carol")
+    for m in (m1, m2, m3):
+        m.monthly_income = 100000
+        base_household.register_member(m)
+
+    _setup_settlement(base_household)
+
+    # alice paga 3000 compartido, bob y carol no pagan nada
+    # EQUAL: cada uno debe 1000 → bob y carol deben 1000 c/u a alice
+    base_household.expense_tracker.add_expense(
+        Expense("alice", "fijos", 3000, is_shared=True)
+    )
+
+    transfers = base_household.get_settlement()
+
+    assert len(transfers) == 2
+    assert all(t["to"] == "alice" for t in transfers)
+    assert all(t["amount"] == 1000 for t in transfers)
+    froms = {t["from"] for t in transfers}
+    assert froms == {"bob", "carol"}

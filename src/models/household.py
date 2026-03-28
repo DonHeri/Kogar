@@ -564,26 +564,83 @@ class Household:
             },
         }
 
-    # def get_settlement(self) -> dict:
-    #    """
-    #    Calcula las transferencias necesarias para saldar deudas entre miembros.
-    #    Basado en balances reales: pagado - acordado.
-    #
-    #    Solo tiene sentido al cierre del mes, cuando los gastos son definitivos.
-    #
-    #    Returns:
-    #        list[dict]: Lista de transferencias necesarias.
-    #        [{"from": "heri", "to": "amanda", "amount": 50000}]
-    #        Lista vacía si nadie debe a nadie (todos balance <= 0 o todos >= 0).
-    #
-    #    Ejemplo:
-    #        Amanda balance +80000 → acreedor
-    #        Heri   balance -80000 → deudor
-    #        → [{"from": "heri", "to": "amanda", "amount": 80000}]
-    #    """
-    #    #TODO Separar primero Ahorro + bool para categorías compartidas
-    #    # No tiene sentido que user b deba a user a en ahorro, ahorro es individual
-    #    pass
+    def get_settlement(self) -> list[dict]:
+        """
+        Calcula las transferencias mínimas para saldar deudas entre miembros.
+        Solo opera sobre gastos con is_shared=True.
+
+        Returns:
+            list[dict]: [{"from": "heri", "to": "amanda", "amount": 50000}]
+            Lista vacía si no hay gastos compartidos o todo está saldado.
+        """
+        income_map = self._registered_incomes or {
+            name: m.monthly_income for name, m in self.members.items()
+        }
+
+        shared_paid = self.expense_tracker.get_shared_expenses_by_members()
+        total_shared = sum(shared_paid.values())
+
+        if total_shared == 0:
+            return []
+
+        # Cuánto debería pagar cada miembro según el método de reparto
+        if self.method == MetodoReparto.CUSTOM:
+            should_pay = FinanceCalculator.calculate_contribution_from_custom_splits(
+                self._custom_splits, total_shared
+            )
+        elif self.method == MetodoReparto.EQUAL:
+            equal_map = {name: 1 for name in income_map}
+            should_pay = FinanceCalculator.calculate_contribution_from_incomes(
+                equal_map, total_shared
+            )
+        else:
+            should_pay = FinanceCalculator.calculate_contribution_from_incomes(
+                income_map, total_shared
+            )
+
+        # balance positivo → acreedor (pagó de más)
+        # balance negativo → deudor (pagó de menos)
+        balances = {
+            m: shared_paid.get(m, 0) - should_pay.get(m, 0)
+            for m in self.members
+        }
+
+        creditors = sorted(
+            [(m, b) for m, b in balances.items() if b > 0],
+            key=lambda x: -x[1],
+        )
+        debtors = sorted(
+            [(m, -b) for m, b in balances.items() if b < 0],
+            key=lambda x: -x[1],
+        )
+
+        # Greedy: mayor deudor paga al mayor acreedor, actualizar y avanzar
+        transfers = []
+        i, j = 0, 0
+        while i < len(debtors) and j < len(creditors):
+            debtor_name, debt = debtors[i]
+            creditor_name, credit = creditors[j]
+
+            amount = min(debt, credit)
+            transfers.append({
+                "from": debtor_name, "to": creditor_name, "amount": amount
+            })
+
+            debt -= amount
+            credit -= amount
+
+            debtors[i] = (debtor_name, debt)
+            creditors[j] = (creditor_name, credit)
+
+            if debt == 0:
+                i += 1
+            if credit == 0:
+                j += 1
+
+        return transfers
+
+
+            
     # ====== INTERNAL HELPERS ======
     def get_total_incomes(self):
         """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
