@@ -229,6 +229,12 @@ class WorkflowManager:
         )
         self.household.register_expense(expense=expense)
 
+    def finish_month(self):
+        """Avanzar de MONTH a CLOSING"""
+        self.validate_phase(Phase.MONTH)
+        self.current_phase = Phase.CLOSING
+        self._completed_phases.add(Phase.CLOSING)
+    
     # ====== PLANNING PHASE - SAVING ======
 
     def register_savings_deposit(

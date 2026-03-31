@@ -1,0 +1,27 @@
+from src.models.constants import SavingDestination
+from datetime import datetime
+from dataclasses import dataclass, field
+
+
+@dataclass
+class BucketEntry:
+    """
+    Registro inmutable de un movimiento en un Bucket de ahorro.
+
+    El signo de amount_cents lo gestiona BucketTracker:
+    - Depósito → amount_cents positivo
+    - Retiro   → amount_cents negativo
+
+    BucketEntry solo valida que recibe un valor válido, no decide la naturaleza del movimiento.
+    """
+
+    amount_cents: int
+    destination: SavingDestination
+    description: str = ""
+    date: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self):
+        if self.amount_cents == 0:
+            raise ValueError("amount_cents no puede ser 0")
+        if self.date > datetime.now():
+            raise ValueError("La fecha no puede ser futura")

@@ -1096,3 +1096,46 @@ def test_apply_percentage_distribution_fractional_percentages(wm):
     assert wm.household.budget.get_category_budget("fijos") == 99990
     assert wm.household.budget.get_category_budget("variables") == 99990
     assert wm.household.budget.get_category_budget("reserva") == 100020
+
+
+# ====================================================
+# TESTS: finish_month
+# ====================================================
+
+
+@pytest.fixture
+def wm_in_month(wm):
+    """WM listo en fase MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 1000)
+    wm.finish_planning()
+    return wm
+
+
+def test_finish_month_transitions_to_closing(wm_in_month):
+    """finish_month transita de MONTH a CLOSING"""
+    assert wm_in_month.current_phase == Phase.MONTH
+    wm_in_month.finish_month()
+    assert wm_in_month.current_phase == Phase.CLOSING
+
+
+def test_finish_month_adds_closing_to_completed_phases(wm_in_month):
+    """finish_month registra CLOSING como fase completada"""
+    wm_in_month.finish_month()
+    assert Phase.CLOSING in wm_in_month._completed_phases
+
+
+def test_finish_month_raises_if_not_in_month(wm):
+    """finish_month lanza ValueError si no estamos en MONTH"""
+    with pytest.raises(ValueError):
+        wm.finish_month()
+
+
+def test_get_settlement_accessible_after_finish_month(wm_in_month):
+    """get_settlement sigue accesible después de cerrar el mes"""
+    wm_in_month.finish_month()
+    result = wm_in_month.get_settlement()
+    assert result == []

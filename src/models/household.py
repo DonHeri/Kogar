@@ -601,8 +601,7 @@ class Household:
         # balance positivo → acreedor (pagó de más)
         # balance negativo → deudor (pagó de menos)
         balances = {
-            m: shared_paid.get(m, 0) - should_pay.get(m, 0)
-            for m in self.members
+            m: shared_paid.get(m, 0) - should_pay.get(m, 0) for m in self.members
         }
 
         creditors = sorted(
@@ -622,9 +621,9 @@ class Household:
             creditor_name, credit = creditors[j]
 
             amount = min(debt, credit)
-            transfers.append({
-                "from": debtor_name, "to": creditor_name, "amount": amount
-            })
+            transfers.append(
+                {"from": debtor_name, "to": creditor_name, "amount": amount}
+            )
 
             debt -= amount
             credit -= amount
@@ -639,8 +638,6 @@ class Household:
 
         return transfers
 
-
-            
     # ====== INTERNAL HELPERS ======
     def get_total_incomes(self):
         """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
