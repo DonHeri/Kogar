@@ -1,7 +1,7 @@
 from src.models.member import Member
 from src.models.household import Household
 from src.models.expense import Expense
-from src.models.constants import Phase, MetodoReparto, SavingDestination
+from src.models.constants import Phase, MetodoReparto, SavingScope
 from src.models.constants import CategoryBehavior
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
@@ -241,7 +241,7 @@ class WorkflowManager:
         self,
         member: str,
         amount_euros: float,
-        destination: SavingDestination,
+        destination: SavingScope,
         description: str = "",
         date=None,
     ) -> None:
@@ -257,7 +257,7 @@ class WorkflowManager:
         self,
         member: str,
         amount_euros: float,
-        destination: SavingDestination,
+        destination: SavingScope,
         description: str = "",
         date=None,
     ) -> None:

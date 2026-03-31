@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime
 from src.models.saving_account import SavingAccount
 from src.models.saving_entry import SavingEntry
-from src.models.constants import SavingDestination
+from src.models.constants import SavingScope
 from src.utils.currency import to_cents
 
 # ====================================================
@@ -20,12 +20,12 @@ def account():
 def account_with_funds(account):
     """Cuenta con fondos: 100€ PERSONAL y 50€ SHARED"""
     account.deposit(
-        destination=SavingDestination.PERSONAL,
+        destination=SavingScope.PERSONAL,
         amount_cents=to_cents(100.0),
         description="Ahorro inicial personal",
     )
     account.deposit(
-        destination=SavingDestination.SHARED,
+        destination=SavingScope.SHARED,
         amount_cents=to_cents(50.0),
         description="Fondo común",
     )
@@ -65,7 +65,7 @@ def test_creation_whitespace_name_raises_error():
 def test_deposit_adds_entry_with_correct_data(account):
     """Test: Realizar un depósito agrega un SavingEntry correcto"""
     account.deposit(
-        destination=SavingDestination.PERSONAL,
+        destination=SavingScope.PERSONAL,
         amount_cents=to_cents(150.0),
         description="Regalo cumpleaños",
         date=datetime(2026, 1, 15),
@@ -74,7 +74,7 @@ def test_deposit_adds_entry_with_correct_data(account):
     entries = account.get_history()
     assert len(entries) == 1
     assert entries[0].amount_cents == 15000
-    assert entries[0].destination == SavingDestination.PERSONAL
+    assert entries[0].destination == SavingScope.PERSONAL
     assert entries[0].description == "regalo cumpleaños"  # stored stripped and lowered
     assert entries[0].date == datetime(2026, 1, 15)
 
@@ -82,7 +82,7 @@ def test_deposit_adds_entry_with_correct_data(account):
 def test_deposit_normalizes_description(account):
     """Test: El depósito normaliza la descripción (strip y minúsculas)"""
     account.deposit(
-        destination=SavingDestination.SHARED,
+        destination=SavingScope.SHARED,
         amount_cents=to_cents(20.0),
         description="   BONUS EXTRA   ",
     )
@@ -94,7 +94,7 @@ def test_deposit_normalizes_description(account):
 def test_deposit_without_date_uses_current_time(account):
     """Test: Depósito sin fecha especificada usa datetime.now()"""
     before = datetime.now()
-    account.deposit(SavingDestination.PERSONAL, to_cents(10.0))
+    account.deposit(SavingScope.PERSONAL, to_cents(10.0))
     after = datetime.now()
 
     entry_date = account.get_history()[0].date
@@ -104,19 +104,19 @@ def test_deposit_without_date_uses_current_time(account):
 def test_deposit_zero_amount_raises_error(account):
     """Test: Depositar 0 lanza ValueError"""
     with pytest.raises(ValueError, match="amount_cents debe ser distinto a 0"):
-        account.deposit(SavingDestination.PERSONAL, 0)
+        account.deposit(SavingScope.PERSONAL, 0)
 
 
 def test_deposit_negative_amount_raises_error(account):
     """Test: Depositar monto negativo lanza ValueError"""
     with pytest.raises(ValueError, match="amount_cents debe ser distinto a 0"):
-        account.deposit(SavingDestination.PERSONAL, -5000)
+        account.deposit(SavingScope.PERSONAL, -5000)
 
 
 def test_deposit_float_amount_raises_error(account):
     """Test: Depositar un float lanza ValueError"""
     with pytest.raises(ValueError, match="amount_cents debe ser entero"):
-        account.deposit(SavingDestination.PERSONAL, 15.5)
+        account.deposit(SavingScope.PERSONAL, 15.5)
 
 
 # ====================================================
@@ -128,7 +128,7 @@ def test_withdraw_adds_negative_entry_and_reduces_balance(account_with_funds):
     """Test: Retirar fondos agrega un entry negativo y reduce saldo"""
     # account_with_funds tiene 100€ (10000 céntimos) PERSONAL
     account_with_funds.withdraw(
-        destination=SavingDestination.PERSONAL,
+        destination=SavingScope.PERSONAL,
         amount_cents=to_cents(40.0),
         description="Compra capricho",
         date=datetime(2026, 2, 10),
@@ -137,7 +137,7 @@ def test_withdraw_adds_negative_entry_and_reduces_balance(account_with_funds):
     entries = account_with_funds.get_history()
     assert len(entries) == 3  # 2 depósitos iniciales + 1 retiro
     assert entries[-1].amount_cents == -4000
-    assert entries[-1].destination == SavingDestination.PERSONAL
+    assert entries[-1].destination == SavingScope.PERSONAL
     assert entries[-1].description == "compra capricho"
     assert account_with_funds.balance_personal == 6000  # 100€ - 40€ = 60€
 
@@ -147,10 +147,10 @@ def test_withdraw_insufficient_funds_raises_error(account_with_funds):
     # account_with_funds tiene 50€ (5000 céntimos) SHARED
     with pytest.raises(
         ValueError,
-        match=f"Saldo insuficiente en {SavingDestination.SHARED.value}. Disponible: 5000 céntimos",
+        match=f"Saldo insuficiente en {SavingScope.SHARED.value}. Disponible: 5000 céntimos",
     ):
         account_with_funds.withdraw(
-            destination=SavingDestination.SHARED, amount_cents=to_cents(60.0)
+            destination=SavingScope.SHARED, amount_cents=to_cents(60.0)
         )
 
 
@@ -160,17 +160,17 @@ def test_withdraw_does_not_mix_destinations(account_with_funds):
     # Intentar retirar 80€ SHARED debe fallar aunque el balance total lo cubra.
     with pytest.raises(
         ValueError,
-        match=f"Saldo insuficiente en {SavingDestination.SHARED.value}. Disponible: 5000 céntimos",
+        match=f"Saldo insuficiente en {SavingScope.SHARED.value}. Disponible: 5000 céntimos",
     ):
         account_with_funds.withdraw(
-            destination=SavingDestination.SHARED, amount_cents=to_cents(80.0)
+            destination=SavingScope.SHARED, amount_cents=to_cents(80.0)
         )
 
 
 def test_withdraw_zero_amount_raises_error(account_with_funds):
     """Test: Retirar 0 lanza ValueError"""
     with pytest.raises(ValueError, match="amount_cents debe ser distinto a 0"):
-        account_with_funds.withdraw(SavingDestination.PERSONAL, 0)
+        account_with_funds.withdraw(SavingScope.PERSONAL, 0)
 
 
 # ====================================================
@@ -234,21 +234,21 @@ def test_get_monthly_summary_filters_correctly_by_month_and_year(account):
     """Test: El resumen mensual filtra por mes y año exactos"""
     # Mes actual (evaluado - Enero 2026 para estar en un pasado seguro)
     account.deposit(
-        SavingDestination.PERSONAL, to_cents(100.0), date=datetime(2026, 1, 15)
+        SavingScope.PERSONAL, to_cents(100.0), date=datetime(2026, 1, 15)
     )
     account.deposit(
-        SavingDestination.SHARED, to_cents(50.0), date=datetime(2026, 1, 20)
+        SavingScope.SHARED, to_cents(50.0), date=datetime(2026, 1, 20)
     )
     account.withdraw(
-        SavingDestination.PERSONAL, to_cents(20.0), date=datetime(2026, 1, 25)
+        SavingScope.PERSONAL, to_cents(20.0), date=datetime(2026, 1, 25)
     )
 
     # Otros meses / años (no deben contar - usamos Febrero 2026 y 2025)
     account.deposit(
-        SavingDestination.PERSONAL, to_cents(200.0), date=datetime(2026, 2, 10)
+        SavingScope.PERSONAL, to_cents(200.0), date=datetime(2026, 2, 10)
     )
     account.deposit(
-        SavingDestination.SHARED, to_cents(500.0), date=datetime(2025, 1, 15)
+        SavingScope.SHARED, to_cents(500.0), date=datetime(2025, 1, 15)
     )
 
     # Evaluamos enero
@@ -278,16 +278,16 @@ def test_account_lifecycle_multiple_operations():
     acc = SavingAccount("Amanda")
 
     # 1. Depósitos iniciales
-    acc.deposit(SavingDestination.PERSONAL, to_cents(500.0))
-    acc.deposit(SavingDestination.SHARED, to_cents(300.0))
+    acc.deposit(SavingScope.PERSONAL, to_cents(500.0))
+    acc.deposit(SavingScope.SHARED, to_cents(300.0))
 
     assert acc.balance_total == 80000
     assert acc.balance_personal == 50000
     assert acc.balance_shared == 30000
 
     # 2. Retiros válidos
-    acc.withdraw(SavingDestination.PERSONAL, to_cents(150.0))
-    acc.withdraw(SavingDestination.SHARED, to_cents(300.0))  # Vacía el compartido
+    acc.withdraw(SavingScope.PERSONAL, to_cents(150.0))
+    acc.withdraw(SavingScope.SHARED, to_cents(300.0))  # Vacía el compartido
 
     assert acc.balance_total == 35000
     assert acc.balance_personal == 35000
@@ -295,7 +295,7 @@ def test_account_lifecycle_multiple_operations():
 
     # 3. Intento de retiro fallido (no afecta saldos)
     with pytest.raises(ValueError, match="Saldo insuficiente"):
-        acc.withdraw(SavingDestination.SHARED, to_cents(10.0))
+        acc.withdraw(SavingScope.SHARED, to_cents(10.0))
 
     assert acc.balance_shared == 0
     assert (

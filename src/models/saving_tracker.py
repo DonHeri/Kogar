@@ -1,5 +1,5 @@
 from src.models.saving_account import SavingAccount
-from src.models.constants import SavingDestination
+from src.models.constants import SavingScope
 from datetime import datetime
 
 
@@ -35,7 +35,7 @@ class SavingTracker:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingDestination,
+        destination: SavingScope,
         description="",
         date=None,
     ):
@@ -50,7 +50,7 @@ class SavingTracker:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingDestination,
+        destination: SavingScope,
         description="",
         date=None,
     ):
@@ -86,7 +86,7 @@ class SavingTracker:
             list[SavingEntry]: Entries con destination=SHARED del miembro
         """
         history = self._accounts[member_name].get_history()
-        return [e for e in history if e.destination == SavingDestination.SHARED]
+        return [e for e in history if e.destination == SavingScope.SHARED]
 
     def get_member_summary(self, member_name: str) -> dict:
         """Retorna summary de ahorro del usuario"""
@@ -131,7 +131,7 @@ class SavingTracker:
             result[name] = [
                 entry
                 for entry in account.get_history()
-                if entry.destination == SavingDestination.SHARED
+                if entry.destination == SavingScope.SHARED
                 and entry.date.month == month
                 and entry.date.year == year
             ]
@@ -144,7 +144,7 @@ class SavingTracker:
             name: [
                 e
                 for e in account.get_history()
-                if e.destination == SavingDestination.SHARED
+                if e.destination == SavingScope.SHARED
             ]
             for name, account in self._accounts.items()
         }

@@ -1,4 +1,4 @@
-from src.models.constants import SavingDestination
+from src.models.constants import SavingScope
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -16,7 +16,7 @@ class SavingEntry:
     """
 
     amount_cents: int
-    destination: SavingDestination
+    destination: SavingScope
     description: str = ""
     date: datetime = field(default_factory=datetime.now)
 

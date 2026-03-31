@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from src.models.saving_tracker import SavingTracker
-from src.models.constants import SavingDestination
+from src.models.constants import SavingScope
 from src.utils.currency import to_cents
 
 # ====================================================
@@ -30,14 +30,14 @@ def tracker_with_funds(tracker_with_accounts):
     tracker_with_accounts.deposit(
         "amanda",
         to_cents(100.0),
-        SavingDestination.SHARED,
+        SavingScope.SHARED,
         "Fondo hogar",
         datetime(2026, 3, 1),
     )
     tracker_with_accounts.deposit(
         "amanda",
         to_cents(50.0),
-        SavingDestination.PERSONAL,
+        SavingScope.PERSONAL,
         "Ahorro propio",
         datetime(2026, 3, 5),
     )
@@ -46,7 +46,7 @@ def tracker_with_funds(tracker_with_accounts):
     tracker_with_accounts.deposit(
         "heri",
         to_cents(200.0),
-        SavingDestination.SHARED,
+        SavingScope.SHARED,
         "Bono compartido",
         datetime(2026, 3, 10),
     )
@@ -72,7 +72,7 @@ def test_create_account_does_not_overwrite_existing(tracker):
     """Test: Si la cuenta ya existe, no la sobreescribe (mantiene fondos)"""
     # Arrange
     tracker.create_account("amanda")
-    tracker.deposit("amanda", to_cents(10.0), SavingDestination.PERSONAL)
+    tracker.deposit("amanda", to_cents(10.0), SavingScope.PERSONAL)
 
     # Act
     tracker.create_account("amanda")  # Intento duplicado
@@ -90,7 +90,7 @@ def test_deposit_delegates_to_member_account(tracker_with_accounts):
     """Test: deposit() envía los fondos a la cuenta correcta"""
     # Arrange & Act
     tracker_with_accounts.deposit(
-        "amanda", to_cents(150.0), SavingDestination.SHARED, "Ingreso extra"
+        "amanda", to_cents(150.0), SavingScope.SHARED, "Ingreso extra"
     )
 
     # Assert
@@ -103,7 +103,7 @@ def test_withdraw_delegates_to_member_account(tracker_with_funds):
     # Arrange: amanda tiene 100€ SHARED
     # Act
     tracker_with_funds.withdraw(
-        "amanda", to_cents(40.0), SavingDestination.SHARED, "Gasto imprevisto"
+        "amanda", to_cents(40.0), SavingScope.SHARED, "Gasto imprevisto"
     )
 
     # Assert
@@ -116,7 +116,7 @@ def test_withdraw_raises_error_if_insufficient_funds(tracker_with_funds):
     """Test: withdraw() lanza ValueError si la cuenta no tiene fondos suficientes"""
     # Arrange & Act & Assert
     with pytest.raises(ValueError, match="Saldo insuficiente en"):
-        tracker_with_funds.withdraw("amanda", to_cents(500.0), SavingDestination.SHARED)
+        tracker_with_funds.withdraw("amanda", to_cents(500.0), SavingScope.SHARED)
 
 
 # ====================================================
@@ -140,7 +140,7 @@ def test_get_history_shared_returns_only_shared_entries(tracker_with_funds):
 
     # Assert
     assert len(history) == 1
-    assert history[0].destination == SavingDestination.SHARED
+    assert history[0].destination == SavingScope.SHARED
     assert history[0].amount_cents == 10000
 
 
@@ -148,7 +148,7 @@ def test_get_member_summary_returns_complete_structure(tracker_with_funds):
     """Test: get_member_summary retorna diccionario con balances e historial"""
     # Arrange
     now = datetime.now()
-    tracker_with_funds.deposit("amanda", 2000, SavingDestination.PERSONAL, date=now)
+    tracker_with_funds.deposit("amanda", 2000, SavingScope.PERSONAL, date=now)
 
     # Act
     summary = tracker_with_funds.get_member_summary("amanda")
@@ -165,10 +165,10 @@ def test_summary_actual_month_is_correct(tracker_with_accounts):
     now = datetime.now()
 
     # Act
-    tracker_with_accounts.deposit("amanda", 2000, SavingDestination.PERSONAL, date=now)
-    tracker_with_accounts.deposit("amanda", 2000, SavingDestination.SHARED, date=now)
-    tracker_with_accounts.deposit("amanda", 1000, SavingDestination.PERSONAL, date=now)
-    tracker_with_accounts.deposit("amanda", 1500, SavingDestination.SHARED, date=now)
+    tracker_with_accounts.deposit("amanda", 2000, SavingScope.PERSONAL, date=now)
+    tracker_with_accounts.deposit("amanda", 2000, SavingScope.SHARED, date=now)
+    tracker_with_accounts.deposit("amanda", 1000, SavingScope.PERSONAL, date=now)
+    tracker_with_accounts.deposit("amanda", 1500, SavingScope.SHARED, date=now)
 
     summary = tracker_with_accounts.get_member_summary("amanda")
 
@@ -208,7 +208,7 @@ def test_get_shared_by_month_returns_filtered_entries(tracker_with_funds):
     # Arrange
     # Añadimos un movimiento fuera del mes objetivo (Febrero 2026, siempre en el pasado)
     tracker_with_funds.deposit(
-        "amanda", to_cents(50.0), SavingDestination.SHARED, date=datetime(2026, 2, 1)
+        "amanda", to_cents(50.0), SavingScope.SHARED, date=datetime(2026, 2, 1)
     )
 
     # Act
@@ -244,7 +244,7 @@ def test_get_total_shared_history_returns_dict_of_shared_entries(tracker_with_fu
     assert "amanda" in history
     assert "heri" in history
     assert len(history["amanda"]) == 1
-    assert history["amanda"][0].destination == SavingDestination.SHARED
+    assert history["amanda"][0].destination == SavingScope.SHARED
     assert len(history["heri"]) == 1
 
 
@@ -260,10 +260,10 @@ def test_integration_saving_tracker_flow(tracker):
     tracker.create_account("heri")
 
     # 2. Aportaciones de inicio de mes
-    tracker.deposit("amanda", to_cents(300.0), SavingDestination.SHARED, "Aporte fijo")
-    tracker.deposit("heri", to_cents(300.0), SavingDestination.SHARED, "Aporte fijo")
+    tracker.deposit("amanda", to_cents(300.0), SavingScope.SHARED, "Aporte fijo")
+    tracker.deposit("heri", to_cents(300.0), SavingScope.SHARED, "Aporte fijo")
     tracker.deposit(
-        "amanda", to_cents(100.0), SavingDestination.PERSONAL, "Ahorro Amanda"
+        "amanda", to_cents(100.0), SavingScope.PERSONAL, "Ahorro Amanda"
     )
 
     # Verificaciones parciales
@@ -272,7 +272,7 @@ def test_integration_saving_tracker_flow(tracker):
 
     # 3. Retiro para cubrir un gasto del hogar
     tracker.withdraw(
-        "amanda", to_cents(50.0), SavingDestination.SHARED, "Compra urgente"
+        "amanda", to_cents(50.0), SavingScope.SHARED, "Compra urgente"
     )
 
     # Verificaciones finales

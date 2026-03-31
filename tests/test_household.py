@@ -5,7 +5,7 @@ from src.models.household import Household
 from src.models.budget import Budget
 from src.models.expense_tracker import ExpenseTracker
 from src.models.saving_tracker import SavingTracker
-from src.models.constants import MetodoReparto, SavingDestination
+from src.models.constants import MetodoReparto, SavingScope
 
 
 # ====================================================
@@ -1423,7 +1423,7 @@ def test_register_savings_deposit_delegates_to_tracker(household_with_members):
     household_with_members.freeze_registration_state()
 
     household_with_members.register_savings_deposit(
-        "member1", 5000, SavingDestination.PERSONAL, "Ahorro test", datetime.now()
+        "member1", 5000, SavingScope.PERSONAL, "Ahorro test", datetime.now()
     )
 
     summary = household_with_members.get_member_savings_summary("member1")
@@ -1434,11 +1434,11 @@ def test_register_savings_withdrawal_delegates_to_tracker(household_with_members
     """Test: registrar un retiro de ahorro reduce el balance"""
     household_with_members.freeze_registration_state()
     household_with_members.register_savings_deposit(
-        "member1", 10000, SavingDestination.SHARED, "Fondo común"
+        "member1", 10000, SavingScope.SHARED, "Fondo común"
     )
 
     household_with_members.register_savings_withdrawal(
-        "member1", 4000, SavingDestination.SHARED, "Gasto casa"
+        "member1", 4000, SavingScope.SHARED, "Gasto casa"
     )
 
     summary = household_with_members.get_member_savings_summary("member1")

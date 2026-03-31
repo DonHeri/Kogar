@@ -1,4 +1,4 @@
-from src.models.constants import SavingDestination
+from src.models.constants import SavingScope
 from src.models.saving_entry import SavingEntry
 from datetime import datetime
 
@@ -28,7 +28,7 @@ class SavingAccount:
 
     def deposit(
         self,
-        destination: SavingDestination,
+        destination: SavingScope,
         amount_cents: int,
         description: str = "",
         date: datetime | None = None,
@@ -55,7 +55,7 @@ class SavingAccount:
 
     def withdraw(
         self,
-        destination: SavingDestination,
+        destination: SavingScope,
         amount_cents: int,
         description: str = "",
         date: datetime | None = None,
@@ -76,7 +76,7 @@ class SavingAccount:
 
         available = (
             self.balance_personal
-            if destination == SavingDestination.PERSONAL
+            if destination == SavingScope.PERSONAL
             else self.balance_shared
         )
         if amount_cents > available:
@@ -107,7 +107,7 @@ class SavingAccount:
         return sum(
             entry.amount_cents
             for entry in self._entries
-            if entry.destination == SavingDestination.SHARED
+            if entry.destination == SavingScope.SHARED
         )
 
     @property
@@ -116,7 +116,7 @@ class SavingAccount:
         return sum(
             entry.amount_cents
             for entry in self._entries
-            if entry.destination == SavingDestination.PERSONAL
+            if entry.destination == SavingScope.PERSONAL
         )
 
     # ====== HISTORIAL ======
@@ -136,12 +136,12 @@ class SavingAccount:
             "personal": sum(
                 e.amount_cents
                 for e in entries
-                if e.destination == SavingDestination.PERSONAL
+                if e.destination == SavingScope.PERSONAL
             ),
             "shared": sum(
                 e.amount_cents
                 for e in entries
-                if e.destination == SavingDestination.SHARED
+                if e.destination == SavingScope.SHARED
             ),
         }
 

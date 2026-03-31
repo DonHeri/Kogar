@@ -1,4 +1,3 @@
-from src.models.constants import SavingDestination
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -16,8 +15,7 @@ class BucketEntry:
     """
 
     amount_cents: int
-    destination: SavingDestination
-    description: str = ""
+    member_name:str
     date: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self):
@@ -25,3 +23,5 @@ class BucketEntry:
             raise ValueError("amount_cents no puede ser 0")
         if self.date > datetime.now():
             raise ValueError("La fecha no puede ser futura")
+        if not self.member_name or not self.member_name.strip():
+            raise ValueError(f"{self.member_name} no puede estar vacío")

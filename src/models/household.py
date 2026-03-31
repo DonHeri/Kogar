@@ -5,7 +5,7 @@ from src.models.expense import Expense
 from src.models.saving_tracker import SavingTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
-from src.models.constants import MetodoReparto, SavingDestination, CategoryBehavior
+from src.models.constants import MetodoReparto, SavingScope, CategoryBehavior
 from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -165,7 +165,7 @@ class Household:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingDestination,
+        destination: SavingScope,
         description="",
         date=None,
     ):
@@ -184,7 +184,7 @@ class Household:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingDestination,
+        destination: SavingScope,
         description="",
         date=None,
     ):
