@@ -80,7 +80,7 @@ class CategoryLibrary:
         return name in cls.STANDARD_CATEGORIES
 
     @classmethod
-    def is_suggest(cls, name: str) -> bool:
+    def is_suggested(cls, name: str) -> bool:
         """Verifica si una categoría está en la librería extendida"""
         return name in cls.EXTENDED_CATEGORIES
 

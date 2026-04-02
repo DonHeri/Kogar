@@ -33,10 +33,20 @@ class SavingBucket:
         self.description = description
 
     @property
+    def id(self):
+        return self._id
+
+    @property
+    def owners(self):
+        return self._owners
+    
+    @property
     def goal(self) -> int:
         return self._goal_cents
 
-    def deposit(self, amount_cents: int, member_name: str, date: datetime | None = None):
+    def deposit(
+        self, amount_cents: int, member_name: str, date: datetime | None = None
+    ):
         """
         Registra un depósito en el bucket. BucketEntry positiva.
 
@@ -49,7 +59,11 @@ class SavingBucket:
         self._validate_member_in_bucket(member_name)
 
         self._entries.append(
-            BucketEntry(amount_cents=amount_cents, member_name=member_name, date=date or datetime.now())
+            BucketEntry(
+                amount_cents=amount_cents,
+                member_name=member_name,
+                date=date or datetime.now(),
+            )
         )
 
     def withdraw(
@@ -76,13 +90,17 @@ class SavingBucket:
         )
 
         if amount_cents > available:
-            raise ValueError(
-                f"Saldo insuficiente. Disponible: {available} céntimos"
-            )
+            raise ValueError(f"Saldo insuficiente. Disponible: {available} céntimos")
 
         self._entries.append(
-            BucketEntry(amount_cents=-amount_cents, member_name=member_name, date=date or datetime.now())
+            BucketEntry(
+                amount_cents=-amount_cents,
+                member_name=member_name,
+                date=date or datetime.now(),
+            )
         )
+
+    # ====== Faltan métodos que calcules cuantos meses hasta la deadline y cuanto dinero habría que poner mensual ======
 
     @property
     def balance(self) -> int:
@@ -97,6 +115,30 @@ class SavingBucket:
             result[entry.member_name] += entry.amount_cents
         return result
 
+    def __repr__(self):  # pragma: no cover
+        return (
+            f"SavingBucket(id={self._id}, name={self.bucket_name!r}, "
+            f"scope={self.scope.name}, goal={self.goal}, balance={self.balance})"
+        )
+
+    def __str__(self):
+        owners = ", ".join(o.title() for o in self._owners)
+        tipo = "Personal" if self.scope == SavingScope.PERSONAL else "Compartido"
+        balance_eur = self.balance / 100
+        goal_eur = self.goal / 100
+        pct = int(balance_eur / goal_eur * 100) if goal_eur else 0
+
+        lines = [
+            f"[{tipo}] {self.bucket_name} — {owners}",
+            f"  Progreso : {balance_eur:.2f}€ / {goal_eur:.2f}€ ({pct}%)",
+        ]
+        if self.description:
+            lines.append(f"  Desc.    : {self.description.capitalize()}")
+        if self.deadline:
+            lines.append(f"  Deadline : {self.deadline.strftime('%d/%m/%Y')}")
+
+        return "\n".join(lines)
+
     # ====== Validadores ======
 
     def _validate_member_in_bucket(self, member_name: str):
@@ -109,7 +151,9 @@ class SavingBucket:
             raise ValueError(f"{field_name} no puede estar vacío")
 
     def _validate_valid_amount(self, value: int, field_name: str) -> None:
+        if isinstance(value, bool):
+            raise TypeError(f"{field_name} no puede ser booleano")
         if not isinstance(value, int):
-            raise ValueError(f"{field_name} debe ser entero")
+            raise TypeError(f"{field_name} debe ser entero")
         if value <= 0:
             raise ValueError(f"{field_name} debe ser distinto a 0")

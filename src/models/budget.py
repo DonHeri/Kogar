@@ -68,11 +68,6 @@ class Budget:
         if name not in self.categories:
             raise ValueError(f"La categoría debe estar creada")
 
-    def _validate_amount(self, amount: float) -> None:
-        """Valida que el monto sea válido (>= 0)"""
-        if amount < 0:
-            raise ValueError("Monto del presupuesto debe ser superior a 0")
-
     def _validate_amount_cents(self, amount_cents: int) -> None:
         """Valida que el monto en céntimos sea válido (>= 0)"""
         if amount_cents < 0:

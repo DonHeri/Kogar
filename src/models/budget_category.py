@@ -28,6 +28,8 @@ class BudgetCategory:
     # ====== VALIDATORS ======
     def _validate_amount(self, amount: float):
         """Valida que el monto presupuestado no sea negativo"""
+        if isinstance(amount, bool):
+            raise TypeError("El monto presupuestado no puede ser booleano")
         if amount < 0:
             raise ValueError("El monto presupuestado no puede ser negativo")
 

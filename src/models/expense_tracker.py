@@ -10,13 +10,9 @@ class ExpenseTracker:
         self.expenses = []
 
     # ====== STORAGE ======
-    def add_expense(self, expense: Expense | list) -> None:  # TODO quitar opción lista
+    def add_expense(self, expense: Expense) -> None:
         """Añade gasto a la colección"""
-        if isinstance(expense, Expense):
-            self.expenses.append(expense)
-
-        if isinstance(expense, list):
-            self.expenses.extend(expense)
+        self.expenses.append(expense)
 
     def get_all_expenses(self) -> list[Expense]:
         """Retorna todos los gastos"""

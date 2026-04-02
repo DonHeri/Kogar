@@ -8,7 +8,10 @@ class Member:
     def __init__(self, name: str):
         # Storage: lowercase (interno consistente)
         # Display: usar format_name() en UI cuando sea necesario
-        self.name: str = normalize_name(name)
+        normalized = normalize_name(name)
+        if not normalized:
+            raise ValueError("El nombre del miembro no puede estar vacío")
+        self.name: str = normalized
         self.monthly_income: int = 0
 
     # ====== MUTATIONS ======

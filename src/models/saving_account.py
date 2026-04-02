@@ -152,7 +152,9 @@ class SavingAccount:
             raise ValueError(f"{field_name} no puede estar vacío")
 
     def _validate_valid_amount(self, value: int, field_name: str) -> None:
+        if isinstance(value, bool):
+            raise TypeError(f"{field_name} no puede ser booleano")
         if not isinstance(value, int):
-            raise ValueError(f"{field_name} debe ser entero")
+            raise TypeError(f"{field_name} debe ser entero")
         if value <= 0:
             raise ValueError(f"{field_name} debe ser distinto a 0")

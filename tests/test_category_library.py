@@ -116,15 +116,15 @@ def test_is_standard_returns_false_for_extended_category():
     assert CategoryLibrary.is_standard("salud") is False
 
 
-def test_is_suggest_returns_true_for_extended_category():
-    """Test: is_suggest() retorna True para categoría extendida"""
-    assert CategoryLibrary.is_suggest("salud") is True
-    assert CategoryLibrary.is_suggest("transporte") is True
+def test_is_suggested_returns_true_for_extended_category():
+    """Test: is_suggested() retorna True para categoría extendida"""
+    assert CategoryLibrary.is_suggested("salud") is True
+    assert CategoryLibrary.is_suggested("transporte") is True
 
 
-def test_is_suggest_returns_false_for_standard_category():
-    """Test: is_suggest() retorna False para categoría estándar"""
-    assert CategoryLibrary.is_suggest("fijos") is False
+def test_is_suggested_returns_false_for_standard_category():
+    """Test: is_suggested() retorna False para categoría estándar"""
+    assert CategoryLibrary.is_suggested("fijos") is False
 
 
 def test_is_known_returns_true_for_standard_category():

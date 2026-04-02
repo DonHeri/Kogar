@@ -183,7 +183,7 @@ class WorkflowManager:
         if not categories:
             raise ValueError("Debe haber al menos una categoría creada")
 
-        total_budgeted = total_budgeted = self.household.get_total_budgeted()
+        total_budgeted = self.household.get_total_budgeted()
         if total_budgeted <= 0:
             raise ValueError("Debe asignar presupuesto a al menos una categoría")
 

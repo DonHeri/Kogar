@@ -114,8 +114,8 @@ def test_deposit_negative_amount_raises_error(account):
 
 
 def test_deposit_float_amount_raises_error(account):
-    """Test: Depositar un float lanza ValueError"""
-    with pytest.raises(ValueError, match="amount_cents debe ser entero"):
+    """Test: Depositar un float lanza TypeError"""
+    with pytest.raises(TypeError, match="amount_cents debe ser entero"):
         account.deposit(SavingScope.PERSONAL, 15.5)
 
 
