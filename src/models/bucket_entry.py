@@ -24,4 +24,4 @@ class BucketEntry:
         if self.date > datetime.now():
             raise ValueError("La fecha no puede ser futura")
         if not self.member_name or not self.member_name.strip():
-            raise ValueError(f"{self.member_name} no puede estar vacío")
+            raise ValueError(f"Nombre no puede estar vacío")

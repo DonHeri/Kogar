@@ -61,7 +61,7 @@ class SavingTracker:
             date=date,
         )
 
-    # ====== QUERIES INDIVIDUALES ======
+    # ====== QUERIES ======
 
     def get_shared_balance(self, member_name: str) -> int:
         """
@@ -102,8 +102,6 @@ class SavingTracker:
             "actual_month": account.get_monthly_summary(now.month, now.year),
         }
 
-    # ====== QUERIES AGREGADAS ======
-
     def get_total_shared(self) -> int:
         """
         Retorna el total ahorrado en el fondo compartido por todos los miembros.
@@ -142,9 +140,7 @@ class SavingTracker:
         """Historial completo de movimientos compartidos de todos los miembros"""
         return {
             name: [
-                e
-                for e in account.get_history()
-                if e.destination == SavingScope.SHARED
+                e for e in account.get_history() if e.destination == SavingScope.SHARED
             ]
             for name, account in self._accounts.items()
         }

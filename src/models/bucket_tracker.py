@@ -1,4 +1,6 @@
 from uuid import UUID
+from datetime import datetime
+from src.models.constants import SavingScope
 from src.models.saving_bucket import SavingBucket
 
 
@@ -13,23 +15,82 @@ class BucketTracker:
     """
 
     def __init__(self) -> None:
-        self._buckets: dict[UUID, SavingBucket] = {}
+        self.buckets: dict[UUID, SavingBucket] = {}
 
-    def add_bucket(self, id: UUID, bucket: SavingBucket) -> None:
-        self._buckets[id] = bucket
+    # ====== GESTIÓN DE BUCKETS ======
+    def add_bucket(
+        self,
+        bucket_name: str,
+        goal_cents: int,
+        scope: SavingScope,
+        owners: list,
+        deadline: datetime | None = None,
+        description: str = "",
+    ) -> UUID:
+        """Crea y registra un nuevo bucket. Retorna su UUID."""
+        bucket = SavingBucket(
+            bucket_name, goal_cents, scope, owners, deadline, description
+        )
+        self.buckets[bucket.id] = bucket
+        return bucket.id
 
+    def deposit(
+        self,
+        bucket_id: UUID,
+        amount_cents: int,
+        member_name: str,
+        date: datetime | None = None,
+    ) -> None:
+        """
+        Registra un depósito en un bucket.
+
+        Args:
+            bucket_id: Identificador del bucket en el tracker
+            amount_cents: Monto en céntimos, debe ser positivo
+            member_name: Nombre del miembro que hace el depósito
+            date: Fecha del depósito. Si no se indica, usa la fecha actual
+        """
+        self.get_bucket_by_id(bucket_id).deposit(
+            amount_cents=amount_cents, member_name=member_name, date=date
+        )
+
+    def withdraw(
+        self,
+        bucket_id: UUID,
+        amount_cents: int,
+        member_name: str,
+        date: datetime | None = None,
+    ) -> None:
+        """
+        Registra un retiro de un bucket.
+
+        Args:
+            bucket_id: Identificador del bucket en el tracker
+            amount_cents: Monto en céntimos, debe ser positivo
+            member_name: Nombre del miembro que hace el retiro
+            date: Fecha del retiro. Si no se indica, usa la fecha actual
+        """
+        self.get_bucket_by_id(bucket_id).withdraw(
+            amount_cents=amount_cents, member_name=member_name, date=date
+        )
+
+    # ====== QUERIES ======
     def get_all_buckets(self) -> dict[UUID, SavingBucket]:
-        return self._buckets.copy()
+        """Retorna una copia de todos los buckets registrados."""
+        return self.buckets.copy()
 
     def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
-        if bucket_id not in self._buckets:
+        """Retorna el bucket asociado al UUID. Lanza ValueError si no existe."""
+        if bucket_id not in self.buckets:
             raise ValueError(f"Bucket {bucket_id} no existe")
-        return self._buckets[bucket_id]
+        return self.buckets[bucket_id]
 
     def get_bucket_by_member(self, member_name: str) -> dict[UUID, SavingBucket]:
-        """Retorna todos los buckets en los que participa un miembro"""
+        """Retorna todos los buckets en los que participa un miembro."""
         return {
             id: bucket
-            for id, bucket in self._buckets.items()
+            for id, bucket in self.buckets.items()
             if member_name in bucket.owners
         }
+
+    # ====== Validadores ======
