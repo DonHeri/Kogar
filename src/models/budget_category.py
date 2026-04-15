@@ -1,5 +1,5 @@
 from src.models.constants import CategoryBehavior
-from src.utils.currency import to_euros, to_cents
+from src.utils.currency import to_cents, to_euros
 
 
 class BudgetCategory:

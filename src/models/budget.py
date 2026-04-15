@@ -1,6 +1,6 @@
 from src.models.budget_category import BudgetCategory
-from src.utils.currency import to_cents
 from src.models.category_library import CategoryLibrary
+from src.utils.currency import to_cents
 
 
 class Budget:

@@ -1,7 +1,7 @@
 import pytest
+
 from src.models.member import Member
 from src.utils.currency import to_cents
-
 
 # ====================================================
 # FIXTURES

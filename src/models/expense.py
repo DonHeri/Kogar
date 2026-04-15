@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from src.utils.currency import to_euros
 from src.utils.text import normalize_name
 

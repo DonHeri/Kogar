@@ -1,7 +1,7 @@
 import pytest
+
 from src.models.category_library import CategoryLibrary
 from src.models.constants import CategoryBehavior
-
 
 # ====================================================
 # TESTS: normalize

@@ -1,7 +1,9 @@
-import pytest
 from datetime import datetime
-from src.models.saving_tracker import SavingTracker
+
+import pytest
+
 from src.models.constants import SavingScope
+from src.models.saving_tracker import SavingTracker
 from src.utils.currency import to_cents
 
 # ====================================================

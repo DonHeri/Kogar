@@ -1,7 +1,8 @@
 """Tests para módulo text (normalización y formateo de nombres)"""
 
 import pytest
-from src.utils.text import normalize_name, format_name
+
+from src.utils.text import format_name, normalize_name
 
 
 # ====================================================

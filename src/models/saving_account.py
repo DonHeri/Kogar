@@ -1,6 +1,7 @@
+from datetime import datetime
+
 from src.models.constants import SavingScope
 from src.models.saving_entry import SavingEntry
-from datetime import datetime
 
 
 class SavingAccount:

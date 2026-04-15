@@ -1,7 +1,6 @@
 # tests/test_constants.py
 from src.models.constants import MetodoReparto, Phase
 
-
 # ====================================================
 # TESTS: MetodoReparto Enum
 # ====================================================

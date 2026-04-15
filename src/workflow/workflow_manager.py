@@ -1,8 +1,11 @@
-from src.models.member import Member
-from src.models.household import Household
+from datetime import datetime
+from uuid import UUID
+
+from src.models.constants import CategoryBehavior, MetodoReparto, Phase, SavingScope
 from src.models.expense import Expense
-from src.models.constants import Phase, MetodoReparto, SavingScope
-from src.models.constants import CategoryBehavior
+from src.models.household import Household
+from src.models.member import Member
+from src.models.saving_bucket import SavingBucket
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -234,7 +237,7 @@ class WorkflowManager:
         self.validate_phase(Phase.MONTH)
         self.current_phase = Phase.CLOSING
         self._completed_phases.add(Phase.CLOSING)
-    
+
     # ====== PLANNING PHASE - SAVING ======
 
     def register_savings_deposit(
@@ -274,6 +277,31 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member)
         return self.household.get_member_savings_summary(member)
+
+    # ====== Saving Bucket ======
+    def create_saving_bucket(
+        self,
+        bucket_name: str,
+        goal_euros: float,
+        scope: SavingScope,
+        owners: list,
+        deadline: datetime | None = None,
+        description: str = "",
+    ) -> UUID:
+        """Crea y registra un nuevo bucket. Retorna su UUID."""
+        self.validate_phase_accessible(Phase.PLANNING)
+        goal_cents = to_cents(goal_euros)
+        bucket_name = bucket_name.strip()
+        description.strip()
+        owners = [normalize_name(name) for name in owners]
+
+        bucket = SavingBucket(
+            bucket_name, goal_cents, scope, owners, deadline, description
+        )
+
+        bucket_id = self.household.add_saving_bucket(bucket)
+
+        return bucket_id
 
     # ====== MONTH PHASE - member balance Queries ======
     def get_member_owed_total(self, member_name: str) -> int:

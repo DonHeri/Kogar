@@ -1,4 +1,4 @@
-from src.utils.currency import to_euros, to_cents
+from src.utils.currency import to_cents, to_euros
 from src.utils.text import normalize_name
 
 

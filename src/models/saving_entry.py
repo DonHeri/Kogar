@@ -1,6 +1,7 @@
-from src.models.constants import SavingScope
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from src.models.constants import SavingScope
 
 
 @dataclass

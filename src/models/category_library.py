@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+
 from src.models.constants import CategoryBehavior
 
 _S = CategoryBehavior.SHARED

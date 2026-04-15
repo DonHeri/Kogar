@@ -1,5 +1,7 @@
-import pytest
 from datetime import datetime
+
+import pytest
+
 from src.models.bucket_entry import BucketEntry
 
 
@@ -49,7 +51,7 @@ def test_zero_amount_entry_raises_error():
 def test_date_cant_be_future():
     specific = datetime(2027, 3, 15, 14, 30)
     with pytest.raises(ValueError, match="La fecha no puede ser futura"):
-        zero_entry = BucketEntry(amount_cents=0, member_name="default", date=specific)
+        zero_entry = BucketEntry(amount_cents=50000, member_name="default", date=specific)
 
 
 def test_name_cant_be_empty():

@@ -1,7 +1,8 @@
 # tests/test_budget_category.py
+import pytest
+
 from src.models.budget import Budget
 from src.models.budget_category import BudgetCategory
-import pytest
 
 # ====================================================
 # FIXTURES

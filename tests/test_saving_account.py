@@ -1,8 +1,10 @@
-import pytest
 from datetime import datetime
+
+import pytest
+
+from src.models.constants import SavingScope
 from src.models.saving_account import SavingAccount
 from src.models.saving_entry import SavingEntry
-from src.models.constants import SavingScope
 from src.utils.currency import to_cents
 
 # ====================================================

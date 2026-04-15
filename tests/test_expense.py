@@ -1,8 +1,9 @@
-import pytest
 from datetime import datetime
+
+import pytest
+
 from src.models.expense import Expense
 from src.utils.currency import to_cents, to_euros
-
 
 # ====================================================
 # TESTS: Creación de Expense

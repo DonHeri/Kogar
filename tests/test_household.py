@@ -1,12 +1,13 @@
-import pytest
 from datetime import datetime
-from src.models.member import Member
-from src.models.household import Household
-from src.models.budget import Budget
-from src.models.expense_tracker import ExpenseTracker
-from src.models.saving_tracker import SavingTracker
-from src.models.constants import MetodoReparto, SavingScope
 
+import pytest
+
+from src.models.budget import Budget
+from src.models.constants import MetodoReparto, SavingScope
+from src.models.expense_tracker import ExpenseTracker
+from src.models.household import Household
+from src.models.member import Member
+from src.models.saving_tracker import SavingTracker
 
 # ====================================================
 # FIXTURES

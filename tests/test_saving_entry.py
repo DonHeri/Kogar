@@ -1,7 +1,9 @@
-import pytest
 from datetime import datetime
-from src.models.saving_entry import SavingEntry
+
+import pytest
+
 from src.models.constants import SavingScope
+from src.models.saving_entry import SavingEntry
 
 
 @pytest.fixture

@@ -1,7 +1,8 @@
-from uuid import uuid4
 from datetime import datetime
-from src.models.constants import SavingScope
+from uuid import uuid4
+
 from src.models.bucket_entry import BucketEntry
+from src.models.constants import SavingScope
 
 
 class SavingBucket:
@@ -39,7 +40,7 @@ class SavingBucket:
     @property
     def owners(self):
         return self._owners
-    
+
     @property
     def goal(self) -> int:
         return self._goal_cents
@@ -63,7 +64,7 @@ class SavingBucket:
                 amount_cents=amount_cents,
                 member_name=member_name,
                 date=date or datetime.now(),
-            )
+            ) 
         )
 
     def withdraw(

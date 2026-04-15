@@ -1,7 +1,7 @@
 import pytest
+
 from src.models.budget_category import BudgetCategory
 from src.models.constants import CategoryBehavior
-
 
 # ====================================================
 # FIXTURES

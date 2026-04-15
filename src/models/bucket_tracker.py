@@ -1,5 +1,6 @@
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
 from src.models.constants import SavingScope
 from src.models.saving_bucket import SavingBucket
 
@@ -18,19 +19,8 @@ class BucketTracker:
         self.buckets: dict[UUID, SavingBucket] = {}
 
     # ====== GESTIÓN DE BUCKETS ======
-    def add_bucket(
-        self,
-        bucket_name: str,
-        goal_cents: int,
-        scope: SavingScope,
-        owners: list,
-        deadline: datetime | None = None,
-        description: str = "",
-    ) -> UUID:
+    def add_bucket(self, bucket: SavingBucket) -> UUID:
         """Crea y registra un nuevo bucket. Retorna su UUID."""
-        bucket = SavingBucket(
-            bucket_name, goal_cents, scope, owners, deadline, description
-        )
         self.buckets[bucket.id] = bucket
         return bucket.id
 

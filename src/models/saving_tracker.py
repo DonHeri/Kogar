@@ -1,6 +1,10 @@
-from src.models.saving_account import SavingAccount
-from src.models.constants import SavingScope
 from datetime import datetime
+from uuid import UUID
+
+from src.models.bucket_tracker import BucketTracker
+from src.models.constants import SavingScope
+from src.models.saving_account import SavingAccount
+from src.models.saving_bucket import SavingBucket
 
 
 class SavingTracker:
@@ -17,6 +21,7 @@ class SavingTracker:
 
     def __init__(self) -> None:
         self._accounts: dict[str, SavingAccount] = {}
+        self._bucket_tracker = BucketTracker()
 
     # ====== GESTIÓN DE CUENTAS ======
 
@@ -60,6 +65,11 @@ class SavingTracker:
             description=description,
             date=date,
         )
+
+    # ====== GESTIÓN DE BUCKETS ======
+    def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
+        bucket_id = self._bucket_tracker.add_bucket(bucket)
+        return bucket_id
 
     # ====== QUERIES ======
 

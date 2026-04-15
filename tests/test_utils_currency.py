@@ -1,11 +1,11 @@
 import pytest
+
 from src.utils.currency import (
+    format_percentage,
     to_cents,
     to_euros,
-    format_percentage,
     to_percentage_basis,
 )
-
 
 # ====================================================
 # TESTS: to_cents

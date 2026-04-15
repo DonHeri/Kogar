@@ -1,11 +1,14 @@
 from typing import Dict
-from src.models.member import Member
+from uuid import UUID
+
 from src.models.budget import Budget
+from src.models.constants import CategoryBehavior, MetodoReparto, SavingScope
 from src.models.expense import Expense
-from src.models.saving_tracker import SavingTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
-from src.models.constants import MetodoReparto, SavingScope, CategoryBehavior
+from src.models.member import Member
+from src.models.saving_bucket import SavingBucket
+from src.models.saving_tracker import SavingTracker
 from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -159,6 +162,12 @@ class Household:
         """Congela el estado de planificación al pasar a fase MONTH"""
         self._agreed_percentages = self.get_percentages_by_method(self.method)
         self._agreed_contributions = self.get_current_contributions()
+
+    # ====== Saving Bucket ======
+    def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
+
+        bucket_id = self.savings_tracker.add_saving_bucket(bucket)
+        return bucket_id
 
     # ====== SAVINGS (MONTH phase) ======
     def register_savings_deposit(

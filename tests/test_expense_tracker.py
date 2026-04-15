@@ -1,9 +1,10 @@
+from datetime import datetime
+
 import pytest
+
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.utils.currency import to_cents
-from datetime import datetime
-
 
 # ====================================================
 # FIXTURES
