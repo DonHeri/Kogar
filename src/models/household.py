@@ -63,6 +63,9 @@ class Household:
                 name
             )  # ← solo cuando el registro es definitivo
 
+        # Crear categorías estándar
+        self.budget.set_standard_categories()
+
     # ====== PLANNING - CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
         """Agrega categoría y la propaga a Budget"""
@@ -79,20 +82,46 @@ class Household:
         """Lista categorías activas"""
         return self.budget.get_categories_list()
 
-    def get_category_budget(self, name: str) -> int:
+    def get_category_budget(self, category: str) -> int:
         """Obtiene presupuesto asignado a una categoría"""
-        return self.budget.get_category_budget(name)
+        return self.budget.get_category_budget(category)
 
     # ====== PLANNING - BUDGET ASSIGNMENT ======
     def set_budget_for_category(self, category: str, amount_cents: int) -> None:
-        """Asigna presupuesto a una categoría en fase PLANNING (céntimos)"""
-        self.budget.set_budget(category, amount_cents)
+        """Asigna presupuesto a una categoría en PLANNING. Reserva se autocalcula."""
+        if category == "reserva":
+            raise ValueError("Reserva se autocalcula")
 
-    def set_budget_by_percentage(self, pct_basis: int, category: str):
-        """Asigna presupuesto a una categoría con el porcentaje del total de ingresos"""
         total_incomes = self.get_total_incomes()
-        amount_cents = (total_incomes * pct_basis) // 10000
-        self.set_budget_for_category(category=category, amount_cents=amount_cents)
+        current = self.get_category_budget(
+            category
+        )  # Evitar que categoría cuente doble en el total
+        reserva_actual = self.get_category_budget("reserva")
+        total_sin_reserva = self.get_total_budgeted() - current - reserva_actual
+        nuevo_total_sin_reserva = total_sin_reserva + amount_cents
+
+        if nuevo_total_sin_reserva > total_incomes:
+            raise ValueError(
+                "No se puede superar el total de ingresos en los presupuestos"
+            )
+        self.budget.set_budget(category, amount_cents)
+        self.budget.set_budget("reserva", total_incomes - nuevo_total_sin_reserva)
+
+    def set_budget_by_percentages(self, percentages: dict[str, int]):
+        """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
+        total_incomes = self.get_total_incomes()
+
+        budgets = FinanceCalculator.calculate_budget_from_percentages(
+            total_incomes, percentages
+        )
+
+        for category, amount_cents in budgets.items():
+            # Reserva se autocalcula en set_budget_for_category
+            if category == "reserva":
+                continue
+
+            self._validate_category_exist(category=category)
+            self.set_budget_for_category(category=category, amount_cents=amount_cents)
 
     def get_budget_as_percentage(self, category: str):
         """
@@ -115,11 +144,24 @@ class Household:
         self._validate_member_exist(member_name)
         self._member_debts[member_name] = amount_cents
 
+    def auto_assign_saving_goals(self):
+        """Asigna como ahorro lo que sobra de reserva tras deuda"""
+        contributions = self.get_current_contributions()
+        reserva_contributions = contributions.get("reserva", {}).get(
+            "contributions", {}
+        )
+
+        for member in self.members:
+            capacity = reserva_contributions.get(member, 0)
+            debt = self._member_debts.get(member, 0)
+            self._saving_goals[member] = capacity - debt
+
     # ====== PLANNING -  SET SAVING GOAL  ======
     def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
         """Declara el ahorro personal mensual de un miembro (PLANNING)"""
         self._validate_member_exist(member_name)
         self._saving_goals[member_name] = amount_cents  # (+=)
+        # TODO que pasa si el miembro quiere agregar más ahorro y no tener que settearlo nuevo?
 
     # ====== PLANNING -  DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -396,8 +438,8 @@ class Household:
             "budget_by_category": {
                 cat: self.budget.categories[cat].planned_amount for cat in categories
             },
-            "debt": debts,
-            "saving_goal": saving_goals,
+            "debts": debts,
+            "saving_goals": saving_goals,
             "total_budgeted": total_budgeted,
             "missing_money": {
                 "total": missing_money,
@@ -405,6 +447,19 @@ class Household:
             },
             "contributions_preview": contributions,
         }
+
+    # ======== Register Debt =========
+    def register_debt_payment(self, member_name: str, amount_cents: int):
+        self._validate_member_exist(member_name)
+        if amount_cents <= 0:
+            raise ValueError("El pago debe ser positivo")
+
+        committed = self._member_debts.get(member_name, 0)
+        already_paid = self._debt_payments.get(member_name, 0)
+        if already_paid + amount_cents > committed:
+            raise ValueError(f"El pago supera el compromiso de deuda ({committed}¢)")
+
+        self._debt_payments[member_name] += amount_cents
 
     # ====== QUERIES - MONTH ======
     def get_member_owed_total(self, member_name: str) -> int:

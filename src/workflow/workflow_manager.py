@@ -149,7 +149,7 @@ class WorkflowManager:
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_category_budget(name=category_name)
+        return self.household.get_category_budget(category=category_name)
 
     def get_total_budgeted(self) -> int:
         """Total presupuestado (suma de todas las categorías)"""

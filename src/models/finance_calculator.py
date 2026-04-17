@@ -73,6 +73,55 @@ class FinanceCalculator:
 
         return percentages
 
+    @staticmethod
+    def calculate_budget_from_percentages(
+        total_incomes, percentages: dict[str, int]
+    ) -> dict[str, int]:
+        """
+        Calcula presupuestos según porcentajes.
+        Elimina acumulación de errores de redondeo entre porcentajes
+
+        Returns:
+            {
+                "fijos": 100000,  # céntimos
+                "variables": 50000,   # céntimos
+                "reserva": 40000
+            }
+        """
+        total_percentages = sum(percentages.values())
+
+        if total_incomes <= 0:
+            raise ValueError("Total de ingresos debe ser superior a 0")
+
+        if sum(percentages.values()) != 10000:
+            raise ValueError("Los porcentajes deben sumar 100% (10000 basis points)")
+
+        budgets = {}
+        remainders = {}
+        assigned = 0
+
+        for category, pct in percentages.items():
+            exact = total_incomes * pct / 10000
+            floored = int(exact)
+            remainders[category] = exact - floored
+            budgets[category] = floored
+            assigned += floored
+
+        # Repartir restantes en el truncamiento
+        diferencia = total_incomes - assigned
+
+        for category in sorted(remainders, key=lambda k: remainders[k], reverse=True)[
+            :diferencia
+        ]:
+            budgets[category] += 1
+
+        if sum(budgets.values()) != total_incomes:
+            raise ValueError(
+                "El total asignado a presupuestos es distinto del total de ingresos"
+            )
+
+        return budgets
+
     # ====== CONTRIBUTION CALCULATIONS ======
     @staticmethod
     def calculate_contribution_from_incomes(
