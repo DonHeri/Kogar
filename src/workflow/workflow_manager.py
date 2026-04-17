@@ -145,6 +145,12 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_member_debt(member, amount_cents)
 
+    def register_debt_payment(self, member, amount_euros, description="", date=None):
+        self.validate_phase(Phase.MONTH)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.register_debt_payment(member, amount_cents, description, date)
+
     # ====== PLANNING PHASE - Contribution Queries ======
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""

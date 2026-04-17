@@ -9,6 +9,7 @@ from src.models.finance_calculator import FinanceCalculator
 from src.models.member import Member
 from src.models.saving_bucket import SavingBucket
 from src.models.saving_tracker import SavingTracker
+from src.models.debt_tracker import DebtTracker
 from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -19,6 +20,7 @@ class Household:
         budget: Budget,
         expense_tracker: ExpenseTracker,
         saving_tracker: SavingTracker,
+        debt_tracker: DebtTracker,
         method: MetodoReparto = MetodoReparto.PROPORTIONAL,
     ) -> None:
 
@@ -26,6 +28,7 @@ class Household:
         self.budget = budget
         self.expense_tracker: ExpenseTracker = expense_tracker
         self.savings_tracker: SavingTracker = saving_tracker
+        self.debt_tracker: DebtTracker = debt_tracker
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
@@ -59,9 +62,8 @@ class Household:
             name: member.monthly_income for name, member in self.members.items()
         }
         for name in self.members:
-            self.savings_tracker.create_account(
-                name
-            )  # ← solo cuando el registro es definitivo
+            self.savings_tracker.create_account(name)
+            self.debt_tracker.create_account(name)
 
         # Crear categorías estándar
         self.budget.set_standard_categories()
@@ -143,18 +145,6 @@ class Household:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
         self._validate_member_exist(member_name)
         self._member_debts[member_name] = amount_cents
-
-    def auto_assign_saving_goals(self):
-        """Asigna como ahorro lo que sobra de reserva tras deuda"""
-        contributions = self.get_current_contributions()
-        reserva_contributions = contributions.get("reserva", {}).get(
-            "contributions", {}
-        )
-
-        for member in self.members:
-            capacity = reserva_contributions.get(member, 0)
-            debt = self._member_debts.get(member, 0)
-            self._saving_goals[member] = capacity - debt
 
     # ====== PLANNING -  SET SAVING GOAL  ======
     def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
@@ -264,6 +254,13 @@ class Household:
         }
         """
         return self.savings_tracker.get_member_summary(member_name)
+
+    def get_saving_goal_status(self, member_name):
+        self._validate_member_exist(member_name)
+        committed = self._saving_goals.get(member_name, 0)
+        summary = self.get_member_savings_summary(member_name)
+        paid = summary["actual_month"]["personal"] + summary["actual_month"]["shared"]
+        return {"committed": committed, "paid": paid, "remaining": committed - paid}
 
     # ====== EXPENSES (MONTH phase) ======
     def register_expense(self, expense: Expense):
@@ -448,18 +445,32 @@ class Household:
             "contributions_preview": contributions,
         }
 
-    # ======== Register Debt =========
-    def register_debt_payment(self, member_name: str, amount_cents: int):
+    # ======== Queries Debts =========
+    def register_debt_payment(
+        self, member_name, amount_cents, description="", date=None
+    ):
         self._validate_member_exist(member_name)
-        if amount_cents <= 0:
-            raise ValueError("El pago debe ser positivo")
-
         committed = self._member_debts.get(member_name, 0)
-        already_paid = self._debt_payments.get(member_name, 0)
-        if already_paid + amount_cents > committed:
+        paid = self.debt_tracker.get_total_paid(member_name)
+        if paid + amount_cents > committed:
             raise ValueError(f"El pago supera el compromiso de deuda ({committed}¢)")
+        self.debt_tracker.pay(member_name, amount_cents, description, date)
 
-        self._debt_payments[member_name] += amount_cents
+    def get_debt_status(self, member_name):
+        self._validate_member_exist(member_name)
+        committed = self._member_debts.get(member_name, 0)
+        paid = self.debt_tracker.get_total_paid(member_name)
+        return {"committed": committed, "paid": paid, "remaining": committed - paid}
+
+    def auto_assign_saving_goals(self):
+        contributions = self.get_current_contributions()
+        reserva_contributions = contributions.get("reserva", {}).get(
+            "contributions", {}
+        )
+        for member in self.members:
+            capacity = reserva_contributions.get(member, 0)
+            debt = self._member_debts.get(member, 0)
+            self._saving_goals[member] = capacity - debt
 
     # ====== QUERIES - MONTH ======
     def get_member_owed_total(self, member_name: str) -> int:
