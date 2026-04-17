@@ -78,11 +78,16 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_budget_for_category(category, amount_cents)
 
-    def set_budget_by_percentage(self, category: str, pct: float) -> None:
-        """Asigna presupuesto a categoría (recibe porcentaje en float, convierte a centésimas enteras)"""
+    def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
+        """Asigna presupuesto a categoría calculando monto desde % de ingresos totales"""
         self.validate_phase(Phase.PLANNING)
-        pct_basis = to_percentage_basis(pct)
-        self.household.set_budget_by_percentage(pct_basis=pct_basis, category=category)
+
+        percentages_int = {}
+        for category, percentage_float in percentages_floats.items():
+            percentage_int = percentage_float * 100
+            percentages_int[category] = percentage_int
+
+        self.household.set_budget_by_percentages(percentages=percentages_int)
 
     def get_budget_as_percentage(self, category: str):
         """
@@ -125,8 +130,10 @@ class WorkflowManager:
                 f"Llama a set_standard_categories() o add_category() primero."
             )
 
-        # Aplicar (ahora seguro que todas existen)
+        # Aplicar (ahora seguro que todas existen). Reserva se autocalcula.
         for category, pct in percentages.items():
+            if category == "reserva":
+                continue
             self.set_budget_by_percentage(category, pct)
 
     # ====== SET SAVING GOAL  ======

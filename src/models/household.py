@@ -109,6 +109,12 @@ class Household:
         self.budget.set_budget(category, amount_cents)
         self.budget.set_budget("reserva", total_incomes - nuevo_total_sin_reserva)
 
+    def set_budget_by_percentage(self, pct_basis: int, category: str) -> None:
+        """Asigna presupuesto a una categoría calculando desde % del ingreso total."""
+        total = self.get_total_incomes()
+        amount_cents = (total * pct_basis) // 10000
+        self.set_budget_for_category(category, amount_cents)
+
     def set_budget_by_percentages(self, percentages: dict[str, int]):
         """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
         total_incomes = self.get_total_incomes()

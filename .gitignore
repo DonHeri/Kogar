@@ -63,7 +63,8 @@ tests/_template_test.py
 *.swo
 *~
 .DS_Store
-
+.claude/
+TASKS.md
 # ==========================================
 # SCRIPTS Y NOTAS PERSONALES (PROYECTO)
 # ==========================================

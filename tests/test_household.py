@@ -4,6 +4,7 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto, SavingScope
+from src.models.debt_tracker import DebtTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
 from src.models.member import Member
@@ -35,9 +36,10 @@ def base_household():
     b = Budget()
     e = ExpenseTracker()
     s = SavingTracker()
+    d = DebtTracker()
     b.set_standard_categories()
     return Household(
-        budget=b, expense_tracker=e, saving_tracker=s, method=MetodoReparto.EQUAL
+        budget=b, expense_tracker=e, saving_tracker=s, debt_tracker=d, method=MetodoReparto.EQUAL
     )
 
 
@@ -466,13 +468,10 @@ def test_get_planning_summary_basic(household_with_members):
 
     assert summary["total_budgeted"] == 300000
     assert summary["missing_money"]["total"] == 0
-    assert summary["missing_money"]["total"] == 0
-    assert summary["debt"]["member1"] == 0
-    assert summary["debt"]["member2"] == 0
-    assert summary["saving_goal"]["member1"] == 0
-    assert summary["saving_goal"]["member2"] == 0
-    assert summary["saving_goal"]["member1"] == 0
-    assert summary["saving_goal"]["member2"] == 0
+    assert summary["debts"]["member1"] == 0
+    assert summary["debts"]["member2"] == 0
+    assert summary["saving_goals"]["member1"] == 0
+    assert summary["saving_goals"]["member2"] == 0
 
 
 def test_get_planning_summary_includes_distribution_method(household_with_members):
@@ -512,14 +511,11 @@ def test_get_planning_summary_includes_contributions_preview(household_with_memb
 def test_get_planning_summary_includes_debts(household_with_members):
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
-    household_with_members.set_budget_for_category("reserva", 0)
-    
+    # reserva autocalcula a 150000
+
     summary = household_with_members.get_planning_summary()
-    
-    assert summary["missing_money"]["total"] == 150000
-    assert summary["missing_money"]["total"] == 150000
-    
-    pass
+
+    assert summary["missing_money"]["total"] == 0
 
 def test_get_planning_summary_raises_if_no_members(base_household):
     """get_planning_summary lanza ValueError si no hay miembros"""
@@ -575,7 +571,7 @@ def test_remove_category_deletes_from_budget(base_household):
 
 def test_set_standard_categories_populates_budget(base_household):
     """set_standard_categories() establece categorías en budget"""
-    household = Household(Budget(), ExpenseTracker(), SavingTracker())
+    household = Household(Budget(), ExpenseTracker(), SavingTracker(), DebtTracker())
     household.set_standard_categories()
 
     categories = household.get_active_categories()
