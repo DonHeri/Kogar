@@ -1,7 +1,7 @@
 import pytest
 
 from src.models.budget import Budget
-from src.models.constants import MetodoReparto, Phase
+from src.models.constants import MetodoReparto, Phase, SavingScope
 from src.models.debt_tracker import DebtTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
@@ -1132,3 +1132,182 @@ def test_get_settlement_accessible_after_finish_month(wm_in_month):
     wm_in_month.finish_month()
     result = wm_in_month.get_settlement()
     assert result == []
+
+
+# ====================================================
+# TESTS: Validación de fase
+# ====================================================
+
+
+def test_register_expense_raises_in_planning(wm):
+    """register_expense lanza ValueError si estamos en PLANNING, no en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="transcurso_mes"):
+        wm.register_expense("Amanda", "fijos", 100.0)
+
+
+def test_set_budget_for_category_raises_in_month(wm):
+    """set_budget_for_category lanza ValueError una vez en MONTH"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 2000)
+    wm.finish_planning()
+
+    with pytest.raises(ValueError, match="planificación"):
+        wm.set_budget_for_category("fijos", 1000)
+
+
+# ====================================================
+# TESTS: Flujo completo REGISTRATION → CLOSING
+# ====================================================
+
+
+# ====================================================
+# TESTS: Saving Buckets
+# ====================================================
+
+
+@pytest.fixture
+def wm_in_month_two_members(wm):
+    """WM en MONTH con dos miembros: amanda (60%) y heri (40%), total 1000€"""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 6000)
+    wm.set_incomes("Heri", 4000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 5000)
+    wm.finish_planning()
+    return wm
+
+
+def test_create_bucket_returns_uuid(wm_in_month_two_members):
+    """create_saving_bucket retorna un UUID válido"""
+    from uuid import UUID as UUIDType
+    wm = wm_in_month_two_members
+    bucket_id = wm.create_saving_bucket("Viaje", 2000, SavingScope.SHARED, ["Amanda", "Heri"])
+    assert isinstance(bucket_id, UUIDType)
+
+
+def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
+    """deposit_to_bucket registra el depósito y el balance del bucket aumenta"""
+    wm = wm_in_month_two_members
+    bucket_id = wm.create_saving_bucket("Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"])
+
+    wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)  # 30000 céntimos
+
+    bucket = wm.get_bucket_by_id(bucket_id)
+    assert bucket.balance == 30000
+
+
+def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
+    """withdraw_from_bucket reduce el balance correctamente"""
+    wm = wm_in_month_two_members
+    bucket_id = wm.create_saving_bucket("Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"])
+    wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)
+
+    wm.withdraw_from_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
+
+    bucket = wm.get_bucket_by_id(bucket_id)
+    assert bucket.balance == 20000
+
+
+def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
+    """Retirar más de lo disponible lanza ValueError"""
+    wm = wm_in_month_two_members
+    bucket_id = wm.create_saving_bucket("Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"])
+    wm.deposit_to_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
+
+    with pytest.raises(ValueError, match="Saldo insuficiente"):
+        wm.withdraw_from_bucket(bucket_id, "Amanda", 200.0)
+
+
+def test_get_all_buckets_returns_all(wm_in_month_two_members):
+    """get_all_buckets retorna todos los buckets creados"""
+    wm = wm_in_month_two_members
+    wm.create_saving_bucket("B1", 10000, SavingScope.SHARED, ["Amanda", "Heri"])
+    wm.create_saving_bucket("B2", 20000, SavingScope.SHARED, ["Amanda", "Heri"])
+
+    buckets = wm.get_all_buckets()
+    assert len(buckets) == 2
+
+
+def test_get_buckets_by_member_filters_correctly(wm_in_month_two_members):
+    """get_buckets_by_member solo retorna buckets del miembro solicitado"""
+    wm = wm_in_month_two_members
+    wm.create_saving_bucket("Solo Amanda", 10000, SavingScope.PERSONAL, ["Amanda"])
+    wm.create_saving_bucket("Compartido", 20000, SavingScope.SHARED, ["Amanda", "Heri"])
+
+    amanda_buckets = wm.get_buckets_by_member("Amanda")
+    heri_buckets = wm.get_buckets_by_member("Heri")
+
+    assert len(amanda_buckets) == 2
+    assert len(heri_buckets) == 1
+
+
+def test_deposit_outside_month_raises(wm):
+    """deposit_to_bucket fuera de MONTH lanza ValueError"""
+    from uuid import uuid4
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="transcurso_mes"):
+        wm.deposit_to_bucket(uuid4(), "Amanda", 100.0)
+
+
+def test_withdraw_outside_month_raises(wm):
+    """withdraw_from_bucket fuera de MONTH lanza ValueError"""
+    from uuid import uuid4
+    wm.register_member("Amanda")
+    wm.set_incomes("Amanda", 3000)
+    wm.finish_registration()
+
+    with pytest.raises(ValueError, match="transcurso_mes"):
+        wm.withdraw_from_bucket(uuid4(), "Amanda", 100.0)
+
+
+def test_full_flow_registration_to_closing(wm):
+    """Flujo completo de punta a punta: registro → planificación → mes → cierre"""
+    # REGISTRATION
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_incomes("Amanda", 6000)   # 600000 céntimos
+    wm.set_incomes("Heri", 4000)     # 400000 céntimos
+    assert wm.current_phase == Phase.REGISTRATION
+
+    wm.finish_registration()
+    assert wm.current_phase == Phase.PLANNING
+
+    # PLANNING — total income: 1000000¢, PROPORTIONAL: 60% Amanda, 40% Heri
+    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_budget_for_category("fijos", 5000)     # 500000¢
+    wm.set_budget_for_category("variables", 2000)  # 200000¢
+    # reserva autocalcula: 1000000 - 500000 - 200000 = 300000¢
+    # Amanda 60%: 180000¢ capacity. Heri 40%: 120000¢ capacity.
+    wm.set_member_debt("Amanda", 100)   # 10000¢ — cabe en 180000¢ ✓
+
+    wm.finish_planning()
+    assert wm.current_phase == Phase.MONTH
+
+    # MONTH — gastos compartidos en fijos
+    wm.register_expense("Amanda", "fijos", 200.0, is_shared=True)  # 20000¢
+    wm.register_expense("Heri", "fijos", 300.0, is_shared=True)    # 30000¢
+    # Total compartido: 50000¢. Amanda should pay 60%=30000¢, Heri 40%=20000¢
+    # Amanda pagó 20000¢ (debe 10000¢ más). Heri pagó 30000¢ (pagó 10000¢ de más).
+    wm.register_debt_payment("Amanda", 50.0)  # 5000¢ ≤ 10000¢ committed ✓
+
+    settlement = wm.get_settlement()
+    assert len(settlement) == 1
+    assert settlement[0]["from"] == "amanda"
+    assert settlement[0]["to"] == "heri"
+    assert settlement[0]["amount"] == 10000  # Amanda le debe 10000¢ a Heri
+
+    wm.finish_month()
+    assert wm.current_phase == Phase.CLOSING

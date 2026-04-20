@@ -388,3 +388,33 @@ def test_edge_case_ten_categories_accumulate_remainders(household_base):
     assert amanda_total <= 200000, f"Amanda excede: {amanda_total - 200000}¢"
 
 
+# ====================================================
+# TESTS: calculate_budget_from_percentages — largest remainder
+# ====================================================
+
+
+def test_calculate_budget_from_percentages_largest_remainder():
+    """Largest remainder garantiza sum(budgets) == total_incomes sin perder céntimos"""
+    # 100001 céntimos no se divide exactamente en 50/30/20
+    # Sin largest remainder: 50000+30000+20000 = 100000 (falta 1¢)
+    # Con largest remainder: fijos tiene el mayor resto (0.5) → fijos += 1
+    budgets = FinanceCalculator.calculate_budget_from_percentages(
+        total_incomes=100001,
+        percentages={"fijos": 5000, "variables": 3000, "reserva": 2000},
+    )
+
+    assert budgets["fijos"] == 50001    # mayor resto: 100001*0.5 = 50000.5
+    assert budgets["variables"] == 30000
+    assert budgets["reserva"] == 20000
+    assert sum(budgets.values()) == 100001
+
+
+def test_calculate_budget_from_percentages_validates_sum_10000():
+    """Lanza ValueError si los porcentajes no suman 10000"""
+    with pytest.raises(ValueError, match="10000"):
+        FinanceCalculator.calculate_budget_from_percentages(
+            total_incomes=100000,
+            percentages={"fijos": 5000, "variables": 3000},  # suma 8000
+        )
+
+
