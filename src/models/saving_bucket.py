@@ -158,3 +158,4 @@ class SavingBucket:
             raise TypeError(f"{field_name} debe ser entero")
         if value <= 0:
             raise ValueError(f"{field_name} debe ser distinto a 0")
+    

@@ -135,7 +135,7 @@ class WorkflowManager:
         if missing:
             raise ValueError(
                 f"Categorías no existen: {missing}. "
-                f"Llama a set_standard_categories() o add_category() primero."
+                f"Llama a add_category() primero."
             )
 
         # Aplicar (ahora seguro que todas existen). Reserva se autocalcula.
@@ -323,6 +323,36 @@ class WorkflowManager:
         bucket_id = self.household.add_saving_bucket(bucket)
 
         return bucket_id
+
+    def deposit_to_bucket(self, bucket_id: UUID, member: str, amount_euros: float, date=None) -> None:
+        """Registra un depósito en un bucket (MONTH)"""
+        self.validate_phase(Phase.MONTH)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.deposit_to_bucket(bucket_id, member, amount_cents, date)
+
+    def withdraw_from_bucket(self, bucket_id: UUID, member: str, amount_euros: float, date=None) -> None:
+        """Registra un retiro de un bucket (MONTH)"""
+        self.validate_phase(Phase.MONTH)
+        member = normalize_name(member)
+        amount_cents = to_cents(amount_euros)
+        self.household.withdraw_from_bucket(bucket_id, member, amount_cents, date)
+
+    def get_bucket_by_id(self, bucket_id: UUID):
+        """Obtiene un bucket por su UUID (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_bucket_by_id(bucket_id)
+
+    def get_all_buckets(self):
+        """Obtiene todos los buckets del hogar (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_all_buckets()
+
+    def get_buckets_by_member(self, member: str):
+        """Obtiene buckets en los que participa un miembro (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member)
+        return self.household.get_buckets_by_member(member)
 
     # ====== MONTH PHASE - member balance Queries ======
     def get_member_owed_total(self, member_name: str) -> int:

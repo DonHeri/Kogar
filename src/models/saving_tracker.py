@@ -71,6 +71,21 @@ class SavingTracker:
         bucket_id = self._bucket_tracker.add_bucket(bucket)
         return bucket_id
 
+    def deposit_to_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+        self._bucket_tracker.deposit(bucket_id, amount_cents, member_name, date)
+
+    def withdraw_from_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+        self._bucket_tracker.withdraw(bucket_id, amount_cents, member_name, date)
+
+    def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
+        return self._bucket_tracker.get_bucket_by_id(bucket_id)
+
+    def get_all_buckets(self) -> dict[UUID, SavingBucket]:
+        return self._bucket_tracker.get_all_buckets()
+
+    def get_buckets_by_member(self, member_name: str) -> dict[UUID, SavingBucket]:
+        return self._bucket_tracker.get_bucket_by_member(member_name)
+
     # ====== QUERIES ======
 
     def get_shared_balance(self, member_name: str) -> int:

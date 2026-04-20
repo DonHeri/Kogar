@@ -203,9 +203,25 @@ class Household:
 
     # ====== Saving Bucket ======
     def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
-
         bucket_id = self.savings_tracker.add_saving_bucket(bucket)
         return bucket_id
+
+    def deposit_to_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+        self._validate_member_exist(member_name)
+        self.savings_tracker.deposit_to_bucket(bucket_id, member_name, amount_cents, date)
+
+    def withdraw_from_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+        self._validate_member_exist(member_name)
+        self.savings_tracker.withdraw_from_bucket(bucket_id, member_name, amount_cents, date)
+
+    def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
+        return self.savings_tracker.get_bucket_by_id(bucket_id)
+
+    def get_all_buckets(self) -> dict[UUID, SavingBucket]:
+        return self.savings_tracker.get_all_buckets()
+
+    def get_buckets_by_member(self, member_name: str) -> dict[UUID, SavingBucket]:
+        return self.savings_tracker.get_buckets_by_member(member_name)
 
     # ====== SAVINGS (MONTH phase) ======
     def register_savings_deposit(
