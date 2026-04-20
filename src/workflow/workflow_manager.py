@@ -78,6 +78,14 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_budget_for_category(category, amount_cents)
 
+    def set_budget_by_percentage(self, category: str, pct: float) -> None:
+        """Asigna presupuesto a una categoría calculando desde % de ingresos totales"""
+        self.validate_phase(Phase.PLANNING)
+        pct_basis = to_percentage_basis(pct)
+        total_incomes = self.household.get_total_incomes()
+        amount_cents = (total_incomes * pct_basis) // 10000
+        self.household.set_budget_for_category(category, amount_cents)
+
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
         """Asigna presupuesto a categoría calculando monto desde % de ingresos totales"""
         self.validate_phase(Phase.PLANNING)

@@ -2,6 +2,7 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
+from src.models.debt_tracker import DebtTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
@@ -44,7 +45,7 @@ def household_base():
     e = ExpenseTracker()
     s = SavingTracker()
     b.set_standard_categories()
-    return Household(budget=b, expense_tracker=e, saving_tracker=s)
+    return Household(budget=b, expense_tracker=e, saving_tracker=s, debt_tracker=DebtTracker())
 
 
 # ====================================================
@@ -272,7 +273,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
 
     household_base.set_budget_for_category("fijos", 150000)
     household_base.set_budget_for_category("variables", 90000)
-    household_base.set_budget_for_category("reserva", 60000)
+    # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
 
@@ -328,7 +329,7 @@ def test_edge_case_five_members_equal_split(household_base):
 
     household_base.set_budget_for_category("fijos", 150000)
     household_base.set_budget_for_category("variables", 90000)
-    household_base.set_budget_for_category("reserva", 60000)
+    # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
 
@@ -355,13 +356,14 @@ def test_edge_case_one_cent_per_category(household_base):
 
     household_base.set_budget_for_category("fijos", 1)
     household_base.set_budget_for_category("variables", 1)
-    household_base.set_budget_for_category("reserva", 1)
+    # reserva autocalcula = 300000 - 1 - 1 = 299998
 
     contributions = household_base.get_current_contributions()
 
     for cat_name, cat_data in contributions.items():
+        expected = household_base.get_category_budget(cat_name)
         actual = sum(cat_data["contributions"].values())
-        assert actual == 1, f"{cat_name}: expected 1¢, got {actual}¢"
+        assert actual == expected, f"{cat_name}: expected {expected}¢, got {actual}¢"
 
 
 def test_edge_case_ten_categories_accumulate_remainders(household_base):

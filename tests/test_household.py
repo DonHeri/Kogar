@@ -484,15 +484,14 @@ def test_get_planning_summary_includes_distribution_method(household_with_member
 
 
 def test_get_planning_summary_with_missing_money(household_with_members):
-    """get_planning_summary calcula missing_money correctamente"""
+    """reserva autocalcula: total_budgeted siempre == total_incomes cuando hay reserva"""
     household_with_members.set_budget_for_category("fijos", 200000)
 
     summary = household_with_members.get_planning_summary()
 
-    # Total: 300000, Presupuestado: 200000, Suelto: 100000
-    assert summary["total_budgeted"] == 200000
-    assert summary["missing_money"]["total"] == 100000
-    assert summary["missing_money"]["total"] == 100000
+    # fijos=200000, reserva autocalcula=100000 → total=300000 == total_incomes
+    assert summary["total_budgeted"] == 300000
+    assert summary["missing_money"]["total"] == 0
 
 
 def test_get_planning_summary_includes_contributions_preview(household_with_members):
@@ -526,16 +525,11 @@ def test_get_planning_summary_raises_if_no_members(base_household):
 def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
     household_with_members,
 ):
-    """get_planning_summary permite over-budget y muestra missing_money negativo"""
-    # Ingresos totales: 300000 — presupuesto: 600000
+    """set_budget_for_category bloquea presupuesto que supere los ingresos"""
+    # Ingresos totales: 300000 — intentar presupuestar 500000
     household_with_members.set_budget_for_category("fijos", 300000)
-    household_with_members.set_budget_for_category("variables", 200000)
-    household_with_members.set_budget_for_category("reserva", 100000)
-
-    summary = household_with_members.get_planning_summary()
-
-    assert summary["missing_money"]["total"] == -300000
-    assert summary["missing_money"]["total"] == -300000
+    with pytest.raises(ValueError):
+        household_with_members.set_budget_for_category("variables", 200000)
 
 
 def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
@@ -785,10 +779,11 @@ def test_get_total_remaining_when_no_expenses(household_with_members):
     """get_total_remaining() retorna presupuesto total si no hay gastos"""
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
+    # reserva autocalcula a 150000 → total_budgeted = 300000
 
     total_remaining = household_with_members.get_total_remaining()
 
-    assert total_remaining == 150000
+    assert total_remaining == 300000
 
 
 def test_get_total_remaining_calculates_correctly(household_with_members):
@@ -797,6 +792,7 @@ def test_get_total_remaining_calculates_correctly(household_with_members):
 
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
+    # total_budgeted = 300000
 
     expense1 = Expense("member1", "fijos", 25000)
     expense2 = Expense("member2", "variables", 10000)
@@ -805,21 +801,22 @@ def test_get_total_remaining_calculates_correctly(household_with_members):
 
     total_remaining = household_with_members.get_total_remaining()
 
-    assert total_remaining == 115000
+    assert total_remaining == 265000
 
 
 def test_get_total_remaining_can_be_negative(household_with_members):
-    """get_total_remaining() puede ser negativo (sobregasto total)"""
+    """get_total_remaining() puede ser negativo si gastos superan presupuesto"""
     from src.models.expense import Expense
 
     household_with_members.set_budget_for_category("fijos", 50000)
+    # total_budgeted = 300000 (reserva autocalcula a 250000)
 
-    expense = Expense("member1", "fijos", 75000)
+    expense = Expense("member1", "fijos", 350000)
     household_with_members.register_expense(expense)
 
     total_remaining = household_with_members.get_total_remaining()
 
-    assert total_remaining == -25000
+    assert total_remaining == -50000
 
 
 # ====================================================
@@ -849,15 +846,16 @@ def test_get_registration_summary_returns_correct_structure(household_with_membe
 # ====================================================
 
 
-def test_get_missing_money_returns_difference_between_income_and_budget(
+def test_get_missing_money_returns_zero_when_reserva_fills_gap(
     household_with_members,
 ):
-    """missing_money = ingresos totales - presupuesto total"""
+    """missing_money = 0 porque reserva autocalcula y llena el gap"""
     household_with_members.set_budget_for_category("fijos", 250000)
+    # reserva autocalcula a 50000 → total = 300000
 
     missing_money = household_with_members.get_missing_money()
 
-    assert missing_money == 50000
+    assert missing_money == 0
 
 
 def test_get_missing_money_zero_when_budget_equals_income(household_with_members):
@@ -869,14 +867,10 @@ def test_get_missing_money_zero_when_budget_equals_income(household_with_members
     assert missing_money == 0
 
 
-def test_get_missing_money_returns_negative_when_over_budget(household_with_members):
-    """Over-budget devuelve missing_money negativo, no lanza excepción"""
-    household_with_members.set_budget_for_category("fijos", 350000)
-
-    loose = household_with_members.get_missing_money()
-    missing = household_with_members.get_missing_money()
-
-    assert missing == -50000
+def test_get_missing_money_raises_when_over_budget(household_with_members):
+    """set_budget_for_category bloquea presupuesto que supere los ingresos"""
+    with pytest.raises(ValueError):
+        household_with_members.set_budget_for_category("fijos", 350000)
 
 
 # ====================================================
@@ -886,30 +880,29 @@ def test_get_missing_money_returns_negative_when_over_budget(household_with_memb
 
 def test_get_member_owed_total_sums_all_category_contributions(household_with_members):
     """Debe sumar todas las contribuciones acordadas del miembro"""
-    household_with_members.set_budget_for_category("fijos", 60000)
-    household_with_members.set_budget_for_category("variables", 40000)
-    household_with_members.set_budget_for_category("reserva", 20000)
-
-    # Método reparto equitativo -> 120000 / 2 == 60000 por miembro
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 60000)
+    household_with_members.set_budget_for_category("variables", 40000)
+    # reserva autocalcula a 200000 → total = 300000 → EQUAL → 150000 por miembro
     household_with_members.freeze_planning_state()
 
     owed = household_with_members.get_member_owed_total("member1")
 
-    assert owed == 60000
+    assert owed == 150000
 
 
 def test_get_member_owed_total_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
-    household_with_members.set_budget_for_category("fijos", 60000)
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 60000)
+    # reserva autocalcula a 240000 → total = 300000 → EQUAL → 150000 por miembro
     household_with_members.freeze_planning_state()
 
     owed = household_with_members.get_member_owed_total("MEMBER1")
 
-    assert owed == 30000
+    assert owed == 150000
 
 
 def test_get_member_owed_total_raises_if_member_not_exists(household_with_members):
@@ -927,9 +920,10 @@ def test_get_member_balance_negative_when_owes_money(household_with_members):
     """Balance negativo cuando el miembro debe dinero (paid < owed)"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
 
     expense = Expense("member1", "fijos", 20000, "Pago parcial")
@@ -937,38 +931,40 @@ def test_get_member_balance_negative_when_owes_money(household_with_members):
 
     balance = household_with_members.get_member_balance("member1")
 
-    # Balance = paid - owed = 20000 - 50000 = -30000
-    assert balance == -30000
+    # Balance = paid - owed = 20000 - 150000 = -130000
+    assert balance == -130000
 
 
 def test_get_member_balance_positive_when_paid_more(household_with_members):
     """Balance positivo cuando el miembro pagó de más (paid > owed)"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
 
-    expense = Expense("member1", "fijos", 80000, "Pagó de más")
+    expense = Expense("member1", "fijos", 200000, "Pagó de más")
     household_with_members.register_expense(expense)
 
     balance = household_with_members.get_member_balance("member1")
 
-    # Balance = paid - owed = 80000 - 50000 = +30000
-    assert balance == 30000
+    # Balance = paid - owed = 200000 - 150000 = +50000
+    assert balance == 50000
 
 
 def test_get_member_balance_zero_when_paid_exact(household_with_members):
     """Balance cero cuando el miembro pagó exactamente lo acordado"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
 
-    expense = Expense("member1", "fijos", 50000, "Pagó exacto")
+    expense = Expense("member1", "fijos", 150000, "Pagó exacto")
     household_with_members.register_expense(expense)
 
     balance = household_with_members.get_member_balance("member1")
@@ -980,12 +976,13 @@ def test_get_member_balance_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
 
-    expense = Expense("member1", "fijos", 50000)
+    expense = Expense("member1", "fijos", 150000)
     household_with_members.register_expense(expense)
 
     balance = household_with_members.get_member_balance("MEMBER1")
@@ -1006,13 +1003,13 @@ def test_get_member_balance_raises_if_member_not_exists(household_with_members):
 
 def test_get_member_status_returns_complete_structure(household_with_members):
     """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
-    """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
+    # reserva=150000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
 
     expense1 = Expense("member1", "fijos", 30000)
@@ -1028,16 +1025,12 @@ def test_get_member_status_returns_complete_structure(household_with_members):
     assert "balance" in status
     assert "debt" in status
     assert "saving_goal" in status
-    assert "debt" in status
-    assert "saving_goal" in status
     assert "by_category" in status
 
     assert status["income"] == 200000
-    assert status["owed"] == 75000
+    assert status["owed"] == 150000
     assert status["paid"] == 40000
-    assert status["balance"] == -35000
-    assert status["debt"] == 0
-    assert status["saving_goal"] == 0
+    assert status["balance"] == -110000
     assert status["debt"] == 0
     assert status["saving_goal"] == 0
 
@@ -1046,11 +1039,11 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
     """CRÍTICO: 'paid' debe ser el total pagado, NO el paid de una categoría"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 60000)
-    household_with_members.set_budget_for_category("variables", 40000)
-    household_with_members.set_budget_for_category("reserva", 20000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 60000)
+    household_with_members.set_budget_for_category("variables", 40000)
+    # reserva autocalcula
     household_with_members.freeze_planning_state()
 
     expense1 = Expense("member1", "fijos", 20000)
@@ -1070,10 +1063,10 @@ def test_get_member_status_by_category_has_correct_structure(household_with_memb
     """'by_category' debe tener contribution, paid, remaining por categoría"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.freeze_planning_state()
 
     expense1 = Expense("member1", "fijos", 30000)
@@ -1114,28 +1107,12 @@ def test_get_member_status_normalizes_name(household_with_members):
 
 def test_get_member_status_includes_debt_and_saving_goal(household_with_members):
     """debt y saving_goal deben reflejar los valores declarados en PLANNING"""
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("reserva", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
+    household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    # reserva autocalcula a 200000 → capacity per member = 100000
     household_with_members.set_member_debt("member1", 20000)
     household_with_members.set_member_saving_goal("member1", 30000)
-    household_with_members.freeze_registration_state()
-    household_with_members.freeze_planning_state()
-
-    status = household_with_members.get_member_status("member1")
-
-    assert status["debt"] == 20000
-    assert status["saving_goal"] == 30000
-
-
-def test_get_member_status_includes_debt_and_saving_goal(household_with_members):
-    """debt y saving_goal deben reflejar los valores declarados en PLANNING"""
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("reserva", 100000)
-    household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.set_member_debt("member1", 20000)
-    household_with_members.set_member_saving_goal("member1", 30000)
-    household_with_members.freeze_registration_state()
     household_with_members.freeze_planning_state()
 
     status = household_with_members.get_member_status("member1")
@@ -1159,10 +1136,10 @@ def test_get_month_summary_returns_complete_structure(household_with_members):
     """Debe retornar dict con 'totals' y 'by_category'"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.freeze_planning_state()
 
     expense = Expense("member1", "fijos", 30000)
@@ -1180,29 +1157,27 @@ def test_get_month_summary_returns_complete_structure(household_with_members):
 
 def test_get_month_summary_includes_missing_money(household_with_members):
     """'missing_money' debe estar presente en el summary"""
-    # Total income = 300000, budgeted = 200000 → missing = 100000
-    household_with_members.set_budget_for_category("fijos", 200000)
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 200000)
+    # reserva autocalcula a 100000 → total = 300000 → missing = 0
     household_with_members.freeze_planning_state()
 
     summary = household_with_members.get_month_summary()
 
     assert "missing_money" in summary
-    assert summary["missing_money"]["total"] == 100000
-    assert "missing_money" in summary
-    assert summary["missing_money"]["total"] == 100000
+    assert summary["missing_money"]["total"] == 0
 
 
 def test_get_month_summary_calculates_correctly(household_with_members):
     """Los cálculos de 'totals' deben ser correctos"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
+    # reserva=150000 → total_budgeted=300000
     household_with_members.freeze_planning_state()
 
     expense1 = Expense("member1", "fijos", 30000)
@@ -1212,19 +1187,19 @@ def test_get_month_summary_calculates_correctly(household_with_members):
 
     summary = household_with_members.get_month_summary()
 
-    assert summary["totals"]["total_budgeted"] == 150000
+    assert summary["totals"]["total_budgeted"] == 300000
     assert summary["totals"]["total_spent"] == 50000
-    assert summary["totals"]["total_remaining"] == 100000
+    assert summary["totals"]["total_remaining"] == 250000
 
 
 def test_get_month_summary_by_category_has_correct_structure(household_with_members):
     """Cada categoría en 'by_category' debe tener budget, spent, remaining"""
     from src.models.expense import Expense
 
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.freeze_planning_state()
 
     expense = Expense("member1", "fijos", 25000)
@@ -1264,9 +1239,9 @@ def test_get_agreed_percentages_raises_if_not_frozen(household_with_members):
 
 def test_get_agreed_percentages_returns_frozen_percentages(household_with_members):
     """Debe retornar los porcentajes congelados después de finish_planning()"""
-    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.freeze_planning_state()
 
     percentages = household_with_members.get_agreed_percentages()
@@ -1287,10 +1262,10 @@ def test_get_agreed_contributions_raises_if_not_frozen(household_with_members):
 
 def test_get_agreed_contributions_returns_frozen_contributions(household_with_members):
     """Debe retornar las contribuciones congeladas después de finish_planning()"""
-    household_with_members.set_budget_for_category("fijos", 100000)
-    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
+    household_with_members.set_budget_for_category("fijos", 100000)
+    household_with_members.set_budget_for_category("variables", 50000)
     household_with_members.freeze_planning_state()
 
     contributions = household_with_members.get_agreed_contributions()
@@ -1335,13 +1310,11 @@ def test_set_budget_by_percentage_zero(household_with_members):
     assert household_with_members.budget.get_category_budget("fijos") == 0
 
 
-def test_set_budget_by_percentage_full(household_with_members):
-    """Asigna el total de ingresos cuando el porcentaje es 100%"""
-    # 100% de 300000 = 300000 céntimos
+def test_set_budget_by_percentage_full_on_reserva_raises(household_with_members):
+    """set_budget_by_percentage sobre reserva lanza ValueError"""
     pct_basis = 10000  # 100%
-    household_with_members.set_budget_by_percentage(pct_basis, "reserva")
-
-    assert household_with_members.budget.get_category_budget("reserva") == 300000
+    with pytest.raises(ValueError, match="Reserva se autocalcula"):
+        household_with_members.set_budget_by_percentage(pct_basis, "reserva")
 
 
 def test_set_budget_by_percentage_delegates_to_set_budget(household_with_members):
@@ -1376,11 +1349,11 @@ def test_get_budget_as_percentage_zero_budget(household_with_members):
 
 
 def test_get_budget_as_percentage_full_budget(household_with_members):
-    """Retorna 10000 (100%) cuando presupuesto = ingresos totales"""
+    """Retorna 10000 (100%) cuando presupuesto de categoría = ingresos totales"""
     # Ingresos totales: 300000
-    household_with_members.set_budget_for_category("reserva", 300000)
+    household_with_members.set_budget_for_category("fijos", 300000)
 
-    pct_basis = household_with_members.get_budget_as_percentage("reserva")
+    pct_basis = household_with_members.get_budget_as_percentage("fijos")
 
     assert pct_basis == 10000  # 100%
 
@@ -1443,30 +1416,27 @@ def test_register_savings_withdrawal_delegates_to_tracker(household_with_members
 
 
 def test_get_missing_money_by_member_with_equal_method(household_with_members):
-    """Test: calcula el missing_money equitativamente por miembro"""
+    """Test: missing_money es 0 porque reserva autocalcula y llena el gap"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.set_budget_for_category("fijos", 200000)
-    # Ingresos 300000 - Presupuesto 200000 = Missing 100000. Mitad = 50000.
+    # reserva autocalcula a 100000 → total = 300000 → missing = 0
 
     loose_m1 = household_with_members.get_missing_money_by_member("member1")
     loose_m2 = household_with_members.get_missing_money_by_member("member2")
-    loose_m1 = household_with_members.get_missing_money_by_member("member1")
-    loose_m2 = household_with_members.get_missing_money_by_member("member2")
 
-    assert loose_m1 == 50000
-    assert loose_m2 == 50000
+    assert loose_m1 == 0
+    assert loose_m2 == 0
 
 
 def test_get_missing_money_by_member_with_custom_method(household_with_members):
-    """Test: calcula el missing_money según porcentajes custom por miembro"""
+    """Test: missing_money es 0 con método custom también"""
     household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
     household_with_members.assign_distribution_method(MetodoReparto.CUSTOM)
     household_with_members.set_budget_for_category("fijos", 200000)
-    # Loose 100000. 70% = 70000.
+    # reserva autocalcula a 100000 → missing = 0
 
     loose_m1 = household_with_members.get_missing_money_by_member("member1")
-    loose_m1 = household_with_members.get_missing_money_by_member("member1")
-    assert loose_m1 == 70000
+    assert loose_m1 == 0
 
 
 # ====================================================
@@ -1476,8 +1446,9 @@ def test_get_missing_money_by_member_with_custom_method(household_with_members):
 
 def test_validate_debt_and_saving_passes_within_reserva(household_with_members):
     """Deuda + ahorro dentro de la parte de reserva no lanza"""
-    # EQUAL: reserva 120000 / 2 = 60000 por miembro
-    household_with_members.set_budget_for_category("reserva", 120000)
+    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
+    # EQUAL: 120000 / 2 = 60000 por miembro
+    household_with_members.set_budget_for_category("fijos", 180000)
     household_with_members.set_member_saving_goal("member1", 40000)
     household_with_members.set_member_debt("member1", 10000)
 
@@ -1487,8 +1458,9 @@ def test_validate_debt_and_saving_passes_within_reserva(household_with_members):
 
 def test_validate_debt_and_saving_raises_when_exceeds_reserva(household_with_members):
     """Deuda + ahorro mayor que la parte de reserva del miembro lanza ValueError"""
-    # EQUAL: reserva 120000 / 2 = 60000 por miembro
-    household_with_members.set_budget_for_category("reserva", 120000)
+    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
+    # EQUAL: 120000 / 2 = 60000 por miembro
+    household_with_members.set_budget_for_category("fijos", 180000)
     household_with_members.set_member_saving_goal("member1", 50000)
     household_with_members.set_member_debt("member1", 20000)
 
@@ -1508,13 +1480,11 @@ def test_validate_debt_and_saving_no_reserva_raises_if_commitments(
 
 
 def test_validate_debt_and_saving_ignores_missing_money(household_with_members):
-    """La validación usa solo la parte de reserva, no missing_money"""
-    # fijos presupuestado menor que ingresos → hay missing_money
-    household_with_members.set_budget_for_category("fijos", 100000)
-    # reserva = 0 (no presupuestado) → capacidad = 0
+    """Sin reserva (fijos == total_incomes), cualquier compromiso supera capacidad"""
+    # fijos=total_incomes → reserva=0 → capacidad=0 por miembro
+    household_with_members.set_budget_for_category("fijos", 300000)
     household_with_members.set_member_saving_goal("member1", 1)
 
-    # Aunque haya missing_money disponible, no computa como capacidad
     with pytest.raises(ValueError, match="member1"):
         household_with_members.validate_debt_and_saving_dont_exceed_capacity()
 

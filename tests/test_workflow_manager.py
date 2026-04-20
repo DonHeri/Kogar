@@ -288,8 +288,8 @@ def test_get_planning_summary_in_planning_phase(wm):
 
     assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
-    assert summary["total_budgeted"] == 800000
-    assert summary["missing_money"]["total"] == 200000
+    assert summary["total_budgeted"] == 1000000
+    assert summary["missing_money"]["total"] == 0
     assert "distribution_percentages" in summary
     assert "contributions_preview" in summary
 
@@ -327,19 +327,15 @@ def test_get_planning_summary_includes_all_key_data(wm):
 
 
 def test_get_planning_summary_returns_negative_missing_money_when_over_budget(wm):
-    """get_planning_summary permite over-budget y muestra missing_money negativo"""
+    """set_budget_for_category bloquea presupuesto que supera ingresos"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    # Ingresos: 300000€ — presupuesto: 700000€
-    wm.set_budget_for_category("fijos", 4000)
-    wm.set_budget_for_category("variables", 3000)
-
-    summary = wm.get_planning_summary()
-
-    assert summary["missing_money"]["total"] == -400000
+    # Ingresos: 300000 céntimos — intentar setear 400000 → ValueError
+    with pytest.raises(ValueError):
+        wm.set_budget_for_category("fijos", 4000)
 
 
 # ====================================================
@@ -410,8 +406,8 @@ def test_finish_planning_freezes_agreed_state(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
-    wm.set_incomes("Amanda", 3000)
-    wm.set_incomes("Heri", 2000)
+    wm.set_incomes("Amanda", 6000)
+    wm.set_incomes("Heri", 4000)
     wm.finish_registration()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
@@ -434,19 +430,15 @@ def test_finish_planning_freezes_agreed_state(wm):
 
 
 def test_finish_planning_allows_over_budget(wm):
-    """finish_planning no bloquea aunque el presupuesto supere los ingresos"""
+    """set_budget_for_category bloquea presupuesto que supera ingresos"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 1000)
     wm.finish_registration()
 
-    # Presupuesto total: 1500€ > ingresos: 1000€
-    wm.set_budget_for_category("fijos", 1500)
-
-    wm.finish_planning()  # no debe lanzar
-
-    from src.models.constants import Phase
-    assert wm.current_phase == Phase.MONTH
+    # Presupuesto total: 1500€ > ingresos: 1000€ → ValueError
+    with pytest.raises(ValueError):
+        wm.set_budget_for_category("fijos", 1500)
 
 
 # ====================================================
@@ -600,8 +592,8 @@ def test_get_agreed_contributions_in_month(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
-    wm.set_incomes("Amanda", 3000)
-    wm.set_incomes("Heri", 2000)
+    wm.set_incomes("Amanda", 6000)
+    wm.set_incomes("Heri", 4000)
     wm.finish_registration()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
@@ -879,7 +871,7 @@ def test_get_month_summary_in_month_phase(wm):
 
     assert "totals" in summary
     assert "by_category" in summary
-    assert summary["totals"]["total_budgeted"] == 200000
+    assert summary["totals"]["total_budgeted"] == 300000
     assert summary["totals"]["total_spent"] == 50000
 
 
@@ -940,9 +932,9 @@ def test_set_budget_by_percentage_zero(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentage("reserva", 0.0)
+    wm.set_budget_by_percentage("fijos", 0.0)
 
-    assert wm.household.budget.get_category_budget("reserva") == 0
+    assert wm.household.budget.get_category_budget("fijos") == 0
 
 
 # ====================================================
@@ -994,8 +986,8 @@ def test_get_budget_as_percentage_roundtrip(wm):
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentage("reserva", 40.0)
-    retrieved = wm.get_budget_as_percentage("reserva")
+    wm.set_budget_by_percentage("fijos", 40.0)
+    retrieved = wm.get_budget_as_percentage("fijos")
 
     assert retrieved == 4000  # 40%
 
