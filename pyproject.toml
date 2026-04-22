@@ -6,10 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "kogar"
 version = "0.1.0"
 description = "Gestión de finanzas compartidas"
-requires-python = ">=3.8"
-dependencies = [
-    "colorama==0.4.6",
-]
+requires-python = ">=3.10"
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -17,6 +15,7 @@ dev = [
     "pytest-cov==7.0.0",
     "coverage==7.13.3",
     "ruff>=0.4.0",
+    "colorama==0.4.6",
 ]
 
 [tool.setuptools.packages.find]
