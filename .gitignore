@@ -69,7 +69,7 @@ TASKS.md
 # SCRIPTS Y NOTAS PERSONALES (PROYECTO)
 # ==========================================
 # Aquí irán tus zonas de pruebas manuales que no quieres subir
-examples/
+examples/quick_checks/
 sandbox_*
 temp/
 tmp/
@@ -85,7 +85,7 @@ CONTEXT.md
 *.log
 *.txt
 !requirements.txt
-!README.md
+
 
 # ==========================================
 # Miscelánea
