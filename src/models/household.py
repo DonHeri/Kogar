@@ -109,11 +109,6 @@ class Household:
         self.budget.set_budget(category, amount_cents)
         self.budget.set_budget("reserva", total_incomes - nuevo_total_sin_reserva)
 
-    def set_budget_by_percentage(self, pct_basis: int, category: str) -> None:
-        """Asigna presupuesto a una categoría calculando desde % del ingreso total."""
-        total = self.get_total_incomes()
-        amount_cents = (total * pct_basis) // 10000
-        self.set_budget_for_category(category, amount_cents)
 
     def set_budget_by_percentages(self, percentages: dict[str, int]):
         """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
@@ -156,8 +151,7 @@ class Household:
     def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
         """Declara el ahorro personal mensual de un miembro (PLANNING)"""
         self._validate_member_exist(member_name)
-        self._saving_goals[member_name] = amount_cents  # (+=)
-        # TODO que pasa si el miembro quiere agregar más ahorro y no tener que settearlo nuevo?
+        self._saving_goals[member_name] = amount_cents
 
     # ====== PLANNING -  DISTRIBUTION CONFIGURATION ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -222,6 +216,16 @@ class Household:
 
     def get_buckets_by_member(self, member_name: str) -> dict[UUID, SavingBucket]:
         return self.savings_tracker.get_buckets_by_member(member_name)
+
+    def get_debt_history(self, member_name: str) -> list:
+        self._validate_member_exist(member_name)
+        return self.debt_tracker.get_history(member_name)
+
+    def get_savings_total_shared(self) -> int:
+        return self.savings_tracker.get_total_shared()
+
+    def get_savings_shared_by_month(self, month: int, year: int) -> dict:
+        return self.savings_tracker.get_shared_by_month(month, year)
 
     # ====== SAVINGS (MONTH phase) ======
     def register_savings_deposit(

@@ -1294,52 +1294,6 @@ def test_get_agreed_contributions_returns_frozen_contributions(household_with_me
 
 
 # ====================================================
-# TESTS: set_budget_by_percentage
-# ====================================================
-
-
-def test_set_budget_by_percentage_basic(household_with_members):
-    """Asigna presupuesto basado en porcentaje de ingresos totales"""
-    # Ingresos totales: 300000 céntimos (3000€)
-    # 50% = 150000 céntimos (1500€)
-    pct_basis = 5000  # 50%
-    household_with_members.set_budget_by_percentage(pct_basis, "fijos")
-
-    assert household_with_members.budget.get_category_budget("fijos") == 150000
-
-
-def test_set_budget_by_percentage_fractional(household_with_members):
-    """Maneja correctamente porcentajes fraccionarios"""
-    # 33.33% de 300000 = 99990 céntimos (floor division)
-    pct_basis = 3333  # 33.33%
-    household_with_members.set_budget_by_percentage(pct_basis, "variables")
-
-    assert household_with_members.budget.get_category_budget("variables") == 99990
-
-
-def test_set_budget_by_percentage_zero(household_with_members):
-    """Asigna 0 cuando el porcentaje es 0"""
-    pct_basis = 0  # 0%
-    household_with_members.set_budget_by_percentage(pct_basis, "fijos")
-
-    assert household_with_members.budget.get_category_budget("fijos") == 0
-
-
-def test_set_budget_by_percentage_full_on_reserva_raises(household_with_members):
-    """set_budget_by_percentage sobre reserva lanza ValueError"""
-    pct_basis = 10000  # 100%
-    with pytest.raises(ValueError, match="Reserva se autocalcula"):
-        household_with_members.set_budget_by_percentage(pct_basis, "reserva")
-
-
-def test_set_budget_by_percentage_delegates_to_set_budget(household_with_members):
-    """Delegación a set_budget_for_category preserva validaciones"""
-    pct_basis = 5000
-    with pytest.raises(ValueError, match="debe estar creada"):
-        household_with_members.set_budget_by_percentage(pct_basis, "categoria_falsa")
-
-
-# ====================================================
 # TESTS: get_budget_as_percentage
 # ====================================================
 
@@ -1391,7 +1345,7 @@ def test_get_budget_as_percentage_nonexistent_category(household_with_members):
 
 def test_get_budget_as_percentage_roundtrip_consistency(household_with_members):
     """set + get debe ser consistente (considerando floor division)"""
-    household_with_members.set_budget_by_percentage(5000, "fijos")
+    household_with_members.set_budget_for_category("fijos", 150000)  # 50% de 300000
     retrieved_pct = household_with_members.get_budget_as_percentage("fijos")
 
     assert retrieved_pct == 5000

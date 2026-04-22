@@ -68,18 +68,14 @@ TASKS.md
 # ==========================================
 # SCRIPTS Y NOTAS PERSONALES (PROYECTO)
 # ==========================================
-# Aquí irán tus zonas de pruebas manuales que no quieres subir
+# Zonas de pruebas manuales 
 examples/quick_checks/
 sandbox_*
 temp/
 tmp/
 # Documentación de trabajo personal 
-docs/
-PRODUCT.md
-TODO.md
-LEARNING.md
-CLAUDE.md
-CONTEXT.md
+docs/_personales/
+
 
 # Logs de error y salidas de texto
 *.log

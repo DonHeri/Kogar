@@ -50,13 +50,13 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 ```python
 
-from src.models.workflow_manager import WorkflowManager
-from src.models.household import Household
 from src.models.budget import Budget
-from src.models.expense_tracker import ExpenseTracker
-from src.models.saving_tracker import SavingTracker
-from src.models.debt_tracker import DebtTracker
 from src.models.constants import MetodoReparto
+from src.models.debt_tracker import DebtTracker
+from src.models.expense_tracker import ExpenseTracker
+from src.models.household import Household
+from src.models.saving_tracker import SavingTracker
+from src.workflow.workflow_manager import WorkflowManager
 
 
 wm = WorkflowManager(Household(
@@ -74,8 +74,8 @@ wm.set_incomes("Amanda", 2000.0)
 wm.set_incomes("Heri", 1500.0)
 wm.finish_registration()
 
-# Fase PLANNING
-wm.set_budget_by_percentages({"fijos": 50.0, "variables": 20.0})
+# Fase PLANNING — porcentajes deben sumar 100%; reserva se autocalcula
+wm.set_budget_by_percentages({"fijos": 50.0, "variables": 20.0, "reserva": 30.0})
 wm.finish_planning()
 
 # Fase MONTH
@@ -86,6 +86,18 @@ wm.register_expense("Heri", "variables", 120.0, "Supermercado")
 print(wm.get_settlement())
 # [{"from": "heri", "to": "amanda", "amount": 45714}]  (en céntimos)
 
+```
+
+Puedes ver un ejemplo de uso más extendido en:
+
+```
+examples/full_month_simulation.py
+```
+
+La referencia completa de todos los métodos disponibles está en:
+
+```
+docs/workflow_manager_api.md
 ```
 
 ---
@@ -127,13 +139,16 @@ Cada operación solo es válida en ciertas fases. Al cerrar una fase, el estado 
 ## Estructura del proyecto
 
 ```
+docs/
+├── workflow_manager_api.md    ← Referencia completa de la API pública
 examples/
-├── full_month_simulation.py
+└── full_month_simulation.py
 src/
 ├── cli/                       ← En desarrollo (esqueleto)
 ├── exceptions/                ← En desarrollo (esqueleto)
+├── workflow/
+│   └── workflow_manager.py    ← FACHADA. Único punto de entrada desde UI.
 ├── models/
-│   ├── workflow_manager.py    ← FACHADA. Único punto de entrada desde UI.
 │   ├── household.py           ← Núcleo de dominio. Orquesta todo.
 │   ├── finance_calculator.py  ← Matemática pura (sin estado). Reparto de céntimos.
 │   │

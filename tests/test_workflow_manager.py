@@ -886,58 +886,6 @@ def test_get_month_summary_raises_if_not_in_month(wm):
 
 
 # ====================================================
-# TESTS: set_budget_by_percentage (WorkflowManager)
-# ====================================================
-
-
-def test_set_budget_by_percentage_wrong_phase(wm):
-    """set_budget_by_percentage lanza error si no estamos en PLANNING"""
-    wm.register_member("Amanda")
-    wm.set_incomes("Amanda", 3000)
-
-    with pytest.raises(ValueError, match="planificación"):
-        wm.set_budget_by_percentage("fijos", 50.0)
-
-
-def test_set_budget_by_percentage_converts_float_to_basis(wm):
-    """Convierte porcentaje float a basis points y llama a Household"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.set_incomes("Amanda", 3000)
-    wm.finish_registration()
-
-    wm.set_budget_by_percentage("fijos", 50.0)
-
-    # 50% de 300000 céntimos = 150000
-    assert wm.household.budget.get_category_budget("fijos") == 150000
-
-
-def test_set_budget_by_percentage_fractional(wm):
-    """Maneja correctamente porcentajes fraccionarios"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.set_incomes("Amanda", 3000)
-    wm.finish_registration()
-
-    wm.set_budget_by_percentage("variables", 33.33)
-
-    # 33.33% de 300000 = 99990 céntimos
-    assert wm.household.budget.get_category_budget("variables") == 99990
-
-
-def test_set_budget_by_percentage_zero(wm):
-    """Asigna 0 cuando el porcentaje es 0"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.set_incomes("Amanda", 3000)
-    wm.finish_registration()
-
-    wm.set_budget_by_percentage("fijos", 0.0)
-
-    assert wm.household.budget.get_category_budget("fijos") == 0
-
-
-# ====================================================
 # TESTS: get_budget_as_percentage (WorkflowManager)
 # ====================================================
 
@@ -980,13 +928,13 @@ def test_get_budget_as_percentage_zero_budget(wm):
 
 
 def test_get_budget_as_percentage_roundtrip(wm):
-    """set_budget_by_percentage + get_budget_as_percentage es consistente"""
+    """set_budget_for_category + get_budget_as_percentage es consistente"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentage("fijos", 40.0)
+    wm.set_budget_for_category("fijos", 1200)  # 40% de 3000€
     retrieved = wm.get_budget_as_percentage("fijos")
 
     assert retrieved == 4000  # 40%

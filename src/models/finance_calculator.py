@@ -93,7 +93,7 @@ class FinanceCalculator:
         if total_incomes <= 0:
             raise ValueError("Total de ingresos debe ser superior a 0")
 
-        if sum(percentages.values()) != 10000:
+        if total_percentages != 10000:
             raise ValueError("Los porcentajes deben sumar 100% (10000 basis points)")
 
         budgets = {}

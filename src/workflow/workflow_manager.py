@@ -71,19 +71,16 @@ class WorkflowManager:
         self.validate_phase(Phase.PLANNING)
         self.household.remove_category(name)
 
+    def get_category_behavior(self, category: str):
+        """Retorna el behavior de una categoría: SHARED o PERSONAL (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_category_behavior(category)
+
     # ====== PLANNING PHASE - Budget Assignment ======
     def set_budget_for_category(self, category: str, amount_euros: float):
         """Asigna presupuesto a categoría (recibe euros, convierte a céntimos)"""
         self.validate_phase(Phase.PLANNING)
         amount_cents = to_cents(amount_euros)
-        self.household.set_budget_for_category(category, amount_cents)
-
-    def set_budget_by_percentage(self, category: str, pct: float) -> None:
-        """Asigna presupuesto a una categoría calculando desde % de ingresos totales"""
-        self.validate_phase(Phase.PLANNING)
-        pct_basis = to_percentage_basis(pct)
-        total_incomes = self.household.get_total_incomes()
-        amount_cents = (total_incomes * pct_basis) // 10000
         self.household.set_budget_for_category(category, amount_cents)
 
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
@@ -92,7 +89,7 @@ class WorkflowManager:
 
         percentages_int = {}
         for category, percentage_float in percentages_floats.items():
-            percentage_int = percentage_float * 100
+            percentage_int = to_percentage_basis(percentage_float)
             percentages_int[category] = percentage_int
 
         self.household.set_budget_by_percentages(percentages=percentages_int)
@@ -134,15 +131,17 @@ class WorkflowManager:
         missing = [cat for cat in percentages.keys() if cat not in active_categories]
         if missing:
             raise ValueError(
-                f"Categorías no existen: {missing}. "
-                f"Llama a add_category() primero."
+                f"Categorías no existen: {missing}. Llama a add_category() primero."
             )
 
         # Aplicar (ahora seguro que todas existen). Reserva se autocalcula.
+        total_incomes = self.household.get_total_incomes()
         for category, pct in percentages.items():
             if category == "reserva":
                 continue
-            self.set_budget_by_percentage(category, pct)
+            pct_basis = to_percentage_basis(pct)
+            amount_cents = (total_incomes * pct_basis) // 10000
+            self.household.set_budget_for_category(category, amount_cents)
 
     # ====== SET SAVING GOAL  ======
     def set_member_saving_goal(self, member: str, amount_euros: float) -> None:
@@ -152,6 +151,11 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_member_saving_goal(member, amount_cents)
 
+    def get_saving_goal_status(self, member_name):
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member_name)
+        return self.household.get_saving_goal_status(member)
+
     # ====== SET DEBT - Declarar deuda para cada miembro ======
     def set_member_debt(self, member: str, amount_euros: float) -> None:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
@@ -160,11 +164,36 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_member_debt(member, amount_cents)
 
+    def auto_assign_saving_goals(self):
+        self.validate_phase(Phase.PLANNING)
+        return self.household.auto_assign_saving_goals()
+
     def register_debt_payment(self, member, amount_euros, description="", date=None):
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.register_debt_payment(member, amount_cents, description, date)
+
+    def get_debt_status(self, member_name):
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member_name)
+        return self.household.get_debt_status(member_name=member)
+
+    def get_all_debts(self) -> dict[str, int]:
+        """Retorna {member: deuda_comprometida_céntimos} (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_member_debts()
+
+    def get_all_saving_goals(self) -> dict[str, int]:
+        """Retorna {member: ahorro_comprometido_céntimos} (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_saving_goals()
+
+    def get_debt_history(self, member: str) -> list:
+        """Historial completo de pagos de deuda de un miembro (MONTH+)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        member = normalize_name(member)
+        return self.household.get_debt_history(member)
 
     # ====== PLANNING PHASE - Contribution Queries ======
     def get_category_budget(self, category_name: str) -> int:
@@ -196,6 +225,10 @@ class WorkflowManager:
         """Dinero no presupuestado de un miembro según su porcentaje"""
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_missing_money_by_member(member_name)
+
+    def validate_debt_and_saving_dont_exceed_capacity(self):
+        self.validate_phase(Phase.PLANNING)
+        return self.household.validate_debt_and_saving_dont_exceed_capacity()
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
@@ -299,6 +332,16 @@ class WorkflowManager:
         member = normalize_name(member)
         return self.household.get_member_savings_summary(member)
 
+    def get_savings_total_shared(self) -> int:
+        """Total ahorrado en fondo compartido por todos los miembros (MONTH+)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_savings_total_shared()
+
+    def get_savings_shared_by_month(self, month: int, year: int) -> dict:
+        """Movimientos compartidos por mes/año → {member: [SavingEntry]} (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        return self.household.get_savings_shared_by_month(month, year)
+
     # ====== Saving Bucket ======
     def create_saving_bucket(
         self,
@@ -324,14 +367,18 @@ class WorkflowManager:
 
         return bucket_id
 
-    def deposit_to_bucket(self, bucket_id: UUID, member: str, amount_euros: float, date=None) -> None:
+    def deposit_to_bucket(
+        self, bucket_id: UUID, member: str, amount_euros: float, date=None
+    ) -> None:
         """Registra un depósito en un bucket (MONTH)"""
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.deposit_to_bucket(bucket_id, member, amount_cents, date)
 
-    def withdraw_from_bucket(self, bucket_id: UUID, member: str, amount_euros: float, date=None) -> None:
+    def withdraw_from_bucket(
+        self, bucket_id: UUID, member: str, amount_euros: float, date=None
+    ) -> None:
         """Registra un retiro de un bucket (MONTH)"""
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
