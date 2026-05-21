@@ -20,7 +20,6 @@ class Member:
         self._validate_income(income_cents)
         self.monthly_income += income_cents
 
-    
     # ====== VALIDATORS ======
     def _validate_income(self, income_cents: int):
         """Valida que el ingreso es positivo"""

@@ -1,6 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
+from src.storage.member_repository import MemberRepository
+from src.storage.household_repository import HouseholdRepository
+
 from src.models.constants import CategoryBehavior, MetodoReparto, Phase, SavingScope
 from src.models.expense import Expense
 from src.models.household import Household
@@ -11,10 +14,17 @@ from src.utils.text import normalize_name
 
 
 class WorkflowManager:
-    def __init__(self, household: Household) -> None:
+    def __init__(
+        self,
+        household: Household,
+        household_repo: HouseholdRepository | None = None,
+        member_repo: MemberRepository | None = None,
+    ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
         self._completed_phases = {Phase.REGISTRATION}
+        self.household_repo = household_repo
+        self.member_repo = member_repo
 
     # ====== REGISTRATION PHASE ======
     def register_member(self, name: str):
@@ -36,6 +46,15 @@ class WorkflowManager:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
+
+        try:
+            household_id = self.household_repo.add_household()
+
+            for member in self.household.members.values():
+                self.member_repo.add_member(member=member, household_id=household_id)
+        except Exception as e:
+            print('[ERROR] - ',e)   #TODO abrir y cerrar conexión - variables de entorno
+            
 
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
