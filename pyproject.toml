@@ -7,7 +7,10 @@ name = "kogar"
 version = "0.1.0"
 description = "Gestión de finanzas compartidas"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "psycopg2-binary>=2.9",
+    "python-dotenv",
+]
 
 [project.optional-dependencies]
 dev = [
