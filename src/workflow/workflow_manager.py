@@ -46,22 +46,23 @@ class WorkflowManager:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
-
-        try:
-            household_id = self.household_repo.add_household()
-
-            for member in self.household.members.values():
-                self.member_repo.add_member(member=member, household_id=household_id)
-        except Exception as e:
-            print('[ERROR] - ',e)   #TODO abrir y cerrar conexión - variables de entorno
-            
-
+        
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
 
         # Cambiar fase y marcarla como accesible
         self.current_phase = Phase.PLANNING
         self._completed_phases.add(Phase.PLANNING)
+        
+        # Persistir si hay repositorios
+        if self.household_repo and self.member_repo:
+            household_id = self.household_repo.add_household()
+
+            for member in self.household.members.values():
+                self.member_repo.add_member(member=member, household_id=household_id)
+
+
+
 
     # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
