@@ -33,34 +33,34 @@ class WorkflowManager:
         member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
 
-    def set_incomes(self, name: str, amount_eur: float):
+    def set_member_incomes(self, name: str, amount_eur: float):
         """Registra ingresos"""
         self.validate_phase(Phase.REGISTRATION)
         name = normalize_name(name)  # Normalizar para lookup
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(self):
+    def finish_registration(self) -> int | None:
         """Validar, congelar ingresos y avanzar a planificación"""
         if not self.household.members:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
-        
+
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
 
         # Cambiar fase y marcarla como accesible
         self.current_phase = Phase.PLANNING
         self._completed_phases.add(Phase.PLANNING)
-        
+
         # Persistir si hay repositorios
         if self.household_repo and self.member_repo:
             household_id = self.household_repo.add_household()
 
             for member in self.household.members.values():
                 self.member_repo.add_member(member=member, household_id=household_id)
-
+            return household_id
 
 
 

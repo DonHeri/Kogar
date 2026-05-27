@@ -109,7 +109,6 @@ class Household:
         self.budget.set_budget(category, amount_cents)
         self.budget.set_budget("reserva", total_incomes - nuevo_total_sin_reserva)
 
-
     def set_budget_by_percentages(self, percentages: dict[str, int]):
         """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
         total_incomes = self.get_total_incomes()
@@ -200,13 +199,21 @@ class Household:
         bucket_id = self.savings_tracker.add_saving_bucket(bucket)
         return bucket_id
 
-    def deposit_to_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+    def deposit_to_bucket(
+        self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
+    ) -> None:
         self._validate_member_exist(member_name)
-        self.savings_tracker.deposit_to_bucket(bucket_id, member_name, amount_cents, date)
+        self.savings_tracker.deposit_to_bucket(
+            bucket_id, member_name, amount_cents, date
+        )
 
-    def withdraw_from_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+    def withdraw_from_bucket(
+        self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
+    ) -> None:
         self._validate_member_exist(member_name)
-        self.savings_tracker.withdraw_from_bucket(bucket_id, member_name, amount_cents, date)
+        self.savings_tracker.withdraw_from_bucket(
+            bucket_id, member_name, amount_cents, date
+        )
 
     def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
         return self.savings_tracker.get_bucket_by_id(bucket_id)

@@ -64,10 +64,10 @@ with DatabaseConnection(
     print("=" * 60)
 
     wm.register_member("Amanda")
-    wm.set_incomes("Amanda", 1339.58)
+    wm.set_member_incomes("Amanda", 1339.58)
 
     wm.register_member("Heri")
-    wm.set_incomes("Heri", 1124.50)
+    wm.set_member_incomes("Heri", 1124.50)
 
     print(f"Amanda: {to_euros(wm.get_member_income('amanda'))}")
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
