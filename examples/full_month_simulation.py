@@ -28,6 +28,7 @@ from src.workflow.workflow_manager import WorkflowManager
 from src.storage.connection import DatabaseConnection
 from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
+from src.storage.period_repository import PeriodRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 with DatabaseConnection(
@@ -39,7 +40,7 @@ with DatabaseConnection(
 ) as conn:
     household_repo = HouseholdRepository(conn)
     member_repo = MemberRepository(conn)
-
+    period_repo = PeriodRepository(conn)
     # =============================================
     # SETUP — Instanciar todo
     # =============================================
@@ -52,7 +53,10 @@ with DatabaseConnection(
         method=MetodoReparto.PROPORTIONAL,
     )
     wm = WorkflowManager(
-        household, household_repo=household_repo, member_repo=member_repo
+        household,
+        household_repo=household_repo,
+        member_repo=member_repo,
+        period_repo=period_repo,
     )
 
     # =============================================
@@ -73,7 +77,7 @@ with DatabaseConnection(
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
     print(f"Total:  {to_euros(wm.get_total_incomes())}")
 
-    wm.finish_registration()
+    wm.finish_registration(year=2026, month=5)
     print("\n[OK] Registro congelado. Fase: PLANNING\n")
 
     # =============================================
