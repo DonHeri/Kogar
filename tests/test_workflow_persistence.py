@@ -75,7 +75,7 @@ def wm_ready_to_finish(wm_with_repos):
 
 def test_finish_registration_add_household(wm_ready_to_finish):
     # Act
-    household_id = wm_ready_to_finish.finish_registration()
+    household_id = wm_ready_to_finish.finish_registration(year=2026, month=1)
     # Assert
     ids = [
         h["id"]
@@ -88,7 +88,7 @@ def test_finish_registration_add_household(wm_ready_to_finish):
 def test_finish_registration_add_members(wm_ready_to_finish):
 
     # Act
-    household_id = wm_ready_to_finish.finish_registration()
+    household_id = wm_ready_to_finish.finish_registration(year=2026, month=1)
 
     member_names = [
         m["full_name"]
@@ -105,7 +105,7 @@ def test_finish_registration_add_members(wm_ready_to_finish):
 def test_finish_registration_add_incomes(wm_ready_to_finish):
 
     # Act
-    household_id = wm_ready_to_finish.finish_registration()
+    household_id = wm_ready_to_finish.finish_registration(year=2026, month=1)
 
     incomes = [
         i["monthly_income"]

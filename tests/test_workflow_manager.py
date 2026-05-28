@@ -49,7 +49,7 @@ def test_register_member_wrong_phase(wm):
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
-    with pytest.raises(ValueError, match="registro"):
+    with pytest.raises(ValueError, match="registration"):
         wm.register_member("Nuevo")
 
 
@@ -84,7 +84,7 @@ def test_set_income_wrong_phase(wm):
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
-    with pytest.raises(ValueError, match="registro"):
+    with pytest.raises(ValueError, match="registration"):
         wm.set_member_incomes("Amanda", 5000)
 
 
@@ -226,7 +226,7 @@ def test_validate_phase_correct(wm):
 
 def test_validate_phase_wrong(wm):
     """validate_phase lanza ValueError cuando la fase actual no coincide con la requerida"""
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.validate_phase(Phase.PLANNING)
 
 
@@ -251,7 +251,7 @@ def test_set_budget_for_category_raises_if_not_in_planning(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.set_budget_for_category("fijos", 2000)
 
 
@@ -296,7 +296,7 @@ def test_get_planning_summary_in_planning_phase(wm):
 
 def test_get_planning_summary_raises_if_not_in_planning(wm):
     """get_planning_summary lanza ValueError si no estamos en PLANNING"""
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.get_planning_summary()
 
 
@@ -360,7 +360,7 @@ def test_finish_planning_transitions_to_month_phase(wm):
 
 def test_finish_planning_raises_if_not_in_planning(wm):
     """finish_planning lanza ValueError si no estamos en PLANNING"""
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.finish_planning()
 
 
@@ -459,7 +459,7 @@ def test_add_category_in_planning_phase(wm):
 
 def test_add_category_raises_if_not_in_planning(wm):
     """add_category() lanza error si no estamos en PLANNING"""
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.add_category("educacion")
 
 
@@ -493,7 +493,7 @@ def test_remove_category_raises_if_not_in_planning(wm):
     """remove_category() lanza error si no estamos en PLANNING"""
     wm.household.budget.set_standard_categories()
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.remove_category("fijos")
 
 
@@ -525,7 +525,7 @@ def test_assign_distribution_method_changes_summary(wm):
     wm.assign_distribution_method(MetodoReparto.EQUAL)
     summary = wm.get_planning_summary()
 
-    assert summary["distribution_method"] == "igual"
+    assert summary["distribution_method"] == "equal"
 
 
 # ====================================================
@@ -552,7 +552,7 @@ def test_get_registered_incomes_fails_in_registration(wm):
     wm.set_member_incomes("Amanda", 3000)
 
     with pytest.raises(
-        ValueError, match="Operación solo permitida en fase planificación"
+        ValueError, match="planning"
     ):
         wm.get_registered_incomes()
 
@@ -582,7 +582,7 @@ def test_get_agreed_percentages_fails_in_planning(wm):
     wm.finish_registration()
 
     with pytest.raises(
-        ValueError, match="Operación solo permitida en fase transcurso_mes"
+        ValueError, match="month"
     ):
         wm.get_agreed_percentages()
 
@@ -616,7 +616,7 @@ def test_get_agreed_contributions_fails_in_planning(wm):
     wm.finish_registration()
 
     with pytest.raises(
-        ValueError, match="Operación solo permitida en fase transcurso_mes"
+        ValueError, match="month"
     ):
         wm.get_agreed_contributions()
 
@@ -643,7 +643,7 @@ def test_set_custom_splits_raises_if_not_in_planning(wm):
     """set_custom_splits() lanza error si no estamos en PLANNING"""
     wm.register_member("Amanda")
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.set_custom_splits({"Amanda": 100.0})
 
 
@@ -772,7 +772,7 @@ def test_register_expense_raises_if_not_in_month(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="transcurso_mes"):
+    with pytest.raises(ValueError, match="month"):
         wm.register_expense("Amanda", "fijos", 100.00)
 
 
@@ -885,7 +885,7 @@ def test_get_month_summary_raises_if_not_in_month(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="transcurso_mes"):
+    with pytest.raises(ValueError, match="month"):
         wm.get_month_summary()
 
 
@@ -899,7 +899,7 @@ def test_get_budget_as_percentage_wrong_phase(wm):
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.get_budget_as_percentage("fijos")
 
 
@@ -1010,7 +1010,7 @@ def test_apply_percentage_distribution_wrong_phase(wm):
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.apply_percentage_distribution({"fijos": 50.0})
 
 
@@ -1098,7 +1098,7 @@ def test_register_expense_raises_in_planning(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="transcurso_mes"):
+    with pytest.raises(ValueError, match="month"):
         wm.register_expense("Amanda", "fijos", 100.0)
 
 
@@ -1111,7 +1111,7 @@ def test_set_budget_for_category_raises_in_month(wm):
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    with pytest.raises(ValueError, match="planificación"):
+    with pytest.raises(ValueError, match="planning"):
         wm.set_budget_for_category("fijos", 1000)
 
 
@@ -1220,7 +1220,7 @@ def test_deposit_outside_month_raises(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="transcurso_mes"):
+    with pytest.raises(ValueError, match="month"):
         wm.deposit_to_bucket(uuid4(), "Amanda", 100.0)
 
 
@@ -1232,7 +1232,7 @@ def test_withdraw_outside_month_raises(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="transcurso_mes"):
+    with pytest.raises(ValueError, match="month"):
         wm.withdraw_from_bucket(uuid4(), "Amanda", 100.0)
 
 

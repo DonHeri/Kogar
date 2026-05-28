@@ -3,6 +3,8 @@ from uuid import UUID
 
 from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
+from src.storage.period_repository import PeriodRepository
+from src.models.period import Period
 
 from src.models.constants import CategoryBehavior, MetodoReparto, Phase, SavingScope
 from src.models.expense import Expense
@@ -19,12 +21,15 @@ class WorkflowManager:
         household: Household,
         household_repo: HouseholdRepository | None = None,
         member_repo: MemberRepository | None = None,
+        period_repo: PeriodRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
         self._completed_phases = {Phase.REGISTRATION}
         self.household_repo = household_repo
         self.member_repo = member_repo
+        self.period_repo = period_repo
+        self.period_id: int | None = None
 
     # ====== REGISTRATION PHASE ======
     def register_member(self, name: str):
@@ -40,12 +45,17 @@ class WorkflowManager:
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(self) -> int | None:
-        """Validar, congelar ingresos y avanzar a planificación"""
+    def finish_registration(self, year: int | None = None, month: int | None = None) -> int | None:
+        """Validar, congelar ingresos y avanzar a planificación.
+
+        year y month son requeridos cuando period_repo está inyectado.
+        """
         if not self.household.members:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
+        if self.period_repo and (year is None or month is None):
+            raise ValueError("year y month son requeridos cuando period_repo está configurado")
 
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
@@ -60,6 +70,16 @@ class WorkflowManager:
 
             for member in self.household.members.values():
                 self.member_repo.add_member(member=member, household_id=household_id)
+
+            if self.period_repo:
+                period = Period(
+                    household_id=household_id,
+                    year=year,
+                    month=month,
+                    status=Phase.PLANNING,
+                )
+                self.period_id = self.period_repo.create(period)
+
             return household_id
 
 
@@ -272,6 +292,9 @@ class WorkflowManager:
         self.current_phase = Phase.MONTH
         self._completed_phases.add(Phase.MONTH)
 
+        if self.period_repo and self.period_id:
+            self.period_repo.update_status(self.period_id, Phase.MONTH)
+
     # ====== MONTH PHASE - Expense Registration ======
 
     def register_expense(
@@ -311,6 +334,9 @@ class WorkflowManager:
         self.validate_phase(Phase.MONTH)
         self.current_phase = Phase.CLOSING
         self._completed_phases.add(Phase.CLOSING)
+
+        if self.period_repo and self.period_id:
+            self.period_repo.update_status(self.period_id, Phase.CLOSING)
 
     # ====== PLANNING PHASE - SAVING ======
 

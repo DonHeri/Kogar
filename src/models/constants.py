@@ -12,8 +12,8 @@ class SavingScope(Enum):
 
 
 class MetodoReparto(Enum):
-    PROPORTIONAL = "proporcional"
-    EQUAL = "igual"
+    PROPORTIONAL = "proportional"
+    EQUAL = "equal"
     CUSTOM = "custom"
 
     @classmethod
@@ -26,10 +26,10 @@ class MetodoReparto(Enum):
 
 
 class Phase(Enum):
-    REGISTRATION = "registro"
-    PLANNING = "planificación"
-    MONTH = "transcurso_mes"
-    CLOSING = "cierre"
+    REGISTRATION = 'registration'
+    PLANNING = 'planning'
+    MONTH = 'month'
+    CLOSING = 'closed'
 
     @classmethod
     def get_names(cls):
