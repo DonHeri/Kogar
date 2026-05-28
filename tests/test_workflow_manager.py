@@ -945,18 +945,18 @@ def test_get_budget_as_percentage_roundtrip(wm):
 
 
 # ====================================================
-# TESTS: apply_percentage_distribution (WorkflowManager)
+# TESTS: set_budget_by_percentages (WorkflowManager)
 # ====================================================
 
 
-def test_apply_percentage_distribution_basic(wm):
+def test_set_budget_by_percentages_basic(wm):
     """Asigna presupuestos basados en distribución porcentual"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.apply_percentage_distribution(
+    wm.set_budget_by_percentages(
         {"fijos": 50.0, "variables": 30.0, "reserva": 20.0}
     )
 
@@ -966,7 +966,7 @@ def test_apply_percentage_distribution_basic(wm):
     assert wm.household.budget.get_category_budget("reserva") == 60000  # 20%
 
 
-def test_apply_percentage_distribution_sum_exceeds_100(wm):
+def test_set_budget_by_percentages_sum_exceeds_100(wm):
     """Lanza error si la suma de porcentajes excede 100%"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
@@ -974,66 +974,63 @@ def test_apply_percentage_distribution_sum_exceeds_100(wm):
     wm.finish_registration()
 
     with pytest.raises(ValueError, match="suman.*%.*máximo.*100%"):
-        wm.apply_percentage_distribution(
+        wm.set_budget_by_percentages(
             {"fijos": 60.0, "variables": 50.0, "reserva": 20.0}
         )
 
 
-def test_apply_percentage_distribution_missing_category(wm):
+def test_set_budget_by_percentages_missing_category(wm):
     """Lanza error si alguna categoría no existe en el presupuesto"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(ValueError, match="Categorías no existen"):
-        wm.apply_percentage_distribution(
+    with pytest.raises(ValueError, match="categoría debe estar creada"):
+        wm.set_budget_by_percentages(
             {"fijos": 50.0, "categoria_falsa": 30.0, "otra_falsa": 20.0}
         )
 
 
-def test_apply_percentage_distribution_partial_allocation(wm):
-    """Permite distribución parcial (suma < 100%)"""
+def test_set_budget_by_percentages_partial_allocation_raises(wm):
+    """Lanza error si los porcentajes no suman 100%"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.apply_percentage_distribution({"fijos": 50.0, "variables": 20.0})
-
-    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
-    assert wm.household.budget.get_category_budget("variables") == 60000  # 20%
+    with pytest.raises(ValueError):
+        wm.set_budget_by_percentages({"fijos": 50.0, "variables": 20.0})
 
 
-def test_apply_percentage_distribution_wrong_phase(wm):
+def test_set_budget_by_percentages_wrong_phase(wm):
     """Lanza error si no estamos en PLANNING"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
 
     with pytest.raises(ValueError, match="planning"):
-        wm.apply_percentage_distribution({"fijos": 50.0})
+        wm.set_budget_by_percentages({"fijos": 50.0})
 
 
-def test_apply_percentage_distribution_empty_dict(wm):
-    """Maneja correctamente diccionario vacío (no hace nada)"""
+def test_set_budget_by_percentages_empty_dict_raises(wm):
+    """Lanza error con diccionario vacío (no suma 100%)"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.apply_percentage_distribution({})
+    with pytest.raises(ValueError):
+        wm.set_budget_by_percentages({})
 
-    assert wm.household.budget.get_category_budget("fijos") == 0
 
-
-def test_apply_percentage_distribution_fractional_percentages(wm):
-    """Maneja correctamente porcentajes fraccionarios en distribución"""
+def test_set_budget_by_percentages_fractional_percentages(wm):
+    """Maneja correctamente porcentajes fraccionarios sin pérdida de céntimos"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.apply_percentage_distribution(
+    wm.set_budget_by_percentages(
         {"fijos": 33.33, "variables": 33.33, "reserva": 33.34}
     )
 

@@ -124,8 +124,16 @@ class WorkflowManager:
         self.household.set_budget_for_category(category, amount_cents)
 
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
-        """Asigna presupuesto a categoría calculando monto desde % de ingresos totales"""
+        """Asigna presupuesto a categoría calculando monto desde % de ingresos totales.
+
+        Raises:
+            ValueError: Si la suma de porcentajes supera el 100%
+        """
         self.validate_phase(Phase.PLANNING)
+
+        total_pct = sum(percentages_floats.values())
+        if total_pct > 100:
+            raise ValueError(f"Los porcentajes suman {total_pct}%, máximo 100%")
 
         percentages_int = {}
         for category, percentage_float in percentages_floats.items():
@@ -145,43 +153,6 @@ class WorkflowManager:
         """
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_budget_as_percentage(category=category)
-
-    def apply_percentage_distribution(self, percentages: dict[str, float]) -> None:
-        """
-        Asigna presupuestos a múltiples categorías como % del ingreso.
-
-        IMPORTANTE: Las categorías deben existir previamente.
-        Llama a set_standard_categories() o add_category() primero.
-
-        Args:
-            percentages: {category: pct} donde pct es 0-100
-
-        Raises:
-            ValueError: Si alguna categoría no existe o suma >100%
-        """
-        self.validate_phase(Phase.PLANNING)
-
-        # Validar suma ≤ 100
-        total_pct = sum(percentages.values())
-        if total_pct > 100:
-            raise ValueError(f"Los porcentajes suman {total_pct}%, máximo 100%")
-
-        # Validar que todas las categorías existen ANTES de aplicar
-        active_categories = self.household.get_active_categories()
-        missing = [cat for cat in percentages.keys() if cat not in active_categories]
-        if missing:
-            raise ValueError(
-                f"Categorías no existen: {missing}. Llama a add_category() primero."
-            )
-
-        # Aplicar (ahora seguro que todas existen). Reserva se autocalcula.
-        total_incomes = self.household.get_total_incomes()
-        for category, pct in percentages.items():
-            if category == "reserva":
-                continue
-            pct_basis = to_percentage_basis(pct)
-            amount_cents = (total_incomes * pct_basis) // 10000
-            self.household.set_budget_for_category(category, amount_cents)
 
     # ====== SET SAVING GOAL  ======
     def set_member_saving_goal(self, member: str, amount_euros: float) -> None:
