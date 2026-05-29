@@ -45,7 +45,9 @@ class WorkflowManager:
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(self, year: int | None = None, month: int | None = None) -> int | None:
+    def finish_registration(
+        self, year: int | None = None, month: int | None = None
+    ) -> int | None:
         """Validar, congelar ingresos y avanzar a planificación.
 
         year y month son requeridos cuando period_repo está inyectado.
@@ -55,7 +57,9 @@ class WorkflowManager:
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
         if self.period_repo and (year is None or month is None):
-            raise ValueError("year y month son requeridos cuando period_repo está configurado")
+            raise ValueError(
+                "year y month son requeridos cuando period_repo está configurado"
+            )
 
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
@@ -82,13 +86,14 @@ class WorkflowManager:
 
             return household_id
 
-
-
     # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
         """Configura el método de reparto (PROPORTIONAL, EQUAL, CUSTOM)"""
         self.validate_phase(Phase.PLANNING)
         self.household.assign_distribution_method(method)
+
+        if self.period_repo and self.period_id:
+            self.period_repo.update_method(self.period_id, method)
 
     def set_custom_splits(self, splits: dict[str, float]):
         """Define porcentajes personalizados (solo para método CUSTOM)"""

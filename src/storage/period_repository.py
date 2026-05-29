@@ -67,5 +67,3 @@ class PeriodRepository:
             status=Phase(row["status"]),
             method=MetodoReparto(row["method"]) if row["method"] else None,
         )
-
-

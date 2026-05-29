@@ -3,6 +3,7 @@ import psycopg2
 
 from src.models.budget import Budget
 from src.models.constants import Phase
+from src.models.constants import MetodoReparto
 from src.models.debt_tracker import DebtTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
@@ -185,3 +186,19 @@ def test_period_unique_constraint(wm_pre_registration, period_repo):
 
     with pytest.raises(Exception):
         period_repo.create(duplicate)
+
+
+# ===============================================
+# method - assign_distribution
+# ===============================================
+
+
+def test_assign_distribution_method_persists_method(wm_pre_registration):
+    """assign_distribution_method persiste method """
+    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    current_period = wm_pre_registration.period_repo.get_current(household_id)
+
+    repo_method = current_period.method
+
+    assert repo_method == MetodoReparto.PROPORTIONAL
