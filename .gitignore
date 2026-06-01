@@ -64,6 +64,8 @@ tests/_template_test.py
 *~
 .DS_Store
 .claude/
+
+/CLAUDE.md
 TASKS.md
 # ==========================================
 # SCRIPTS Y NOTAS PERSONALES (PROYECTO)

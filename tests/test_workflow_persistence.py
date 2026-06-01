@@ -84,7 +84,7 @@ def wm_pre_registration(wm_with_repos):
 def wm_pre_planning(wm_pre_registration):
     """WM en PLANNING con categorías y presupuesto al 100%, listo para finish_planning"""
     wm_pre_registration.finish_registration(year=2026, month=1)
-    wm_pre_registration.set_standard_categories()
+    # Finish registration settea categorías standard 
     categories = wm_pre_registration.get_active_categories()
     pcts = [50.0, 30.0, 20.0]
     percentages = {category: pct for category, pct in zip(categories, pcts)}
@@ -194,7 +194,7 @@ def test_period_unique_constraint(wm_pre_registration, period_repo):
 
 
 def test_assign_distribution_method_persists_method(wm_pre_registration):
-    """assign_distribution_method persiste method """
+    """assign_distribution_method persiste method"""
     household_id = wm_pre_registration.finish_registration(year=2026, month=1)
     wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     current_period = wm_pre_registration.period_repo.get_current(household_id)
