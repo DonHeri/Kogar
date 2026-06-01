@@ -154,8 +154,9 @@ src/
 │   │
 │   ├── member.py              ← Persona con ingreso
 │   ├── budget.py              ← Plan: dict de BudgetCategory
+│   ├── category.py            ← Category / AutoCalculatedCategory (objeto con is_shared)
 │   ├── budget_category.py     ← Una categoría con su planned_amount
-│   ├── category_library.py    ← Categorías estándar + extendidas + custom
+│   ├── category_library.py    ← Fábrica string→Category + estándar/extendidas/custom
 │   ├── subcategory_library.py ← Sugerencias de subcategorías (display only)
 │   │
 │   ├── expense.py             ← Gasto registrado
@@ -171,7 +172,7 @@ src/
 │   ├── debt_entry.py          ← Pago de deuda (dataclass inmutable)
 │   ├── debt_account.py        ← Cuenta de deuda de UN miembro
 │   ├── debt_tracker.py        ← Gestor de cuentas de deuda
-│   └── constants.py           ← Enums: Phase, MetodoReparto, CategoryBehavior, SavingScope
+│   └── constants.py           ← Enums: Phase, MetodoReparto, SavingScope
 │
 ├── storage/                   ← Futuro (persistencia)
 └── utils/

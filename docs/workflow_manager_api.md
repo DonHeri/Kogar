@@ -116,17 +116,14 @@ Elimina una categoría. Solo elimina categorías que hayas añadido con `add_cat
 wm.remove_category("ocio")
 ```
 
-### `get_category_behavior(category: str) → CategoryBehavior` *(PLANNING+)*
+### Comportamiento de una categoría (`is_shared`)
 
-Retorna si la categoría es `SHARED` o `PERSONAL`.
+Cada categoría es ahora un objeto `Category` con un atributo booleano `is_shared`:
 
-- `SHARED` — los gastos de esta categoría se distribuyen entre miembros y se reflejan en el `settlement`
-- `PERSONAL` — los gastos no cuentan para el `settlement`
+- `is_shared=True` — los gastos de esta categoría se distribuyen entre miembros y se reflejan en el `settlement`
+- `is_shared=False` — los gastos son personales y no cuentan para el `settlement`
 
-```python
-behavior = wm.get_category_behavior("fijos")
-# CategoryBehavior.SHARED o CategoryBehavior.PERSONAL
-```
+No hay un método público para consultarlo; el valor se resuelve automáticamente al registrar el gasto (ver `register_expense`). Internamente, `WorkflowManager._resolve_category(name)` devuelve la instancia viva de `Category` desde el presupuesto.
 
 ---
 
@@ -358,7 +355,7 @@ wm.finish_planning()
 
 ### `register_expense(member, category, amount_euros, desc="", is_shared=None)`
 
-Registra un gasto en euros. Si `is_shared=None`, el comportamiento se deriva del `CategoryBehavior` de la categoría (`SHARED` → compartido, `PERSONAL` → individual). Se puede sobreescribir explícitamente.
+Registra un gasto en euros. Si `is_shared=None`, el valor se deriva del atributo `is_shared` de la categoría resuelta. Se puede sobreescribir explícitamente pasando `is_shared=True/False`.
 
 ```python
 wm.register_expense("Amanda", "fijos", 500.0, "alquiler")
