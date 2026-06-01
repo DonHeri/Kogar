@@ -97,10 +97,9 @@ with DatabaseConnection(
     for cat in wm.get_active_categories():
         budget = wm.get_category_budget(cat)
         pct = wm.get_budget_as_percentage(cat)
-        behavior = wm.get_category_behavior(cat)
         print(
             f"  {cat.title():<12} {to_euros(budget):>10}"
-            f"  ({format_percentage(pct)})  [{behavior.name}]"
+            f"  ({format_percentage(pct)})"
         )
 
     # --- Método de reparto ---

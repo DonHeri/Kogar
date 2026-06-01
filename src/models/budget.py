@@ -1,4 +1,5 @@
 from src.models.budget_category import BudgetCategory
+from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
 from src.utils.currency import to_cents
 
@@ -14,19 +15,20 @@ class Budget:
     def set_standard_categories(self):
         """Establece las categorías estándar predefinidas"""
         for name in CategoryLibrary.get_standards_categories().keys():
-            behavior = self.library.get_default_behavior(name)
-            self.categories[name] = BudgetCategory(name, 0, behavior)
+            category = self.library.create_category(name)
+            self.categories[name] = BudgetCategory(category, 0)
 
     # ====== CATEGORY MANAGEMENT ======
     def add_category(self, name: str):
         """Agrega una nueva categoría al presupuesto"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_active_category(normalized)
-        behavior = self.library.get_default_behavior(normalized)
-        self.categories[normalized] = BudgetCategory(normalized, 0, behavior)
 
         if not self.library.is_known(normalized):
             self.library.add_category(normalized)
+
+        category = self.library.create_category(normalized)
+        self.categories[normalized] = BudgetCategory(category, 0)
 
     # ====== BUDGET ASSIGNMENT ======
     def set_budget(self, category: str, amount_cents: int) -> None:
@@ -56,6 +58,19 @@ class Budget:
     def get_total_budgeted(self) -> int:
         """Obtiene total presupuestado"""
         return sum(cat.planned_amount for cat in self.categories.values())
+
+    def get_category(self, name: str) -> Category:
+        """Obtiene el objeto Category de una categoría activa"""
+        normalized = CategoryLibrary.normalize(name)
+        self._validate_category_exists(normalized)
+        return self.categories[normalized].category
+
+    def get_auto_calculated_category(self) -> Category:
+        """Retorna la categoría auto-calculada (reserva). Falla si no existe."""
+        for budget_category in self.categories.values():
+            if isinstance(budget_category.category, AutoCalculatedCategory):
+                return budget_category.category
+        raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
     # ====== VALIDATORS ======
     def _validate_active_category(self, name: str) -> None:

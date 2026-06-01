@@ -1,29 +1,24 @@
-from src.models.constants import CategoryBehavior
+from src.models.category import Category
 from src.utils.currency import to_cents, to_euros
 
 
 class BudgetCategory:
     """Gestiona presupuesto planificado de una categoría (solo planificación)"""
 
-    def __init__(
-        self,
-        name: str,
-        planned_amount: float,
-        behavior: CategoryBehavior = CategoryBehavior.SHARED,
-    ) -> None:
+    def __init__(self, category: Category, planned_amount: float) -> None:
 
         self._validate_amount(planned_amount)
 
-        self.name = name
-        self._behavior = behavior
+        self.category = category
         self.planned_amount: int = to_cents(planned_amount)
 
     @property
-    def behavior(self):
-        return self._behavior
+    def name(self) -> str:
+        return self.category.name
 
-    def set_behavior(self, behavior: CategoryBehavior):
-        self._behavior = behavior
+    @property
+    def is_shared(self) -> bool:
+        return self.category.is_shared
 
     # ====== VALIDATORS ======
     def _validate_amount(self, amount: float):

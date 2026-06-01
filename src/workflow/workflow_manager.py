@@ -6,7 +6,8 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.models.period import Period
 
-from src.models.constants import CategoryBehavior, MetodoReparto, Phase, SavingScope
+from src.models.category import Category
+from src.models.constants import MetodoReparto, Phase, SavingScope
 from src.models.expense import Expense
 from src.models.household import Household
 from src.models.member import Member
@@ -116,10 +117,9 @@ class WorkflowManager:
         self.validate_phase(Phase.PLANNING)
         self.household.remove_category(name)
 
-    def get_category_behavior(self, category: str):
-        """Retorna el behavior de una categoría: SHARED o PERSONAL (PLANNING+)"""
-        self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_category_behavior(category)
+    def _resolve_category(self, name: str) -> Category:
+        """Traduce el nombre (string del exterior) al objeto Category vivo del presupuesto."""
+        return self.household.budget.get_category(name)
 
     # ====== PLANNING PHASE - Budget Assignment ======
     def set_budget_for_category(self, category: str, amount_euros: float):
@@ -283,7 +283,7 @@ class WorkflowManager:
     ):
         """Registrar un gasto.
 
-        is_shared: si None, se deriva del CategoryBehavior de la categoría.
+        is_shared: si None, se hereda del default de la categoría (cat.is_shared).
         Pasarlo explícitamente sobreescribe el default.
         """
         self.validate_phase(Phase.MONTH)
@@ -292,13 +292,13 @@ class WorkflowManager:
         desc = desc.strip()
         amount_cents = to_cents(amount_euros)
 
+        cat = self._resolve_category(category)
         if is_shared is None:
-            behavior = self.household.get_category_behavior(category)
-            is_shared = behavior == CategoryBehavior.SHARED
+            is_shared = cat.is_shared
 
         expense = Expense(
             member=member_normalized,
-            category=category,
+            category=cat,
             amount_cents=amount_cents,
             description=desc,
             is_shared=is_shared,

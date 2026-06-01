@@ -31,7 +31,7 @@ class ExpenseTracker:
     # ====== FILTERS ======
     def get_expenses_by_category(self, category: str) -> list[Expense]:
         """Filtra por categoría"""
-        return [e for e in self.expenses if e.category == category]
+        return [e for e in self.expenses if e.category.name == category]
 
     def get_expenses_by_member(self, member: str) -> list[Expense]:
         """Filtra por miembro"""
@@ -45,7 +45,7 @@ class ExpenseTracker:
 
     def get_total_spent_by_category(self, category: str) -> int:
         """Total gastado por categoría"""
-        return sum(e.amount for e in self.expenses if e.category == category)
+        return sum(e.amount for e in self.expenses if e.category.name == category)
 
     def get_total_spent_by_member(self, member: str) -> int:
         """Total gastado por miembro"""
@@ -58,7 +58,7 @@ class ExpenseTracker:
         return sum(
             e.amount
             for e in self.expenses
-            if e.member == normalized_member and e.category == category
+            if e.member == normalized_member and e.category.name == category
         )
 
     def get_category_breakdown(self) -> dict[str, int]:
@@ -73,7 +73,7 @@ class ExpenseTracker:
         breakdown = {}
 
         for expense in self.expenses:
-            category = expense.category
+            category = expense.category.name
             amount = expense.amount
 
             if category not in breakdown:

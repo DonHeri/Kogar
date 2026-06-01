@@ -1,7 +1,7 @@
 import pytest
 
+from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
-from src.models.constants import CategoryBehavior
 
 # ====================================================
 # TESTS: normalize
@@ -49,37 +49,43 @@ def test_add_category_normalizes_name():
     assert lib.is_known("otra categoria")
 
 
-def test_add_category_default_behavior_is_shared():
+def test_add_category_default_is_shared():
     lib = CategoryLibrary()
     lib.add_category("gimnasio")
-    assert lib.get_default_behavior("gimnasio") == CategoryBehavior.SHARED
+    assert lib.create_category("gimnasio").is_shared is True
 
 
-def test_add_category_accepts_custom_behavior():
+def test_add_category_accepts_custom_is_shared():
     lib = CategoryLibrary()
-    lib.add_category("retiro", CategoryBehavior.PERSONAL)
-    assert lib.get_default_behavior("retiro") == CategoryBehavior.PERSONAL
+    lib.add_category("retiro", is_shared=False)
+    assert lib.create_category("retiro").is_shared is False
 
 
 # ====================================================
-# TESTS: get_default_behavior
+# TESTS: create_category (factory string -> objeto)
 # ====================================================
 
 
-def test_get_default_behavior_fijos_is_shared():
-    assert CategoryLibrary().get_default_behavior("fijos") == CategoryBehavior.SHARED
+def test_create_category_fijos_is_shared():
+    cat = CategoryLibrary().create_category("fijos")
+    assert isinstance(cat, Category)
+    assert cat.is_shared is True
 
 
-def test_get_default_behavior_variables_is_personal():
-    assert CategoryLibrary().get_default_behavior("variables") == CategoryBehavior.PERSONAL
+def test_create_category_variables_is_personal():
+    assert CategoryLibrary().create_category("variables").is_shared is False
 
 
-def test_get_default_behavior_reserva_is_personal():
-    assert CategoryLibrary().get_default_behavior("reserva") == CategoryBehavior.PERSONAL
+def test_create_category_reserva_is_auto_calculated():
+    cat = CategoryLibrary().create_category("reserva")
+    assert isinstance(cat, AutoCalculatedCategory)
+    assert cat.is_shared is False
 
 
-def test_get_default_behavior_unknown_fallback_shared():
-    assert CategoryLibrary().get_default_behavior("inventada") == CategoryBehavior.SHARED
+def test_create_category_unknown_defaults_to_shared():
+    cat = CategoryLibrary().create_category("inventada")
+    assert isinstance(cat, Category)
+    assert cat.is_shared is True
 
 
 # ====================================================

@@ -711,7 +711,7 @@ def test_register_expense_in_month_phase(wm):
     expenses = wm.household.expense_tracker.expenses
     assert len(expenses) == 1
     assert expenses[0].member == "amanda"
-    assert expenses[0].category == "fijos"
+    assert expenses[0].category.name == "fijos"
     assert expenses[0].amount == 50050
     assert expenses[0].description == "Alquiler"
 
@@ -761,7 +761,7 @@ def test_register_expense_strips_whitespace(wm):
     wm.register_expense("Amanda", "  fijos  ", 100.00, "  Alquiler  ")
 
     expense = wm.household.expense_tracker.expenses[0]
-    assert expense.category == "fijos"
+    assert expense.category.name == "fijos"
     assert expense.description == "Alquiler"
 
 
@@ -792,10 +792,8 @@ def test_register_expense_empty_description_ok(wm):
     assert expense.description == ""
 
 
-def test_register_expense_derives_is_shared_from_category_behavior(wm):
-    """Sin is_shared explícito, se deriva del CategoryBehavior de la categoría"""
-    from src.models.constants import CategoryBehavior
-
+def test_register_expense_derives_is_shared_from_category(wm):
+    """Sin is_shared explícito, se hereda del default (is_shared) de la categoría"""
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)

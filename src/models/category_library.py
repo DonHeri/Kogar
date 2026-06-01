@@ -1,15 +1,13 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from src.models.constants import CategoryBehavior
-
-_S = CategoryBehavior.SHARED
-_P = CategoryBehavior.PERSONAL
+from src.models.category import AutoCalculatedCategory, Category
 
 
 @dataclass
 class CategoryInfo:
     description: str
-    behavior: CategoryBehavior = field(default=CategoryBehavior.SHARED)
+    is_shared: bool = True
+    auto_calculated: bool = False
 
 
 class CategoryLibrary:
@@ -17,46 +15,51 @@ class CategoryLibrary:
     Las categorías custom son por instancia — cada Budget tiene su propia librería."""
 
     STANDARD_CATEGORIES: dict[str, CategoryInfo] = {
-        "fijos":     CategoryInfo("Gastos fijos mensuales recurrentes", _S),
-        "variables": CategoryInfo("Gastos variables del día a día",     _P),
-        "reserva":   CategoryInfo("Reserva personal: deuda y ahorro",   _P),
+        "fijos":     CategoryInfo("Gastos fijos mensuales recurrentes", is_shared=True),
+        "variables": CategoryInfo("Gastos variables del día a día",     is_shared=False),
+        "reserva":   CategoryInfo("Reserva personal: deuda y ahorro",   is_shared=False, auto_calculated=True),
     }
 
     EXTENDED_CATEGORIES: dict[str, CategoryInfo] = {
-        "deuda":      CategoryInfo("Préstamos e intereses personales",         _P),
-        "salud":      CategoryInfo("Gastos médicos y farmacia",                _P),
-        "transporte": CategoryInfo("Coche, gasolina, transporte público",      _P),
-        "ocio":       CategoryInfo("Entretenimiento y hobbies",                _P),
-        "educacion":  CategoryInfo("Formación, cursos, libros",                _P),
-        "mascotas":   CategoryInfo("Cuidado y gastos de mascotas",             _P),
-        "regalos":    CategoryInfo("Regalos y celebraciones",                  _P),
-        "viajes":     CategoryInfo("Vacaciones y escapadas",                   _P),
-        "tecnologia": CategoryInfo("Dispositivos, software, suscripciones",    _P),
+        "deuda":      CategoryInfo("Préstamos e intereses personales",      is_shared=False),
+        "salud":      CategoryInfo("Gastos médicos y farmacia",             is_shared=False),
+        "transporte": CategoryInfo("Coche, gasolina, transporte público",   is_shared=False),
+        "ocio":       CategoryInfo("Entretenimiento y hobbies",             is_shared=False),
+        "educacion":  CategoryInfo("Formación, cursos, libros",             is_shared=False),
+        "mascotas":   CategoryInfo("Cuidado y gastos de mascotas",          is_shared=False),
+        "regalos":    CategoryInfo("Regalos y celebraciones",               is_shared=False),
+        "viajes":     CategoryInfo("Vacaciones y escapadas",                is_shared=False),
+        "tecnologia": CategoryInfo("Dispositivos, software, suscripciones", is_shared=False),
     }
 
     def __init__(self):
         self._custom_categories: dict[str, CategoryInfo] = {}
 
+    # ====== FACTORY ======
+    def create_category(self, name: str) -> Category:
+        """Fabrica el objeto Category a partir de su nombre.
+        reserva → AutoCalculatedCategory. El resto → Category con su is_shared por defecto."""
+        normalized = self.normalize(name)
+        info = self._get_info(normalized)
+        if info.auto_calculated:
+            return AutoCalculatedCategory(normalized, is_shared=info.is_shared)
+        return Category(normalized, is_shared=info.is_shared)
+
     # ====== MUTATIONS ======
-    def add_category(
-        self, name: str, behavior: CategoryBehavior = CategoryBehavior.SHARED
-    ) -> None:
+    def add_category(self, name: str, is_shared: bool = True) -> None:
         """Registra una categoría custom en esta instancia"""
         normalized = self.normalize(name)
-        self._custom_categories[normalized] = CategoryInfo("", behavior)
+        self._custom_categories[normalized] = CategoryInfo("", is_shared=is_shared)
 
     # ====== QUERIES ======
-    def get_default_behavior(self, name: str) -> CategoryBehavior:
-        """Retorna el behavior por defecto de una categoría. Fallback: SHARED."""
-        normalized = self.normalize(name)
+    def _get_info(self, normalized: str) -> CategoryInfo:
+        """Retorna el CategoryInfo de una categoría. Fallback: compartida."""
         all_cats = {
             **self.STANDARD_CATEGORIES,
             **self.EXTENDED_CATEGORIES,
             **self._custom_categories,
         }
-        if normalized in all_cats:
-            return all_cats[normalized].behavior
-        return CategoryBehavior.SHARED
+        return all_cats.get(normalized, CategoryInfo(""))
 
     @classmethod
     def get_standards_categories(cls) -> dict[str, str]:
@@ -111,5 +114,3 @@ class CategoryLibrary:
             raise ValueError("La categoría no puede estar vacía")
 
         return normalized
-
-

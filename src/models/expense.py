@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from src.models.category import Category
 from src.utils.currency import to_euros
 from src.utils.text import normalize_name
 
@@ -10,7 +11,7 @@ class Expense:
     def __init__(
         self,
         member: str,
-        category: str,
+        category: Category,
         amount_cents: int,
         description: str = "",
         is_shared: bool = True,
@@ -20,15 +21,14 @@ class Expense:
 
         Args:
             member: Nombre del miembro que pagó
-            category: Categoría del gasto
+            category: Objeto Category del gasto (ya resuelto por WorkflowManager)
             amount_cents: Monto en céntimos (int)
             description: Descripción opcional del gasto
 
         Raises:
-            ValueError: Si member o category están vacíos, o amount no es positivo
+            ValueError: Si member está vacío, o amount no es positivo
         """
         self._validate_non_empty_string(member, "member")
-        self._validate_non_empty_string(category, "category")
         self._validate_positive_amount(amount_cents, "amount")
 
         self._date: datetime = datetime.now()
@@ -88,7 +88,7 @@ class Expense:
     def __repr__(self) -> str:
         """Representación técnica del gasto para debugging"""
         formatted_date = self._date.strftime("%d/%m/%Y")
-        return f"Expense({self.member}, {self.category}, {to_euros(self.amount)}, {formatted_date})"
+        return f"Expense({self.member}, {self.category.name}, {to_euros(self.amount)}, {formatted_date})"
 
     # ====== VALIDACIONES ======
     def _validate_non_empty_string(self, value: str, field_name: str) -> None:

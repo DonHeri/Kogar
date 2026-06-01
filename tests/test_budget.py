@@ -3,6 +3,7 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.budget_category import BudgetCategory
+from tests.helpers import make_category
 
 # ====================================================
 # FIXTURES
@@ -12,7 +13,7 @@ from src.models.budget_category import BudgetCategory
 @pytest.fixture
 def budget_rent():
     """Categoría con 1000€ presupuestados"""
-    return BudgetCategory("fijos", 1000)
+    return BudgetCategory(make_category("fijos"), 1000)
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def budget():
 # ====================================================
 def test_create_valid_budget_category():
     # Act
-    budget1 = BudgetCategory("Test", 500)
+    budget1 = BudgetCategory(make_category("Test"), 500)
 
     # Arrange
     assert budget1.name == "Test"
@@ -38,7 +39,7 @@ def test_negative_budget_must_raise_error():
     with pytest.raises(
         ValueError, match="El monto presupuestado no puede ser negativo"
     ):
-        budget1 = BudgetCategory(name="Test", planned_amount=-500)
+        budget1 = BudgetCategory(category=make_category("Test"), planned_amount=-500)
 
 
 # ====================================================
@@ -68,30 +69,24 @@ def test_set_budget_negative_amount_raises_error(budget):
 
 
 # ====================================================
-# TESTS: CategoryBehavior heredado desde librería
+# TESTS: is_shared heredado desde la librería
 # ====================================================
 
 
-def test_standard_categories_inherit_behavior_from_library(budget):
-    from src.models.constants import CategoryBehavior
-
-    assert budget.categories["fijos"].behavior == CategoryBehavior.SHARED
-    assert budget.categories["variables"].behavior == CategoryBehavior.PERSONAL
-    assert budget.categories["reserva"].behavior == CategoryBehavior.PERSONAL
+def test_standard_categories_inherit_is_shared_from_library(budget):
+    assert budget.categories["fijos"].is_shared is True
+    assert budget.categories["variables"].is_shared is False
+    assert budget.categories["reserva"].is_shared is False
 
 
-def test_add_known_category_inherits_behavior(budget):
-    from src.models.constants import CategoryBehavior
-
+def test_add_known_category_inherits_is_shared(budget):
     budget.add_category("ocio")
-    assert budget.categories["ocio"].behavior == CategoryBehavior.PERSONAL
+    assert budget.categories["ocio"].is_shared is False
 
 
 def test_add_unknown_category_defaults_to_shared(budget):
-    from src.models.constants import CategoryBehavior
-
     budget.add_category("nueva_custom")
-    assert budget.categories["nueva_custom"].behavior == CategoryBehavior.SHARED
+    assert budget.categories["nueva_custom"].is_shared is True
 
 
 # ====================================================

@@ -5,6 +5,7 @@ import pytest
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.utils.currency import to_cents
+from tests.helpers import make_category
 
 # ====================================================
 # FIXTURES
@@ -20,25 +21,25 @@ def tracker():
 @pytest.fixture
 def expense_rent():
     """Gasto: Amanda - fijos - 900€"""
-    return Expense("Amanda", "fijos", to_cents(900.0), "Alquiler")
+    return Expense("Amanda", make_category("fijos"), to_cents(900.0), "Alquiler")
 
 
 @pytest.fixture
 def expense_groceries():
     """Gasto: Heri - variables - 120€"""
-    return Expense("Heri", "variables", to_cents(120.0), "Supermercado")
+    return Expense("Heri", make_category("variables", is_shared=False), to_cents(120.0), "Supermercado")
 
 
 @pytest.fixture
 def expense_utilities():
     """Gasto: Amanda - fijos - 80€"""
-    return Expense("Amanda", "fijos", to_cents(80.0), "Luz")
+    return Expense("Amanda", make_category("fijos"), to_cents(80.0), "Luz")
 
 
 @pytest.fixture
 def expense_leisure():
     """Gasto: Heri - ocio - 45.50€"""
-    return Expense("Heri", "ocio", to_cents(45.50), "Cine")
+    return Expense("Heri", make_category("ocio", is_shared=False), to_cents(45.50), "Cine")
 
 
 @pytest.fixture
@@ -129,7 +130,7 @@ def test_get_expenses_by_category_returns_matching_expenses(tracker_with_expense
     fijos = tracker_with_expenses.get_expenses_by_category("fijos")
 
     assert len(fijos) == 2
-    assert all(e.category == "fijos" for e in fijos)
+    assert all(e.category.name == "fijos" for e in fijos)
 
 
 def test_get_expenses_by_category_returns_empty_if_no_match(tracker_with_expenses):
@@ -343,9 +344,9 @@ def test_get_member_breakdown_single_expense(tracker, expense_rent):
 
 def test_tracker_handles_many_expenses_for_same_category(tracker):
     """Test: Maneja múltiples gastos de la misma categoría"""
-    tracker.add_expense(Expense("Amanda", "fijos", to_cents(100.0)))
-    tracker.add_expense(Expense("Heri", "fijos", to_cents(200.0)))
-    tracker.add_expense(Expense("Amanda", "fijos", to_cents(300.0)))
+    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(100.0)))
+    tracker.add_expense(Expense("Heri", make_category("fijos"), to_cents(200.0)))
+    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(300.0)))
 
     total = tracker.get_total_spent_by_category("fijos")
 
@@ -354,9 +355,9 @@ def test_tracker_handles_many_expenses_for_same_category(tracker):
 
 def test_tracker_handles_same_member_multiple_categories(tracker):
     """Test: Maneja un miembro con gastos en múltiples categorías"""
-    tracker.add_expense(Expense("Amanda", "fijos", to_cents(100.0)))
-    tracker.add_expense(Expense("Amanda", "variables", to_cents(50.0)))
-    tracker.add_expense(Expense("Amanda", "ocio", to_cents(30.0)))
+    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(100.0)))
+    tracker.add_expense(Expense("Amanda", make_category("variables", is_shared=False), to_cents(50.0)))
+    tracker.add_expense(Expense("Amanda", make_category("ocio", is_shared=False), to_cents(30.0)))
 
     amanda_total = tracker.get_total_spent_by_member("Amanda")
 

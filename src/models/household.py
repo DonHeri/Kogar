@@ -2,7 +2,8 @@ from typing import Dict
 from uuid import UUID
 
 from src.models.budget import Budget
-from src.models.constants import CategoryBehavior, MetodoReparto, SavingScope
+from src.models.category import AutoCalculatedCategory
+from src.models.constants import MetodoReparto, SavingScope
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
@@ -90,15 +91,16 @@ class Household:
 
     # ====== PLANNING - BUDGET ASSIGNMENT ======
     def set_budget_for_category(self, category: str, amount_cents: int) -> None:
-        """Asigna presupuesto a una categoría en PLANNING. Reserva se autocalcula."""
-        if category == "reserva":
+        """Asigna presupuesto a una categoría en PLANNING. La auto-calculada se ajusta sola."""
+        if isinstance(self.budget.get_category(category), AutoCalculatedCategory):
             raise ValueError("Reserva se autocalcula")
 
+        auto_cat = self.budget.get_auto_calculated_category()
         total_incomes = self.get_total_incomes()
         current = self.get_category_budget(
             category
         )  # Evitar que categoría cuente doble en el total
-        reserva_actual = self.get_category_budget("reserva")
+        reserva_actual = self.get_category_budget(auto_cat.name)
         total_sin_reserva = self.get_total_budgeted() - current - reserva_actual
         nuevo_total_sin_reserva = total_sin_reserva + amount_cents
 
@@ -107,7 +109,10 @@ class Household:
                 "No se puede superar el total de ingresos en los presupuestos"
             )
         self.budget.set_budget(category, amount_cents)
-        self.budget.set_budget("reserva", total_incomes - nuevo_total_sin_reserva)
+        self.budget.set_budget(
+            auto_cat.name,
+            auto_cat.calculate_own_budget(total_incomes, nuevo_total_sin_reserva),
+        )
 
     def set_budget_by_percentages(self, percentages: dict[str, int]):
         """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
@@ -117,9 +122,10 @@ class Household:
             total_incomes, percentages
         )
 
+        auto_cat = self.budget.get_auto_calculated_category()
         for category, amount_cents in budgets.items():
-            # Reserva se autocalcula en set_budget_for_category
-            if category == "reserva":
+            # La categoría auto-calculada se ajusta sola en set_budget_for_category
+            if category == auto_cat.name:
                 continue
 
             self._validate_category_exist(category=category)
@@ -174,9 +180,10 @@ class Household:
         """
         contributions = self.get_current_contributions()
 
+        auto_cat = self.budget.get_auto_calculated_category()
         reserva_contributions = {}
-        if "reserva" in contributions:
-            reserva_contributions = contributions["reserva"]["contributions"]
+        if auto_cat.name in contributions:
+            reserva_contributions = contributions[auto_cat.name]["contributions"]
 
         for member in self.members:
             capacity = reserva_contributions.get(member, 0)
@@ -299,7 +306,7 @@ class Household:
     def register_expense(self, expense: Expense):
         """Registra un gasto (almacena solo en ExpenseTracker)"""
         self._validate_member_exist(expense.member)
-        self._validate_category_exist(expense.category)
+        self._validate_category_exist(expense.category.name)
         self.expense_tracker.add_expense(expense)
 
     # ====== QUERIES - REGISTRATION ======
@@ -390,11 +397,6 @@ class Household:
                 "Las contribuciones no han sido congeladas. Llama a finish_planning() primero."
             )
         return self._agreed_contributions.copy()
-
-    def get_category_behavior(self, category: str) -> CategoryBehavior:
-        """Retorna el behavior de una categoría activa"""
-        self._validate_category_exist(category)
-        return self.budget.categories[category].behavior
 
     def get_member_debts(self):
         return self._member_debts
@@ -497,7 +499,8 @@ class Household:
 
     def auto_assign_saving_goals(self):
         contributions = self.get_current_contributions()
-        reserva_contributions = contributions.get("reserva", {}).get(
+        auto_cat = self.budget.get_auto_calculated_category()
+        reserva_contributions = contributions.get(auto_cat.name, {}).get(
             "contributions", {}
         )
         for member in self.members:
