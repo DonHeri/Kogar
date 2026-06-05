@@ -84,13 +84,24 @@ def wm_pre_registration(wm_with_repos):
 def wm_pre_planning(wm_pre_registration):
     """WM en PLANNING con categorías y presupuesto al 100%, listo para finish_planning"""
     wm_pre_registration.finish_registration(year=2026, month=1)
-    # Finish registration settea categorías standard 
+    # Finish registration settea categorías standard
     categories = wm_pre_registration.get_active_categories()
     pcts = [50.0, 30.0, 20.0]
     percentages = {category: pct for category, pct in zip(categories, pcts)}
     wm_pre_registration.set_budget_by_percentages(percentages_floats=percentages)
 
     return wm_pre_registration
+
+
+@pytest.fixture
+def wm_planning_contributions_saved(wm_pre_planning):
+    "WM en PLANNING con contribuciones del período guardadas en BD"
+    contributions = wm_pre_planning.get_total_contributions_by_member()
+    wm_pre_planning.period_repo.save_agreed_contributions(
+        period_id=wm_pre_planning.period_id, contributions=contributions
+    )
+
+    return wm_pre_planning
 
 
 @pytest.fixture
@@ -188,8 +199,50 @@ def test_period_unique_constraint(wm_pre_registration, period_repo):
         period_repo.create(duplicate)
 
 
+def test_get_agreed_contributions_returns_saved_data(wm_planning_contributions_saved):
+    "get_agreed_contributions devuelve los datos guardados con save_agreed_contributions"
+    period_id = wm_planning_contributions_saved.period_id
+
+    contributions = (
+        wm_planning_contributions_saved.period_repo.get_agreed_contributions(
+            period_id=period_id
+        )
+    )
+
+    total = sum(contributions.values())
+
+    assert total == 165200 + 145600
+
+
+def test_save_agreed_contributions_overwrites_existing(
+    wm_planning_contributions_saved,
+):
+    "save_agreed_contributions sobreescribe importes existentes para el mismo período"
+    period_id = wm_planning_contributions_saved.period_id
+    old_contributions = (
+        wm_planning_contributions_saved.period_repo.get_agreed_contributions(period_id)
+    )
+    assert sum(old_contributions.values()) == 165200 + 145600
+
+    new_contributions = {
+        member: (amount + 20) for member, amount in old_contributions.items()
+    }
+    wm_planning_contributions_saved.period_repo.save_agreed_contributions(
+        period_id, new_contributions
+    )
+    assert (
+        sum(
+            amount
+            for amount in wm_planning_contributions_saved.period_repo.get_agreed_contributions(
+                period_id
+            ).values()
+        )
+        == 165200 + 145600 + 40
+    )
+
+
 # ===============================================
-# method - assign_distribution
+# # TESTS — Distribución
 # ===============================================
 
 

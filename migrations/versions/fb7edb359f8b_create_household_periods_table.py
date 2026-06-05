@@ -39,4 +39,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.execute(""" DROP TABLE household_periods """)
+    op.execute(""" DROP TABLE household_periods; """)
