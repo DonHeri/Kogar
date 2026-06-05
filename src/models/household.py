@@ -374,6 +374,18 @@ class Household:
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
 
+    def get_total_contributions_by_member(self) -> dict[str, int]:
+        "Suma las contribuciones de cada miembro en todas las categorías. Devuelve {nombre: total_cents}." 
+        contributions = self.get_current_contributions()
+
+        totals = {member: 0 for member in self.members}
+
+        for cat in contributions:
+            for member, amount in contributions[cat]["contributions"].items():
+                totals[member] += amount
+
+        return totals
+
     def get_registered_incomes(self) -> dict[str, int]:
         """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
         if not self._registered_incomes:

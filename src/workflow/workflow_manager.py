@@ -31,6 +31,7 @@ class WorkflowManager:
         self.member_repo = member_repo
         self.period_repo = period_repo
         self.period_id: int | None = None
+        self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
     # ====== REGISTRATION PHASE ======
     def register_member(self, name: str):
@@ -73,8 +74,11 @@ class WorkflowManager:
         if self.household_repo and self.member_repo:
             household_id = self.household_repo.add_household()
 
-            for member in self.household.members.values():
-                self.member_repo.add_member(member=member, household_id=household_id)
+            for name, member in self.household.members.items():
+                member_id = self.member_repo.add_member(
+                    member=member, household_id=household_id
+                )
+                self.member_ids[name] = member_id
 
             if self.period_repo:
                 period = Period(
@@ -232,6 +236,10 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_current_contributions()
 
+    def get_total_contributions_by_member(self):
+        "Contribución total por miembro según el método de reparto activo (disponible en PLANNING)."
+        return self.household.get_total_contributions_by_member()
+
     def get_missing_money(self) -> int:
         """Dinero no presupuestado total (ingresos - presupuesto)"""
         self.validate_phase_accessible(Phase.PLANNING)
@@ -270,6 +278,11 @@ class WorkflowManager:
 
         if self.period_repo and self.period_id:
             self.period_repo.update_status(self.period_id, Phase.MONTH)
+
+            self.period_repo.save_agreed_contributions(
+                period_id=self.period_id,
+                contributions=self.get_total_contributions_by_member(),
+            )
 
     # ====== MONTH PHASE - Expense Registration ======
 

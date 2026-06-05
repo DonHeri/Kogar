@@ -67,3 +67,38 @@ class PeriodRepository:
             status=Phase(row["status"]),
             method=MetodoReparto(row["method"]) if row["method"] else None,
         )
+
+    def save_agreed_contributions(
+        self, period_id: int, contributions: dict[str, int]
+    ) -> None:
+        "Guarda los acuerdos de planning para un período. Si ya existen, sobreescribe los importes."
+
+        for full_name, amount_cents in contributions.items():
+            self.cursor.execute(
+                " SELECT id FROM members WHERE full_name = %s ", (full_name,)
+            )
+            row = self.cursor.fetchone()
+            if row is None:
+                raise ValueError(f"Miembro {full_name} no está en la base de datos ")
+            self.cursor.execute(
+                """ 
+                INSERT INTO period_agreed_contributions(period_id,member_id,amount_cents)
+                VALUES (%s,%s,%s)
+                ON CONFLICT (period_id,member_id)
+                DO UPDATE SET amount_cents = EXCLUDED.amount_cents
+                """,
+                (period_id, row["id"], amount_cents),
+            )
+
+    def get_agreed_contributions(self, period_id: int) -> dict[str, int]:
+        "Lee los acuerdos guardados de un período. Devuelve {nombre: amount_cents}."
+        self.cursor.execute(
+            """ 
+            SELECT m.full_name, pac.amount_cents
+            FROM period_agreed_contributions pac
+            INNER JOIN members m ON m.id = pac.member_id
+            WHERE pac.period_id = %s
+            """,
+            (period_id,),
+        )
+        return {row["full_name"]: row["amount_cents"] for row in self.cursor.fetchall()}
