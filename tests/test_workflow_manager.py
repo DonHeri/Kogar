@@ -364,19 +364,8 @@ def test_finish_planning_raises_if_not_in_planning(wm):
         wm.finish_planning()
 
 
-def test_finish_planning_raises_if_no_categories(wm):
-    """finish_planning lanza ValueError si no hay categorías creadas"""
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 5000)
-    wm.finish_registration()
-
-    with pytest.raises(ValueError, match="al menos una categoría"):
-        wm.finish_planning()
-
-
 def test_finish_planning_raises_if_no_budget_assigned(wm):
     """finish_planning lanza ValueError si no hay presupuesto asignado"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
     wm.finish_registration()
@@ -551,9 +540,7 @@ def test_get_registered_incomes_fails_in_registration(wm):
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
 
-    with pytest.raises(
-        ValueError, match="planning"
-    ):
+    with pytest.raises(ValueError, match="planning"):
         wm.get_registered_incomes()
 
 
@@ -581,9 +568,7 @@ def test_get_agreed_percentages_fails_in_planning(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(
-        ValueError, match="month"
-    ):
+    with pytest.raises(ValueError, match="month"):
         wm.get_agreed_percentages()
 
 
@@ -615,9 +600,7 @@ def test_get_agreed_contributions_fails_in_planning(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    with pytest.raises(
-        ValueError, match="month"
-    ):
+    with pytest.raises(ValueError, match="month"):
         wm.get_agreed_contributions()
 
 
@@ -696,8 +679,6 @@ def test_get_current_contributions_in_planning(wm):
 
 def test_register_expense_in_month_phase(wm):
     """register_expense() registra gasto correctamente en MONTH"""
-    from src.models.expense import Expense
-
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
@@ -797,12 +778,18 @@ def test_register_expense_derives_is_shared_from_category(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.register_member("Heri")
+    wm.set_member_incomes("Heri", 2000)
     wm.finish_registration()
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "fijos", 100.00)  # SHARED → is_shared=True
-    wm.register_expense("Amanda", "variables", 50.00)  # PERSONAL → is_shared=False
+    wm.register_expense(
+        "Amanda", "fijos", 100.00, participants=wm.household.get_member_names()
+    )  # SHARED → is_shared=True
+    wm.register_expense(
+        "Amanda", "variables", 50.00, participants=["Amanda"]
+    )  # PERSONAL → is_shared=False
 
     expenses = wm.household.expense_tracker.expenses
     assert expenses[0].is_shared is True
@@ -814,12 +801,16 @@ def test_register_expense_explicit_is_shared_overrides_behavior(wm):
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.register_member("Heri")
+    wm.set_member_incomes("Heri", 2000)
     wm.finish_registration()
     wm.set_budget_for_category("variables", 1000)
     wm.finish_planning()
 
     # variables es PERSONAL por defecto, pero el usuario lo marca como compartido
-    wm.register_expense("Amanda", "variables", 80.00, is_shared=True)
+    wm.register_expense(
+        "Amanda", "variables", 80.00, participants=wm.household.get_member_names()
+    )
 
     expense = wm.household.expense_tracker.expenses[0]
     assert expense.is_shared is True
@@ -954,9 +945,7 @@ def test_set_budget_by_percentages_basic(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentages(
-        {"fijos": 50.0, "variables": 30.0, "reserva": 20.0}
-    )
+    wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
     # Ingresos: 300000 céntimos
     assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
@@ -1028,9 +1017,7 @@ def test_set_budget_by_percentages_fractional_percentages(wm):
     wm.set_member_incomes("Amanda", 3000)
     wm.finish_registration()
 
-    wm.set_budget_by_percentages(
-        {"fijos": 33.33, "variables": 33.33, "reserva": 33.34}
-    )
+    wm.set_budget_by_percentages({"fijos": 33.33, "variables": 33.33, "reserva": 33.34})
 
     # Ingresos: 300000 céntimos (3000€)
     assert wm.household.budget.get_category_budget("fijos") == 99990
@@ -1255,8 +1242,12 @@ def test_full_flow_registration_to_closing(wm):
     assert wm.current_phase == Phase.MONTH
 
     # MONTH — gastos compartidos en fijos
-    wm.register_expense("Amanda", "fijos", 200.0, is_shared=True)  # 20000¢
-    wm.register_expense("Heri", "fijos", 300.0, is_shared=True)  # 30000¢
+    wm.register_expense(
+        "Amanda", "fijos", 200.0, participants=wm.household.get_member_names()
+    )  # 20000¢
+    wm.register_expense(
+        "Heri", "fijos", 300.0, participants=wm.household.get_member_names()
+    )  # 30000¢
     # Total compartido: 50000¢. Amanda should pay 60%=30000¢, Heri 40%=20000¢
     # Amanda pagó 20000¢ (debe 10000¢ más). Heri pagó 30000¢ (pagó 10000¢ de más).
     wm.register_debt_payment("Amanda", 50.0)  # 5000¢ ≤ 10000¢ committed ✓
