@@ -1,4 +1,4 @@
-# tests/test_budget_category.py
+# tests/test_budget.py
 import pytest
 
 from src.models.budget import Budget
@@ -8,12 +8,6 @@ from tests.helpers import make_category
 # ====================================================
 # FIXTURES
 # ====================================================
-
-
-@pytest.fixture
-def budget_rent():
-    """Categoría con 1000€ presupuestados"""
-    return BudgetCategory(make_category("fijos"), 1000)
 
 
 @pytest.fixture
@@ -27,10 +21,10 @@ def budget():
 # TESTS: Creación de Presupuesto específico
 # ====================================================
 def test_create_valid_budget_category():
-    # Act
+    # Arrange & Act
     budget1 = BudgetCategory(make_category("Test"), 500)
 
-    # Arrange
+    # Assert
     assert budget1.name == "Test"
     assert budget1.planned_amount == 50000
 
@@ -143,7 +137,7 @@ def test_delete_budget_category_succeeds(budget):
 
 
 # ====================================================
-# GET_CATEGORY_LIST
+# GET_CATEGORY_BUDGET
 # ====================================================
 
 

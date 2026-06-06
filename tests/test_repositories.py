@@ -92,7 +92,7 @@ def test_list_households_returns_all_households(household_repo):
 
 def test_get_household_returns_correct_data(household_repo, household_id):
     household = household_repo.get_household(household_id)
-    assert household["status"] == True
+    assert household["status"] is True
     assert household["id"] == household_id
 
 
