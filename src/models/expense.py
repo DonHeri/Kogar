@@ -15,6 +15,7 @@ class Expense:
         amount_cents: int,
         participants: list[str],
         description: str = "",
+        date: datetime = None,
     ) -> None:
         """
         Crea un gasto con validaciones básicas
@@ -31,7 +32,7 @@ class Expense:
         self._validate_non_empty_string(member, "member")
         self._validate_positive_amount(amount_cents, "amount")
 
-        self._date: datetime = datetime.now()
+        self._date: datetime = date or datetime.now()
         self.member = normalize_name(member)  # stored as lowercase
         self.category = category
         self._amount_cents: int = amount_cents
