@@ -45,6 +45,21 @@ class SavingBucket:
     def goal(self) -> int:
         return self._goal_cents
 
+    @property
+    def balance(self) -> int:
+        """Saldo total del bucket (suma de todas las entries)"""
+        return sum(e.amount_cents for e in self._entries)
+
+    @property
+    def balance_by_member(self) -> dict[str, int]:
+        """Saldo del bucket desglosado por miembro"""
+        result = {owner: 0 for owner in self._owners}
+        for entry in self._entries:
+            result[entry.member_name] += entry.amount_cents
+        return result
+
+    # ====== API PÚBLICA ======
+
     def deposit(
         self, amount_cents: int, member_name: str, date: datetime | None = None
     ):
@@ -100,21 +115,6 @@ class SavingBucket:
                 date=date or datetime.now(),
             )
         )
-
-    # ====== Faltan métodos que calcules cuantos meses hasta la deadline y cuanto dinero habría que poner mensual ======
-
-    @property
-    def balance(self) -> int:
-        """Saldo total del bucket (suma de todas las entries)"""
-        return sum(e.amount_cents for e in self._entries)
-
-    @property
-    def balance_by_member(self) -> dict[str, int]:
-        """Saldo del bucket desglosado por miembro"""
-        result = {owner: 0 for owner in self._owners}
-        for entry in self._entries:
-            result[entry.member_name] += entry.amount_cents
-        return result
 
     def __repr__(self):  # pragma: no cover
         return (

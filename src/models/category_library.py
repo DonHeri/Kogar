@@ -35,31 +35,7 @@ class CategoryLibrary:
     def __init__(self):
         self._custom_categories: dict[str, CategoryInfo] = {}
 
-    # ====== FACTORY ======
-    def create_category(self, name: str) -> Category:
-        """Fabrica el objeto Category a partir de su nombre.
-        reserva → AutoCalculatedCategory. El resto → Category con su is_shared por defecto."""
-        normalized = self.normalize(name)
-        info = self._get_info(normalized)
-        if info.auto_calculated:
-            return AutoCalculatedCategory(normalized, is_shared=info.is_shared)
-        return Category(normalized, is_shared=info.is_shared)
-
-    # ====== MUTATIONS ======
-    def add_category(self, name: str, is_shared: bool = True) -> None:
-        """Registra una categoría custom en esta instancia"""
-        normalized = self.normalize(name)
-        self._custom_categories[normalized] = CategoryInfo("", is_shared=is_shared)
-
-    # ====== QUERIES ======
-    def _get_info(self, normalized: str) -> CategoryInfo:
-        """Retorna el CategoryInfo de una categoría. Fallback: compartida."""
-        all_cats = {
-            **self.STANDARD_CATEGORIES,
-            **self.EXTENDED_CATEGORIES,
-            **self._custom_categories,
-        }
-        return all_cats.get(normalized, CategoryInfo(""))
+    # ====== CLASS METHODS ======
 
     @classmethod
     def get_standards_categories(cls) -> dict[str, str]:
@@ -68,15 +44,6 @@ class CategoryLibrary:
             name: info.description
             for name, info in cls.STANDARD_CATEGORIES.items()
         }
-
-    def get_all_suggestions(self) -> dict[str, str]:
-        """Retorna {nombre: descripción} de todas las categorías"""
-        all_cats = {
-            **self.STANDARD_CATEGORIES,
-            **self.EXTENDED_CATEGORIES,
-            **self._custom_categories,
-        }
-        return {name: info.description for name, info in all_cats.items()}
 
     @classmethod
     def is_standard(cls, name: str) -> bool:
@@ -88,16 +55,8 @@ class CategoryLibrary:
         """Verifica si una categoría está en la librería extendida"""
         return name in cls.EXTENDED_CATEGORIES
 
-    def is_known(self, name: str) -> bool:
-        """Verifica si una categoría es conocida (estándar, extendida o custom)"""
-        normalized = self.normalize(name)
-        return (
-            normalized in self.STANDARD_CATEGORIES
-            or normalized in self.EXTENDED_CATEGORIES
-            or normalized in self._custom_categories
-        )
+    # ====== STATIC METHODS ======
 
-    # ====== NORMALIZATION ======
     @staticmethod
     def normalize(text: str) -> str:
         """
@@ -114,3 +73,48 @@ class CategoryLibrary:
             raise ValueError("La categoría no puede estar vacía")
 
         return normalized
+
+    # ====== API PÚBLICA ======
+
+    def create_category(self, name: str) -> Category:
+        """Fabrica el objeto Category a partir de su nombre.
+        reserva → AutoCalculatedCategory. El resto → Category con su is_shared por defecto."""
+        normalized = self.normalize(name)
+        info = self._get_info(normalized)
+        if info.auto_calculated:
+            return AutoCalculatedCategory(normalized, is_shared=info.is_shared)
+        return Category(normalized, is_shared=info.is_shared)
+
+    def add_category(self, name: str, is_shared: bool = True) -> None:
+        """Registra una categoría custom en esta instancia"""
+        normalized = self.normalize(name)
+        self._custom_categories[normalized] = CategoryInfo("", is_shared=is_shared)
+
+    def get_all_suggestions(self) -> dict[str, str]:
+        """Retorna {nombre: descripción} de todas las categorías"""
+        all_cats = {
+            **self.STANDARD_CATEGORIES,
+            **self.EXTENDED_CATEGORIES,
+            **self._custom_categories,
+        }
+        return {name: info.description for name, info in all_cats.items()}
+
+    def is_known(self, name: str) -> bool:
+        """Verifica si una categoría es conocida (estándar, extendida o custom)"""
+        normalized = self.normalize(name)
+        return (
+            normalized in self.STANDARD_CATEGORIES
+            or normalized in self.EXTENDED_CATEGORIES
+            or normalized in self._custom_categories
+        )
+
+    # ====== PRIVADOS ======
+
+    def _get_info(self, normalized: str) -> CategoryInfo:
+        """Retorna el CategoryInfo de una categoría. Fallback: compartida."""
+        all_cats = {
+            **self.STANDARD_CATEGORIES,
+            **self.EXTENDED_CATEGORIES,
+            **self._custom_categories,
+        }
+        return all_cats.get(normalized, CategoryInfo(""))

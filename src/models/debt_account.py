@@ -21,7 +21,14 @@ class DebtAccount:
         self.member_name = member_name
         self._entries: list[DebtEntry] = []
 
-    # ====== OPERACIONES ======
+    # ====== PROPERTIES ======
+
+    @property
+    def total_paid(self) -> int:
+        """Total pagado de deuda"""
+        return sum(entry.amount_cents for entry in self._entries)
+
+    # ====== API PÚBLICA ======
 
     def pay(
         self,
@@ -46,13 +53,6 @@ class DebtAccount:
                 date=date or datetime.now(),
             )
         )
-
-    # ====== BALANCES ======
-
-    @property
-    def total_paid(self) -> int:
-        """Total pagado de deuda"""
-        return sum(entry.amount_cents for entry in self._entries)
 
     # ====== HISTORIAL ======
 

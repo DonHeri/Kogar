@@ -39,23 +39,25 @@ class Expense:
         self.participants = participants
         self.description = description
 
+    # ====== PROPERTIES ======
+
     @property
     def is_shared(self):
         return len(self.participants) > 1
 
-    def add_participant(self, name):
-        name = normalize_name(name)
-        self.participants.append(name)
-
     @property
     def amount(self) -> int:
-        """Retorna el monto del gasto en céntimos (solo lectura)"""
         return self._amount_cents
 
     @property
     def date(self) -> datetime:
-        """Retorna la fecha del gasto como objeto datetime (solo lectura)"""
         return self._date
+
+    # ====== API PÚBLICA ======
+
+    def add_participant(self, name):
+        name = normalize_name(name)
+        self.participants.append(name)
 
     def is_same_month(self, other_date: datetime = None) -> bool:
         """

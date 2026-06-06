@@ -20,6 +20,11 @@ class BudgetCategory:
     def is_shared(self) -> bool:
         return self.category.is_shared
 
+    def __repr__(self) -> str:  # pragma: no cover
+        return (
+            f"BudgetCategory(name={self.name}, planned={to_euros(self.planned_amount)})"
+        )
+
     # ====== VALIDATORS ======
     def _validate_amount(self, amount: float):
         """Valida que el monto presupuestado no sea negativo"""
@@ -27,9 +32,3 @@ class BudgetCategory:
             raise TypeError("El monto presupuestado no puede ser booleano")
         if amount < 0:
             raise ValueError("El monto presupuestado no puede ser negativo")
-
-    def __repr__(self) -> str:  # pragma: no cover
-        """Información técnica para debugging"""
-        return (
-            f"BudgetCategory(name={self.name}, planned={to_euros(self.planned_amount)})"
-        )
