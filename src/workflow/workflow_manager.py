@@ -292,29 +292,37 @@ class WorkflowManager:
         category: str,
         amount_euros: float,
         desc: str = "",
-        is_shared: bool | None = None,
+        participants: list[str] | None = None,
     ):
-        """Registrar un gasto.
+        """Registrar un gasto en fase MONTH.
 
-        is_shared: si None, se hereda del default de la categoría (cat.is_shared).
-        Pasarlo explícitamente sobreescribe el default.
+        participants: lista de miembros que comparten el gasto.
+          - Si se pasa → se usan esos (normalizados).
+          - Si es None → se deriva de la categoría:
+              is_shared=True  → todos los miembros del hogar.
+              is_shared=False → solo el pagador.
         """
         self.validate_phase(Phase.MONTH)
         member_normalized = normalize_name(member)
         category = category.strip()
         desc = desc.strip()
         amount_cents = to_cents(amount_euros)
-
         cat = self._resolve_category(category)
-        if is_shared is None:
-            is_shared = cat.is_shared
+
+        if participants is not None:
+            participants = [normalize_name(name) for name in participants]
+        else:
+            if cat.is_shared:
+                participants = self.household.get_member_names()
+            else:
+                participants = [member_normalized]
 
         expense = Expense(
             member=member_normalized,
             category=cat,
             amount_cents=amount_cents,
             description=desc,
-            is_shared=is_shared,
+            participants=participants,
         )
         self.household.register_expense(expense=expense)
 

@@ -13,8 +13,8 @@ class Expense:
         member: str,
         category: Category,
         amount_cents: int,
+        participants: list[str],
         description: str = "",
-        is_shared: bool = True,
     ) -> None:
         """
         Crea un gasto con validaciones básicas
@@ -35,15 +35,16 @@ class Expense:
         self.member = normalize_name(member)  # stored as lowercase
         self.category = category
         self._amount_cents: int = amount_cents
-        self._is_shared = is_shared
+        self.participants = participants
         self.description = description
 
     @property
     def is_shared(self):
-        return self._is_shared
+        return len(self.participants) > 1
 
-    def change_is_shared(self, status: bool):
-        self._is_shared = status
+    def add_participant(self, name):
+        name = normalize_name(name)
+        self.participants.append(name)
 
     @property
     def amount(self) -> int:

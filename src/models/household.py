@@ -322,6 +322,9 @@ class Household:
             "total_household_income": total_incomes,
         }
 
+    def get_member_names(self):
+        return self.members.keys()
+
     # ====== QUERIES - PLANNING ======
     def preview_budget_contribution_summary(self, method: MetodoReparto):
         """
@@ -375,7 +378,7 @@ class Household:
         return self.preview_budget_contribution_summary(self.method)
 
     def get_total_contributions_by_member(self) -> dict[str, int]:
-        "Suma las contribuciones de cada miembro en todas las categorías. Devuelve {nombre: total_cents}." 
+        "Suma las contribuciones de cada miembro en todas las categorías. Devuelve {nombre: total_cents}."
         contributions = self.get_current_contributions()
 
         totals = {member: 0 for member in self.members}
