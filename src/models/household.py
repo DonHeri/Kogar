@@ -700,42 +700,52 @@ class Household:
     def get_settlement(self) -> list[dict]:
         """
         Calcula las transferencias mínimas para saldar deudas entre miembros.
-        Solo opera sobre gastos con is_shared=True.
+        Solo opera sobre gastos con participants > 1.
 
         Returns:
             list[dict]: [{"from": "heri", "to": "amanda", "amount": 50000}]
             Lista vacía si no hay gastos compartidos o todo está saldado.
         """
-        income_map = self._registered_incomes or {
-            name: m.monthly_income for name, m in self.members.items()
-        }
 
-        shared_paid = self.expense_tracker.get_shared_expenses_by_members()
-        total_shared = sum(shared_paid.values())
+        balances = {m: 0 for m in self.members}
 
-        if total_shared == 0:
-            return []
+        for expense in self.expense_tracker.expenses:
+            if not expense.is_shared:
+                continue
 
-        # Cuánto debería pagar cada miembro según el método de reparto
-        if self.method == MetodoReparto.CUSTOM:
-            should_pay = FinanceCalculator.calculate_contribution_from_custom_splits(
-                self._custom_splits, total_shared
-            )
-        elif self.method == MetodoReparto.EQUAL:
-            equal_map = {name: 1 for name in income_map}
-            should_pay = FinanceCalculator.calculate_contribution_from_incomes(
-                equal_map, total_shared
-            )
-        else:
-            should_pay = FinanceCalculator.calculate_contribution_from_incomes(
-                income_map, total_shared
-            )
+            participants = expense.participants
 
-        # balance positivo → acreedor (pagó de más)
-        # balance negativo → deudor (pagó de menos)
-        balances = {
-            m: shared_paid.get(m, 0) - should_pay.get(m, 0) for m in self.members
-        }
+            if self._registered_incomes:
+                incomes_map = {m: self._registered_incomes[m] for m in participants}
+            else:
+                # Usar datos mutables solo en REGISTRATION
+                incomes_map = {
+                    name: self.members[name].monthly_income for name in participants
+                }
+
+            # Cuánto debería pagar cada miembro según el método de reparto
+            if self.method == MetodoReparto.CUSTOM:
+                should_pay = (
+                    FinanceCalculator.calculate_contribution_from_custom_splits(
+                        self._custom_splits, expense.amount
+                    )
+                )
+            elif self.method == MetodoReparto.EQUAL:
+                equal_map = {name: 1 for name in incomes_map}
+                should_pay = FinanceCalculator.calculate_contribution_from_incomes(
+                    equal_map, expense.amount
+                )
+            else:
+                should_pay = FinanceCalculator.calculate_contribution_from_incomes(
+                    incomes_map, expense.amount
+                )
+
+            # ====== balances ======
+            # balance positivo → acreedor (pagó de más)
+            # balance negativo → deudor (pagó de menos)
+            for m in participants:
+                balances[m] -= should_pay.get(m, 0)
+            balances[expense.member] += expense.amount
 
         creditors = sorted(
             [(m, b) for m, b in balances.items() if b > 0],

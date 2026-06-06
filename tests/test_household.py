@@ -653,7 +653,6 @@ def test_assign_distribution_method_changes_percentages(household_with_members):
 def test_register_expense_adds_to_tracker(household_with_members):
     """register_expense() almacena en ExpenseTracker"""
 
-
     household_with_members.set_budget_for_category("fijos", 100000)
 
     expense = Expense(
@@ -668,7 +667,6 @@ def test_register_expense_adds_to_tracker(household_with_members):
 def test_register_expense_validates_member_exists(household_with_members):
     """register_expense() valida que el miembro existe"""
 
-
     household_with_members.set_budget_for_category("fijos", 100000)
 
     expense = Expense("NonExistent", make_category("fijos"), 25000, ["nonexistent"])
@@ -679,7 +677,6 @@ def test_register_expense_validates_member_exists(household_with_members):
 
 def test_register_expense_validates_category_exists(household_with_members):
     """register_expense() valida que la categoría existe"""
-
 
     expense = Expense("member1", make_category("nonexistent"), 25000, ["member1"])
 
@@ -699,7 +696,6 @@ def test_get_category_spent_returns_zero_when_no_expenses(household_with_members
 def test_get_category_spent_sums_expenses_for_category(household_with_members):
     """get_category_spent() suma gastos de una categoría"""
 
-
     household_with_members.set_budget_for_category("fijos", 100000)
 
     expense1 = Expense("member1", make_category("fijos"), 25000, ["member1"])
@@ -714,7 +710,6 @@ def test_get_category_spent_sums_expenses_for_category(household_with_members):
 
 def test_get_category_spent_only_counts_matching_category(household_with_members):
     """get_category_spent() solo cuenta gastos de la categoría solicitada"""
-
 
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
@@ -742,7 +737,6 @@ def test_get_total_spent_returns_zero_when_no_expenses(household_with_members):
 
 def test_get_total_spent_sums_all_expenses(household_with_members):
     """get_total_spent() suma todos los gastos de todas las categorías"""
-
 
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
@@ -773,7 +767,6 @@ def test_get_category_remaining_when_no_expenses(household_with_members):
 def test_get_category_remaining_calculates_correctly(household_with_members):
     """get_category_remaining() calcula presupuesto - gastado correctamente"""
 
-
     household_with_members.set_budget_for_category("fijos", 100000)
 
     expense = Expense("member1", make_category("fijos"), 25000, ["member1"])
@@ -786,7 +779,6 @@ def test_get_category_remaining_calculates_correctly(household_with_members):
 
 def test_get_category_remaining_can_be_negative(household_with_members):
     """get_category_remaining() puede ser negativo (sobregasto)"""
-
 
     household_with_members.set_budget_for_category("fijos", 100000)
 
@@ -812,7 +804,6 @@ def test_get_total_remaining_when_no_expenses(household_with_members):
 def test_get_total_remaining_calculates_correctly(household_with_members):
     """get_total_remaining() calcula total presupuestado - total gastado"""
 
-
     household_with_members.set_budget_for_category("fijos", 100000)
     household_with_members.set_budget_for_category("variables", 50000)
     # total_budgeted = 300000
@@ -831,7 +822,6 @@ def test_get_total_remaining_calculates_correctly(household_with_members):
 
 def test_get_total_remaining_can_be_negative(household_with_members):
     """get_total_remaining() puede ser negativo si gastos superan presupuesto"""
-
 
     household_with_members.set_budget_for_category("fijos", 50000)
     # total_budgeted = 300000 (reserva autocalcula a 250000)
@@ -944,7 +934,6 @@ def test_get_member_owed_total_raises_if_member_not_exists(household_with_member
 def test_get_member_balance_negative_when_owes_money(household_with_members):
     """Balance negativo cuando el miembro debe dinero (paid < owed)"""
 
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.set_budget_for_category("fijos", 100000)
@@ -964,7 +953,6 @@ def test_get_member_balance_negative_when_owes_money(household_with_members):
 
 def test_get_member_balance_positive_when_paid_more(household_with_members):
     """Balance positivo cuando el miembro pagó de más (paid > owed)"""
-
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
@@ -986,7 +974,6 @@ def test_get_member_balance_positive_when_paid_more(household_with_members):
 def test_get_member_balance_zero_when_paid_exact(household_with_members):
     """Balance cero cuando el miembro pagó exactamente lo acordado"""
 
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.set_budget_for_category("fijos", 100000)
@@ -1005,7 +992,6 @@ def test_get_member_balance_zero_when_paid_exact(household_with_members):
 
 def test_get_member_balance_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
-
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
@@ -1034,7 +1020,6 @@ def test_get_member_balance_raises_if_member_not_exists(household_with_members):
 
 def test_get_member_status_returns_complete_structure(household_with_members):
     """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
-
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
@@ -1071,7 +1056,6 @@ def test_get_member_status_returns_complete_structure(household_with_members):
 def test_get_member_status_paid_is_total_not_per_category(household_with_members):
     """CRÍTICO: 'paid' debe ser el total pagado, NO el paid de una categoría"""
 
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.set_budget_for_category("fijos", 60000)
@@ -1101,7 +1085,6 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
 
 def test_get_member_status_by_category_has_correct_structure(household_with_members):
     """'by_category' debe tener contribution, paid, remaining por categoría"""
-
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
@@ -1177,7 +1160,6 @@ def test_get_member_status_raises_if_member_not_exists(household_with_members):
 def test_get_month_summary_returns_complete_structure(household_with_members):
     """Debe retornar dict con 'totals' y 'by_category'"""
 
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.set_budget_for_category("fijos", 100000)
@@ -1214,7 +1196,6 @@ def test_get_month_summary_includes_missing_money(household_with_members):
 def test_get_month_summary_calculates_correctly(household_with_members):
     """Los cálculos de 'totals' deben ser correctos"""
 
-
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     household_with_members.set_budget_for_category("fijos", 100000)
@@ -1238,7 +1219,6 @@ def test_get_month_summary_calculates_correctly(household_with_members):
 
 def test_get_month_summary_by_category_has_correct_structure(household_with_members):
     """Cada categoría en 'by_category' debe tener budget, spent, remaining"""
-
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
@@ -1524,7 +1504,6 @@ def _setup_settlement(hh):
 def test_get_settlement_empty_when_no_shared_expenses(household_with_members):
     """Sin gastos compartidos el settlement es vacío"""
 
-
     _setup_settlement(household_with_members)
 
     household_with_members.expense_tracker.add_expense(
@@ -1547,7 +1526,6 @@ def test_get_settlement_empty_when_no_expenses(household_with_members):
 
 def test_get_settlement_one_paid_all_equal_split(household_with_members):
     """member1 pagó todo lo compartido — member2 le debe la mitad (EQUAL)"""
-
 
     _setup_settlement(household_with_members)
 
@@ -1573,7 +1551,6 @@ def test_get_settlement_one_paid_all_equal_split(household_with_members):
 def test_get_settlement_ignores_non_shared_expenses(household_with_members):
     """Los gastos is_shared=False no entran en el settlement"""
 
-
     _setup_settlement(household_with_members)
     members = household_with_members.get_member_names()
     household_with_members.expense_tracker.add_expense(
@@ -1596,7 +1573,6 @@ def test_get_settlement_ignores_non_shared_expenses(household_with_members):
 
 def test_get_settlement_already_balanced(household_with_members):
     """Si cada uno pagó exactamente su parte no hay transferencias"""
-
 
     _setup_settlement(household_with_members)
 
@@ -1633,7 +1609,12 @@ def test_get_settlement_three_members_equal(base_household):
     # alice paga 3000 compartido, bob y carol no pagan nada
     # EQUAL: cada uno debe 1000 → bob y carol deben 1000 c/u a alice
     base_household.expense_tracker.add_expense(
-        Expense("alice", make_category("fijos"), 3000, participants=base_household.get_member_names())
+        Expense(
+            "alice",
+            make_category("fijos"),
+            3000,
+            participants=base_household.get_member_names(),
+        )
     )
 
     transfers = base_household.get_settlement()
@@ -1643,6 +1624,27 @@ def test_get_settlement_three_members_equal(base_household):
     assert all(t["amount"] == 1000 for t in transfers)
     froms = {t["from"] for t in transfers}
     assert froms == {"bob", "carol"}
+
+
+def test_get_settlement_three_members_only_should_pay_two(base_household):
+    """3 miembros EQUAL: uno paga todo → los otros dos le deben a partes iguales"""
+    m1, m2, m3 = Member("alice"), Member("bob"), Member("carol")
+    for m in (m1, m2, m3):
+        m.monthly_income = 100000
+        base_household.register_member(m)
+
+    _setup_settlement(base_household)
+
+    # alice paga 3000 compartido con carol
+    base_household.expense_tracker.add_expense(
+        Expense("alice", make_category("fijos"), 3000, participants=["alice", "carol"])
+    )
+
+    transfers = base_household.get_settlement()
+    assert len(transfers) == 1
+    assert transfers[0]["to"] == "alice"
+    assert transfers[0]["from"] == "carol"
+    assert transfers[0]["amount"] == 1500
 
 
 # ====================================================

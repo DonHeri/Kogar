@@ -18,16 +18,6 @@ class ExpenseTracker:
         """Retorna todos los gastos"""
         return self.expenses.copy()
 
-    def get_shared_expenses_by_members(self):
-        """"""
-        shared_expenses_by_member = {}
-        for expense in self.expenses:
-            if expense.is_shared:
-                shared_expenses_by_member[expense.member] = (
-                    shared_expenses_by_member.get(expense.member, 0) + expense.amount
-                )
-        return shared_expenses_by_member
-
     # ====== FILTERS ======
     def get_expenses_by_category(self, category: str) -> list[Expense]:
         """Filtra por categoría"""
