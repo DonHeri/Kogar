@@ -7,7 +7,7 @@ class HouseholdRepository:
         self.db = db
         self.cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def add_household(self) -> int | None:
+    def save(self) -> int | None:
         self.cursor.execute(
             """  
             INSERT INTO households DEFAULT VALUES RETURNING id;

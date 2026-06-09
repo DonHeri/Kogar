@@ -36,7 +36,7 @@ def member_repo(conn):
 @pytest.fixture
 def household_id(household_repo):
     """Hogar creado listo para usar en tests de miembros"""
-    return household_repo.add_household()
+    return household_repo.save()
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def member_2():
 @pytest.fixture
 def member_id(household_id, member, member_repo):
     """Miembro creado en base de datos para test"""
-    member_id = member_repo.add_member(member=member, household_id=household_id)
+    member_id = member_repo.save(member=member, household_id=household_id)
     return member_id
 
 
@@ -67,23 +67,23 @@ def member_id(household_id, member, member_repo):
 # ===============================================
 
 
-def test_add_household_returns_correct_id(household_repo):
-    """add_household devuelve un id entero mayor que cero"""
-    household_id = household_repo.add_household()
+def test_save_returns_correct_id(household_repo):
+    """save devuelve un id entero mayor que cero"""
+    household_id = household_repo.save()
 
     assert isinstance(household_id, int)
     assert household_id > 0
 
 
 def test_del_household_removes_household(household_repo):
-    household_id = household_repo.add_household()
+    household_id = household_repo.save()
     household_repo.del_household(household_id=household_id)
 
     assert household_repo.get_household(household_id) is None
 
 
 def test_list_households_returns_all_households(household_repo):
-    household_id = household_repo.add_household()
+    household_id = household_repo.save()
     households = household_repo.list_households()
     ids = [household["id"] for household in households]
     assert len(households) >= 1
@@ -101,9 +101,9 @@ def test_get_household_returns_correct_data(household_repo, household_id):
 # ===============================================
 
 
-def test_add_member_persist_data(member_repo, household_id, member):
-    """add_member persiste nombre e ingresos correctamente"""
-    member_repo.add_member(member=member, household_id=household_id)
+def test_save_persist_data(member_repo, household_id, member):
+    """save persiste nombre e ingresos correctamente"""
+    member_repo.save(member=member, household_id=household_id)
     members = member_repo.list_members(household_id=household_id)
     assert len(members) == 1
     assert members[0]["full_name"] == "amanda"
@@ -126,8 +126,8 @@ def test_list_members_returns_all_members_for_household(
     member_repo, household_id, member, member_2
 ):
 
-    member1_id = member_repo.add_member(member=member, household_id=household_id)
-    member2_id = member_repo.add_member(member_2, household_id=household_id)
+    member1_id = member_repo.save(member=member, household_id=household_id)
+    member2_id = member_repo.save(member_2, household_id=household_id)
     members = member_repo.list_members(household_id=household_id)
 
     ids = [member["id"] for member in members]

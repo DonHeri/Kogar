@@ -9,7 +9,7 @@ class PeriodRepository:
         self.db = db
         self.cursor = self.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def create(self, period: Period) -> int:
+    def save(self, period: Period) -> int:
         self.cursor.execute(
             """
             INSERT INTO household_periods (household_id, year, month, status, method)

@@ -10,7 +10,7 @@ class MemberRepository:
         self.db = db
         self.cursor = self.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def add_member(self, member: Member, household_id: int, status: bool = True):
+    def save(self, member: Member, household_id: int, status: bool = True):
         full_name = member.name
         monthly_income = member.monthly_income
 

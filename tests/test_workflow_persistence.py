@@ -196,7 +196,7 @@ def test_period_unique_constraint(wm_pre_registration, period_repo):
     )
 
     with pytest.raises(Exception):
-        period_repo.create(duplicate)
+        period_repo.save(duplicate)
 
 
 def test_get_agreed_contributions_returns_saved_data(wm_planning_contributions_saved):
