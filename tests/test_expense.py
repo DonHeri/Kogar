@@ -13,7 +13,9 @@ from tests.helpers import make_category
 
 def test_expense_creation_valid():
     """Test: Crear un gasto válido almacena todos los atributos correctamente"""
-    expense = Expense("Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler marzo")
+    expense = Expense(
+        "Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler marzo"
+    )
 
     assert expense.member == "amanda"  # stored as lowercase
     assert expense.category.name == "fijos"
@@ -181,7 +183,9 @@ def test_is_same_year_without_parameter_uses_current_date():
 
 def test_repr_format():
     """Test: __repr__ muestra formato correcto con fecha dd/mm/yyyy"""
-    expense = Expense("Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler")
+    expense = Expense(
+        "Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler"
+    )
     expense._date = datetime(2026, 3, 15)
 
     repr_str = repr(expense)

@@ -21,25 +21,45 @@ def tracker():
 @pytest.fixture
 def expense_rent():
     """Gasto: Amanda - fijos - 900€"""
-    return Expense("Amanda", make_category("fijos"), to_cents(900.0), ["amanda", "heri"], "Alquiler")
+    return Expense(
+        "Amanda",
+        make_category("fijos"),
+        to_cents(900.0),
+        ["amanda", "heri"],
+        "Alquiler",
+    )
 
 
 @pytest.fixture
 def expense_groceries():
     """Gasto: Heri - variables - 120€ (personal)"""
-    return Expense("Heri", make_category("variables", is_shared=False), to_cents(120.0), ["heri"], "Supermercado")
+    return Expense(
+        "Heri",
+        make_category("variables", is_shared=False),
+        to_cents(120.0),
+        ["heri"],
+        "Supermercado",
+    )
 
 
 @pytest.fixture
 def expense_utilities():
     """Gasto: Amanda - fijos - 80€"""
-    return Expense("Amanda", make_category("fijos"), to_cents(80.0), ["amanda", "heri"], "Luz")
+    return Expense(
+        "Amanda", make_category("fijos"), to_cents(80.0), ["amanda", "heri"], "Luz"
+    )
 
 
 @pytest.fixture
 def expense_leisure():
     """Gasto: Heri - ocio - 45.50€ (personal)"""
-    return Expense("Heri", make_category("ocio", is_shared=False), to_cents(45.50), ["heri"], "Cine")
+    return Expense(
+        "Heri",
+        make_category("ocio", is_shared=False),
+        to_cents(45.50),
+        ["heri"],
+        "Cine",
+    )
 
 
 @pytest.fixture
@@ -344,9 +364,15 @@ def test_get_member_breakdown_single_expense(tracker, expense_rent):
 
 def test_tracker_handles_many_expenses_for_same_category(tracker):
     """Test: Maneja múltiples gastos de la misma categoría"""
-    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(100.0), ["amanda", "heri"]))
-    tracker.add_expense(Expense("Heri", make_category("fijos"), to_cents(200.0), ["amanda", "heri"]))
-    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(300.0), ["amanda", "heri"]))
+    tracker.add_expense(
+        Expense("Amanda", make_category("fijos"), to_cents(100.0), ["amanda", "heri"])
+    )
+    tracker.add_expense(
+        Expense("Heri", make_category("fijos"), to_cents(200.0), ["amanda", "heri"])
+    )
+    tracker.add_expense(
+        Expense("Amanda", make_category("fijos"), to_cents(300.0), ["amanda", "heri"])
+    )
 
     total = tracker.get_total_spent_by_category("fijos")
 
@@ -355,9 +381,22 @@ def test_tracker_handles_many_expenses_for_same_category(tracker):
 
 def test_tracker_handles_same_member_multiple_categories(tracker):
     """Test: Maneja un miembro con gastos en múltiples categorías"""
-    tracker.add_expense(Expense("Amanda", make_category("fijos"), to_cents(100.0), ["amanda", "heri"]))
-    tracker.add_expense(Expense("Amanda", make_category("variables", is_shared=False), to_cents(50.0), ["amanda"]))
-    tracker.add_expense(Expense("Amanda", make_category("ocio", is_shared=False), to_cents(30.0), ["amanda"]))
+    tracker.add_expense(
+        Expense("Amanda", make_category("fijos"), to_cents(100.0), ["amanda", "heri"])
+    )
+    tracker.add_expense(
+        Expense(
+            "Amanda",
+            make_category("variables", is_shared=False),
+            to_cents(50.0),
+            ["amanda"],
+        )
+    )
+    tracker.add_expense(
+        Expense(
+            "Amanda", make_category("ocio", is_shared=False), to_cents(30.0), ["amanda"]
+        )
+    )
 
     amanda_total = tracker.get_total_spent_by_member("Amanda")
 

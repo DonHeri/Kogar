@@ -4,6 +4,7 @@ from uuid import UUID
 from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
+from src.storage.expense_repository import ExpenseRepository
 from src.models.period import Period
 
 from src.models.category import Category
@@ -23,6 +24,7 @@ class WorkflowManager:
         household_repo: HouseholdRepository | None = None,
         member_repo: MemberRepository | None = None,
         period_repo: PeriodRepository | None = None,
+        expense_repo: ExpenseRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
@@ -30,6 +32,7 @@ class WorkflowManager:
         self.household_repo = household_repo
         self.member_repo = member_repo
         self.period_repo = period_repo
+        self.expense_repo = expense_repo
         self.period_id: int | None = None
         self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
@@ -72,10 +75,10 @@ class WorkflowManager:
 
         # Persistir si hay repositorios
         if self.household_repo and self.member_repo:
-            household_id = self.household_repo.add_household()
+            household_id = self.household_repo.save()
 
             for name, member in self.household.members.items():
-                member_id = self.member_repo.add_member(
+                member_id = self.member_repo.save(
                     member=member, household_id=household_id
                 )
                 self.member_ids[name] = member_id
@@ -87,7 +90,7 @@ class WorkflowManager:
                     month=month,
                     status=Phase.PLANNING,
                 )
-                self.period_id = self.period_repo.create(period)
+                self.period_id = self.period_repo.save(period)
 
             return household_id
 
@@ -325,6 +328,11 @@ class WorkflowManager:
             participants=participants,
         )
         self.household.register_expense(expense=expense)
+
+        if self.expense_repo and self.period_id:
+            self.expense_repo.save(
+                expense=expense, period_id=self.period_id, member_ids=self.member_ids
+            )
 
     def finish_month(self):
         """Avanzar de MONTH a CLOSING"""
