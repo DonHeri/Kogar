@@ -13,7 +13,7 @@ Caso real:
 Flujo: REGISTRATION → PLANNING → MONTH → CLOSING
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto, SavingScope
@@ -77,7 +77,7 @@ with DatabaseConnection(
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
     print(f"Total:  {to_euros(wm.get_total_incomes())}")
 
-    wm.finish_registration(year=2026, month=5)
+    wm.finish_registration(start_date=date(2026, 5, 6))
     print("\n[OK] Registro congelado. Fase: PLANNING\n")
 
     # =============================================

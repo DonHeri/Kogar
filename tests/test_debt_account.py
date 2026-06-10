@@ -64,18 +64,20 @@ def test_get_history_returns_copy(account):
     assert len(account.get_history()) == 1
 
 
-def test_get_monthly_summary_filters_by_month(account):
+def test_get_period_summary_filters_by_date_range(account):
+    from datetime import date as d
     target = datetime(2024, 3, 15)
     other = datetime(2024, 4, 10)
     account.pay(5000, date=target)
     account.pay(3000, date=other)
 
-    summary = account.get_monthly_summary(month=3, year=2024)
+    summary = account.get_period_summary(start_date=d(2024, 3, 1), end_date=d(2024, 3, 31))
     assert summary["paid"] == 5000
     assert summary["payments_count"] == 1
 
 
-def test_get_monthly_summary_empty_month(account):
-    summary = account.get_monthly_summary(month=1, year=2000)
+def test_get_period_summary_empty_range_returns_zeros(account):
+    from datetime import date as d
+    summary = account.get_period_summary(start_date=d(2000, 1, 1), end_date=d(2000, 1, 31))
     assert summary["paid"] == 0
     assert summary["payments_count"] == 0

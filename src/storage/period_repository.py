@@ -1,3 +1,5 @@
+from datetime import date
+
 import psycopg2.extras
 
 from src.models.constants import Phase, MetodoReparto
@@ -12,14 +14,13 @@ class PeriodRepository:
     def save(self, period: Period) -> int:
         self.cursor.execute(
             """
-            INSERT INTO household_periods (household_id, year, month, status, method)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO household_periods (household_id, start_date, status, method)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
             (
                 period.household_id,
-                period.year,
-                period.month,
+                period.start_date,
                 period.status.value,
                 period.method.value if period.method else None,
             ),
@@ -38,7 +39,7 @@ class PeriodRepository:
             """
             SELECT * FROM household_periods
             WHERE household_id = %s AND status != 'closed'
-            ORDER BY year DESC, month DESC
+            ORDER BY start_date DESC
             LIMIT 1
             """,
             (household_id,),
@@ -58,12 +59,18 @@ class PeriodRepository:
             (method.value, period_id),
         )
 
+    def update_end_date(self, period_id: int, end_date: date) -> None:
+        self.cursor.execute(
+            "UPDATE household_periods SET end_date = %s WHERE id = %s",
+            (end_date, period_id),
+        )
+
     def _to_period(self, row: dict) -> Period:
         return Period(
             id=row["id"],
             household_id=row["household_id"],
-            year=row["year"],
-            month=row["month"],
+            start_date=row["start_date"],
+            end_date=row["end_date"],
             status=Phase(row["status"]),
             method=MetodoReparto(row["method"]) if row["method"] else None,
         )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from src.models.constants import SavingScope
 from src.models.saving_entry import SavingEntry
@@ -128,10 +128,10 @@ class SavingAccount:
 
     # ====== QUERIES ======
     
-    def get_monthly_summary(self, month: int, year: int) -> dict:
-        """ Resumen del usuario en el mes actual """
+    def get_period_summary(self, start_date: date, end_date: date) -> dict:
+        """Resumen de ahorro en el rango de fechas del período"""
         entries = [
-            e for e in self._entries if e.date.month == month and e.date.year == year
+            e for e in self._entries if start_date <= e.date.date() <= end_date
         ]
         return {
             "personal": sum(

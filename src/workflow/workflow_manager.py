@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from src.storage.member_repository import MemberRepository
@@ -51,19 +51,19 @@ class WorkflowManager:
         self.household.set_member_income(name, amount_cents)
 
     def finish_registration(
-        self, year: int | None = None, month: int | None = None
+        self, start_date: date | None = None
     ) -> int | None:
         """Validar, congelar ingresos y avanzar a planificación.
 
-        year y month son requeridos cuando period_repo está inyectado.
+        start_date es requerido cuando period_repo está inyectado.
         """
         if not self.household.members:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
-        if self.period_repo and (year is None or month is None):
+        if self.period_repo and start_date is None:
             raise ValueError(
-                "year y month son requeridos cuando period_repo está configurado"
+                "start_date es requerido cuando period_repo está configurado"
             )
 
         # Congelar ingresos registrados
@@ -86,8 +86,7 @@ class WorkflowManager:
             if self.period_repo:
                 period = Period(
                     household_id=household_id,
-                    year=year,
-                    month=month,
+                    start_date=start_date,
                     status=Phase.PLANNING,
                 )
                 self.period_id = self.period_repo.save(period)
@@ -342,6 +341,7 @@ class WorkflowManager:
 
         if self.period_repo and self.period_id:
             self.period_repo.update_status(self.period_id, Phase.CLOSING)
+            self.period_repo.update_end_date(self.period_id, date.today())
 
     # ====== PLANNING PHASE - SAVING ======
 
@@ -388,10 +388,10 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.MONTH)
         return self.household.get_savings_total_shared()
 
-    def get_savings_shared_by_month(self, month: int, year: int) -> dict:
-        """Movimientos compartidos por mes/año → {member: [SavingEntry]} (PLANNING+)"""
+    def get_savings_shared_by_period(self, start_date: date, end_date: date) -> dict:
+        """Movimientos compartidos por rango de fechas → {member: [SavingEntry]} (PLANNING+)"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_savings_shared_by_month(month, year)
+        return self.household.get_savings_shared_by_period(start_date, end_date)
 
     # ====== Saving Bucket ======
     def create_saving_bucket(

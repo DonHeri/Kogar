@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 import psycopg2
 
@@ -80,8 +82,7 @@ def period_id(household_id, period_repo):
     """Período creado en BD listo para asociar gastos."""
     period = Period(
         household_id=household_id,
-        year=2026,
-        month=2,
+        start_date=date(2026, 2, 6),
         status=Phase.PLANNING,
         method=MetodoReparto.EQUAL,
     )

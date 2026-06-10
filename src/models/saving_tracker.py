@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from uuid import UUID
 
 from src.models.bucket_tracker import BucketTracker
@@ -117,14 +117,12 @@ class SavingTracker:
         """Retorna summary de ahorro del usuario"""
         self._validate_member_has_account(member_name)
         account = self._accounts[member_name]
-        now = datetime.now()
 
         return {
             "balance_total": account.balance_total,
             "balance_personal": account.balance_personal,
             "balance_shared": account.balance_shared,
             "history": account.get_history(),
-            "actual_month": account.get_monthly_summary(now.month, now.year),
         }
 
     def get_total_shared(self) -> int:
@@ -136,17 +134,17 @@ class SavingTracker:
         """
         return sum(account.balance_shared for account in self._accounts.values())
 
-    def get_shared_by_month(self, month: int, year: int) -> dict[str, list]:
+    def get_shared_by_period(self, start_date: date, end_date: date) -> dict[str, list]:
         """
-        Retorna los movimientos compartidos de cada miembro en un mes concreto.
+        Retorna los movimientos compartidos de cada miembro en el rango del período.
 
         Args:
-            month: Mes (1-12)
-            year: Año (ej. 2026)
+            start_date: Fecha de inicio del período (inclusive)
+            end_date: Fecha de fin del período (inclusive)
 
         Returns:
             dict[str, list]: {member_name: [SavingEntry, ...]}
-            Incluye todos los miembros, con lista vacía si no tienen movimientos ese mes.
+            Incluye todos los miembros, con lista vacía si no tienen movimientos en el rango.
         """
         result: dict[str, list] = {}
 
@@ -155,8 +153,7 @@ class SavingTracker:
                 entry
                 for entry in account.get_history()
                 if entry.destination == SavingScope.SHARED
-                and entry.date.month == month
-                and entry.date.year == year
+                and start_date <= entry.date.date() <= end_date
             ]
 
         return result

@@ -148,33 +148,27 @@ def test_get_history_shared_returns_only_shared_entries(tracker_with_funds):
 
 def test_get_member_summary_returns_complete_structure(tracker_with_funds):
     """Test: get_member_summary retorna diccionario con balances e historial"""
-    # Arrange
-    now = datetime.now()
-    tracker_with_funds.deposit("amanda", 2000, SavingScope.PERSONAL, date=now)
+    tracker_with_funds.deposit("amanda", 2000, SavingScope.PERSONAL)
 
-    # Act
     summary = tracker_with_funds.get_member_summary("amanda")
 
-    # Assert
     assert summary["balance_total"] == 17000  # 100€ shared + 50€ init + 20€ now
     assert summary["balance_personal"] == 7000
     assert summary["balance_shared"] == 10000
     assert isinstance(summary["history"], list)
-    assert isinstance(summary["actual_month"], dict)
+    assert "actual_month" not in summary
 
 
-def test_summary_actual_month_is_correct(tracker_with_accounts):
-    now = datetime.now()
-
-    # Act
-    tracker_with_accounts.deposit("amanda", 2000, SavingScope.PERSONAL, date=now)
-    tracker_with_accounts.deposit("amanda", 2000, SavingScope.SHARED, date=now)
-    tracker_with_accounts.deposit("amanda", 1000, SavingScope.PERSONAL, date=now)
-    tracker_with_accounts.deposit("amanda", 1500, SavingScope.SHARED, date=now)
+def test_summary_balances_reflect_deposits(tracker_with_accounts):
+    tracker_with_accounts.deposit("amanda", 2000, SavingScope.PERSONAL)
+    tracker_with_accounts.deposit("amanda", 2000, SavingScope.SHARED)
+    tracker_with_accounts.deposit("amanda", 1000, SavingScope.PERSONAL)
+    tracker_with_accounts.deposit("amanda", 1500, SavingScope.SHARED)
 
     summary = tracker_with_accounts.get_member_summary("amanda")
 
-    assert summary["actual_month"]["personal"] == 3000
+    assert summary["balance_personal"] == 3000
+    assert summary["balance_shared"] == 3500
 
 
 def test_get_member_summary_raises_error_if_no_account(tracker):
@@ -205,36 +199,30 @@ def test_get_total_shared_empty_tracker_returns_zero(tracker):
     assert tracker.get_total_shared() == 0
 
 
-def test_get_shared_by_month_returns_filtered_entries(tracker_with_funds):
-    """Test: get_shared_by_month agrupa movimientos SHARED por mes y año"""
-    # Arrange
-    # Añadimos un movimiento fuera del mes objetivo (Febrero 2026, siempre en el pasado)
+def test_get_shared_by_period_returns_filtered_entries(tracker_with_funds):
+    """Test: get_shared_by_period agrupa movimientos SHARED por rango de fechas"""
+    from datetime import date as d
     tracker_with_funds.deposit(
         "amanda", to_cents(50.0), SavingScope.SHARED, date=datetime(2026, 2, 1)
     )
 
-    # Act
-    # Buscamos movimientos de Marzo 2026 (los iniciales del fixture, que son de inicios de mes)
-    march_data = tracker_with_funds.get_shared_by_month(3, 2026)
+    march_data = tracker_with_funds.get_shared_by_period(d(2026, 3, 1), d(2026, 3, 31))
 
-    # Assert
     assert len(march_data["amanda"]) == 1
     assert march_data["amanda"][0].amount_cents == 10000
     assert len(march_data["heri"]) == 1
     assert march_data["heri"][0].amount_cents == 20000
 
 
-def test_get_shared_by_month_includes_empty_lists_for_no_activity(tracker_with_funds):
-    """Test: Miembros sin actividad en el mes aparecen con lista vacía"""
-    # Arrange & Act
-    # Buscamos un mes sin movimientos
-    empty_month_data = tracker_with_funds.get_shared_by_month(12, 2026)
+def test_get_shared_by_period_includes_empty_lists_for_no_activity(tracker_with_funds):
+    """Test: Miembros sin actividad en el rango aparecen con lista vacía"""
+    from datetime import date as d
+    empty_data = tracker_with_funds.get_shared_by_period(d(2026, 12, 1), d(2026, 12, 31))
 
-    # Assert
-    assert "amanda" in empty_month_data
-    assert empty_month_data["amanda"] == []
-    assert "heri" in empty_month_data
-    assert empty_month_data["heri"] == []
+    assert "amanda" in empty_data
+    assert empty_data["amanda"] == []
+    assert "heri" in empty_data
+    assert empty_data["heri"] == []
 
 
 def test_get_total_shared_history_returns_dict_of_shared_entries(tracker_with_funds):

@@ -49,12 +49,12 @@ def test_get_total_paid_nonexistent_raises(tracker):
 
 
 def test_get_member_summary_structure(tracker):
-    """get_member_summary() retorna dict con total_paid, history y actual_month"""
+    """get_member_summary() retorna dict con total_paid e history"""
     tracker.pay("amanda", 5000)
     summary = tracker.get_member_summary("amanda")
     assert "total_paid" in summary
     assert "history" in summary
-    assert "actual_month" in summary
+    assert "actual_month" not in summary
     assert summary["total_paid"] == 5000
 
 

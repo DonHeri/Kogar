@@ -232,39 +232,28 @@ def test_get_history_empty_returns_empty_list(account):
 # ====================================================
 
 
-def test_get_monthly_summary_filters_correctly_by_month_and_year(account):
-    """Test: El resumen mensual filtra por mes y año exactos"""
-    # Mes actual (evaluado - Enero 2026 para estar en un pasado seguro)
-    account.deposit(
-        SavingScope.PERSONAL, to_cents(100.0), date=datetime(2026, 1, 15)
-    )
-    account.deposit(
-        SavingScope.SHARED, to_cents(50.0), date=datetime(2026, 1, 20)
-    )
-    account.withdraw(
-        SavingScope.PERSONAL, to_cents(20.0), date=datetime(2026, 1, 25)
-    )
+def test_get_period_summary_filters_correctly_by_date_range(account):
+    """Test: El resumen de período filtra por rango de fechas exacto"""
+    from datetime import date as d
+    account.deposit(SavingScope.PERSONAL, to_cents(100.0), date=datetime(2026, 1, 15))
+    account.deposit(SavingScope.SHARED, to_cents(50.0), date=datetime(2026, 1, 20))
+    account.withdraw(SavingScope.PERSONAL, to_cents(20.0), date=datetime(2026, 1, 25))
 
-    # Otros meses / años (no deben contar - usamos Febrero 2026 y 2025)
-    account.deposit(
-        SavingScope.PERSONAL, to_cents(200.0), date=datetime(2026, 2, 10)
-    )
-    account.deposit(
-        SavingScope.SHARED, to_cents(500.0), date=datetime(2025, 1, 15)
-    )
+    # Fuera del rango
+    account.deposit(SavingScope.PERSONAL, to_cents(200.0), date=datetime(2026, 2, 10))
+    account.deposit(SavingScope.SHARED, to_cents(500.0), date=datetime(2025, 1, 15))
 
-    # Evaluamos enero
-    summary = account.get_monthly_summary(month=1, year=2026)
+    summary = account.get_period_summary(start_date=d(2026, 1, 1), end_date=d(2026, 1, 31))
 
     assert isinstance(summary, dict)
     assert summary["personal"] == 8000  # 100€ - 20€
     assert summary["shared"] == 5000  # 50€
 
 
-def test_get_monthly_summary_empty_month_returns_zeros(account_with_funds):
-    """Test: Mes sin movimientos devuelve resumen con ceros"""
-    # account_with_funds usa datetime.now(), así que pedimos un año muy lejano
-    summary = account_with_funds.get_monthly_summary(month=1, year=1999)
+def test_get_period_summary_empty_range_returns_zeros(account_with_funds):
+    """Test: Rango sin movimientos devuelve resumen con ceros"""
+    from datetime import date as d
+    summary = account_with_funds.get_period_summary(start_date=d(1999, 1, 1), end_date=d(1999, 1, 31))
 
     assert summary["personal"] == 0
     assert summary["shared"] == 0

@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Dict
 from uuid import UUID
 
@@ -33,7 +34,7 @@ class Household:
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._member_debts: dict[str, int] = {}  # {member_name: amount_cents}
+        self._member_debts: dict[str, int] = {}  # {member_name: amount_cents}K)
         self._saving_goals: dict[str, int] = {}  # {member_name: amount_cents}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
@@ -810,7 +811,7 @@ class Household:
         self._validate_member_exist(member_name)
         committed = self._saving_goals.get(member_name, 0)
         summary = self.get_member_savings_summary(member_name)
-        paid = summary["actual_month"]["personal"] + summary["actual_month"]["shared"]
+        paid = summary["balance_personal"] + summary["balance_shared"]
         return {"committed": committed, "paid": paid, "remaining": committed - paid}
 
     def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
@@ -825,8 +826,8 @@ class Household:
     def get_savings_total_shared(self) -> int:
         return self.savings_tracker.get_total_shared()
 
-    def get_savings_shared_by_month(self, month: int, year: int) -> dict:
-        return self.savings_tracker.get_shared_by_month(month, year)
+    def get_savings_shared_by_period(self, start_date: date, end_date: date) -> dict:
+        return self.savings_tracker.get_shared_by_period(start_date, end_date)
 
     # ====== VALIDATORS ======
 

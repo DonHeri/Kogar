@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 import psycopg2
 
@@ -83,7 +85,7 @@ def wm_pre_registration(wm_with_repos):
 @pytest.fixture
 def wm_pre_planning(wm_pre_registration):
     """WM en PLANNING con categorías y presupuesto al 100%, listo para finish_planning"""
-    wm_pre_registration.finish_registration(year=2026, month=1)
+    wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
     # Finish registration settea categorías standard
     categories = wm_pre_registration.get_active_categories()
     pcts = [50.0, 30.0, 20.0]
@@ -119,7 +121,7 @@ def wm_pre_month(wm_pre_planning):
 
 def test_finish_registration_persists_household(wm_pre_registration):
     """finish_registration guarda el hogar en BD"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
 
     ids = [h["id"] for h in wm_pre_registration.household_repo.list_households()]
 
@@ -128,7 +130,7 @@ def test_finish_registration_persists_household(wm_pre_registration):
 
 def test_finish_registration_persists_members(wm_pre_registration):
     """finish_registration guarda los miembros del hogar en BD"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
 
     member_names = [
         m["full_name"]
@@ -141,7 +143,7 @@ def test_finish_registration_persists_members(wm_pre_registration):
 
 def test_finish_registration_persists_incomes(wm_pre_registration):
     """finish_registration guarda los ingresos de cada miembro en BD"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
 
     incomes = [
         i["monthly_income"]
@@ -159,7 +161,7 @@ def test_finish_registration_persists_incomes(wm_pre_registration):
 
 def test_period_status_is_planning_after_registration(wm_pre_registration):
     """finish_registration crea el período con status=PLANNING en BD"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
 
     status = wm_pre_registration.period_repo.get_current(household_id).status
 
@@ -185,13 +187,12 @@ def test_period_status_is_closing_after_month(wm_pre_month):
 
 
 def test_period_unique_constraint(wm_pre_registration, period_repo):
-    """No pueden existir dos períodos con el mismo (household_id, year, month)"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    """No pueden existir dos períodos con el mismo (household_id, start_date)"""
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
 
     duplicate = Period(
         household_id=household_id,
-        year=2026,
-        month=1,
+        start_date=date(2026, 1, 6),
         status=Phase.PLANNING,
     )
 
@@ -248,7 +249,7 @@ def test_save_agreed_contributions_overwrites_existing(
 
 def test_assign_distribution_method_persists_method(wm_pre_registration):
     """assign_distribution_method persiste method"""
-    household_id = wm_pre_registration.finish_registration(year=2026, month=1)
+    household_id = wm_pre_registration.finish_registration(start_date=date(2026, 1, 6))
     wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     current_period = wm_pre_registration.period_repo.get_current(household_id)
 
