@@ -1117,6 +1117,7 @@ def wm_in_month_two_members(wm):
     wm.set_member_incomes("Heri", 4000)
     wm.finish_registration()
     wm.set_budget_for_category("fijos", 5000)
+    wm.set_member_debt(member="amanda", amount_euros=212)
     wm.finish_planning()
     return wm
 
@@ -1260,3 +1261,50 @@ def test_full_flow_registration_to_closing(wm):
 
     wm.finish_month()
     assert wm.current_phase == Phase.CLOSING
+
+
+# ===============================================
+# TESTS: Comienzo de un nuevo mes
+# ===============================================
+
+
+def test_start_new_month_return_to_registration_phase(wm_in_month_two_members):
+    """Al comenzar nuevo mes, el status se reinicia"""
+    wm_in_month_two_members.finish_month()
+    old_status = wm_in_month_two_members.current_phase
+    wm_in_month_two_members.start_new_month()
+    new_status = wm_in_month_two_members.current_phase
+
+    assert old_status == Phase.CLOSING
+    assert new_status == Phase.REGISTRATION
+
+
+def test_last_payments_dont_appear_in_new_month(wm_in_month_two_members):
+    # Pagos pasados no aparecen en nuevo mes
+
+    wm_in_month_two_members.register_debt_payment("amanda", 150, "Pago de coche")
+    old_total_paid = wm_in_month_two_members.household.debt_tracker.get_total_paid(
+        "amanda"
+    )
+    old_committed_debt = wm_in_month_two_members.get_all_debts()["amanda"]
+
+    wm_in_month_two_members.finish_month()
+
+    wm_in_month_two_members.start_new_month()
+
+    wm_in_month_two_members.set_member_incomes("Amanda", 6000)
+    wm_in_month_two_members.set_member_incomes("Heri", 4000)
+
+    # Crear cuentas
+    wm_in_month_two_members.finish_registration()
+
+    new_committed_debt = wm_in_month_two_members.get_all_debts()["amanda"]
+    new_total_paid = wm_in_month_two_members.household.debt_tracker.get_total_paid(
+        "amanda"
+    )
+
+    assert old_committed_debt == 21200
+    assert old_total_paid == 15000
+
+    assert new_committed_debt == 0
+    assert new_total_paid == 0

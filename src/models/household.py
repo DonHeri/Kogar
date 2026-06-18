@@ -246,10 +246,11 @@ class Household:
         payment_date: datetime | None = None,
         description="",
     ):
-        """Registra un pago de deuda validando que no supera el compromiso del período.
+        """Registra un pago de deuda validando que no supera el compromiso del mes.
 
-        start_date/end_date acotan la ventana del período activo — los lleva el llamador
-        (WorkflowManager) porque Household no conoce el Period.
+        El DebtTracker se reinstancia cada mes en reset_for_new_month, así que
+        get_total_paid ya devuelve solo lo pagado en el período activo — sin filtrar
+        por fechas. El histórico entre meses vive en BD (DebtRepository).
         """
         self._validate_member_exist(member_name)
         committed = self._member_debts.get(member_name, 0)
@@ -283,8 +284,9 @@ class Household:
     # ====== MONTH — NEW MONTH ======
 
     def reset_for_new_month(self):
-        """Reinicia el estado mutable del período. Miembros, categorías, SavingTracker
-        y DebtTracker persisten — acumulan entre meses y se filtran por fecha."""
+        """Reinicia el estado mutable del período. Miembros, categorías.
+        También se reinicia el estado de ExpenseTracker y DebtTracker para evitar acumulación de movimientos pasados.
+        SavingTracker persiste — acumula entre meses y se filtran por fecha."""
         self.expense_tracker = ExpenseTracker()
         self.debt_tracker = DebtTracker()
         self._registered_incomes = {}
