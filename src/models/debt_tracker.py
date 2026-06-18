@@ -61,10 +61,14 @@ class DebtTracker:
             "history": account.get_history(),
         }
 
-    def get_period_paid(self, member_name: str, start_date: date, end_date: date) -> int:
+    def get_period_paid(
+        self, member_name: str, start_date: date, end_date: date
+    ) -> int:
         """Total pagado por un miembro en el rango de fechas del período"""
         self._validate_member_has_account(member_name)
-        return self._accounts[member_name].get_period_summary(start_date, end_date)["paid"]
+        return self._accounts[member_name].get_period_summary(start_date, end_date)[
+            "paid"
+        ]
 
     def get_history(self, member_name: str) -> list:
         """Historial completo de pagos de un miembro"""

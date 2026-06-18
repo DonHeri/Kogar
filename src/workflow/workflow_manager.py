@@ -5,6 +5,7 @@ from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
+from src.storage.debt_repository import DebtRepository
 from src.models.period import Period
 
 from src.models.category import Category
@@ -25,6 +26,7 @@ class WorkflowManager:
         member_repo: MemberRepository | None = None,
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
+        debt_repo: DebtRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
@@ -33,6 +35,7 @@ class WorkflowManager:
         self.member_repo = member_repo
         self.period_repo = period_repo
         self.expense_repo = expense_repo
+        self.debt_repo = debt_repo
         self.period_id: int | None = None
         self.period: Period | None = None
         self.household_id: int | None = None
@@ -182,7 +185,6 @@ class WorkflowManager:
         member = normalize_name(member_name)
         return self.household.get_saving_goal_status(member)
 
-    # ====== SET DEBT - Declarar deuda para cada miembro ======
     def set_member_debt(self, member: str, amount_euros: float) -> None:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
         self.validate_phase(Phase.PLANNING)
@@ -195,11 +197,35 @@ class WorkflowManager:
         self.validate_phase(Phase.PLANNING)
         return self.household.auto_assign_saving_goals()
 
-    def register_debt_payment(self, member, amount_euros, description="", date=None):
+    def register_debt_payment(
+        self,
+        member: str,
+        amount_euros: float,
+        description="",
+        payment_date=None,
+    ):
+        """Registra un pago de deuda en el período activo."""
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
-        self.household.register_debt_payment(member, amount_cents, description, date)
+        if payment_date is None:
+            payment_date = date.today()
+
+        self.household.register_debt_payment(
+            member_name=member,
+            amount_cents=amount_cents,
+            payment_date=payment_date,
+            description=description,
+        )
+        
+        if self.debt_repo and self.period_id:
+            self.debt_repo.save(
+                period_id=self.period_id,
+                member_id=self.member_ids[member],
+                amount_cents=amount_cents,
+                payment_date=payment_date,
+                description=description,
+            )
 
     def get_debt_status(self, member_name):
         self.validate_phase_accessible(Phase.PLANNING)

@@ -209,7 +209,6 @@ class Household:
         description="",
         date=None,
     ):
-        """"""
         self._validate_member_exist(member_name)
 
         self.savings_tracker.deposit(
@@ -228,7 +227,6 @@ class Household:
         description="",
         date=None,
     ):
-        """"""
         self._validate_member_exist(member_name)
 
         self.savings_tracker.withdraw(
@@ -242,14 +240,23 @@ class Household:
     # ====== MONTH — DEBT ======
 
     def register_debt_payment(
-        self, member_name, amount_cents, description="", date=None
+        self,
+        member_name: str,
+        amount_cents: int,
+        payment_date: date | None = None,
+        description="",
     ):
+        """Registra un pago de deuda validando que no supera el compromiso del período.
+
+        start_date/end_date acotan la ventana del período activo — los lleva el llamador
+        (WorkflowManager) porque Household no conoce el Period.
+        """
         self._validate_member_exist(member_name)
         committed = self._member_debts.get(member_name, 0)
         paid = self.debt_tracker.get_total_paid(member_name)
         if paid + amount_cents > committed:
             raise ValueError(f"El pago supera el compromiso de deuda ({committed}¢)")
-        self.debt_tracker.pay(member_name, amount_cents, description, date)
+        self.debt_tracker.pay(member_name, amount_cents, description, date=payment_date)
 
     # ====== MONTH — BUCKETS ======
 
