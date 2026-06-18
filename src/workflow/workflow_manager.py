@@ -209,7 +209,7 @@ class WorkflowManager:
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         if payment_date is None:
-            payment_date = date.today()
+            payment_date = datetime.now()
 
         self.household.register_debt_payment(
             member_name=member,

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime, date
 from typing import Dict
 from uuid import UUID
 
@@ -243,7 +243,7 @@ class Household:
         self,
         member_name: str,
         amount_cents: int,
-        payment_date: date | None = None,
+        payment_date: datetime | None = None,
         description="",
     ):
         """Registra un pago de deuda validando que no supera el compromiso del período.
