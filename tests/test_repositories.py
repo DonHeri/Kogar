@@ -1,8 +1,14 @@
+from datetime import date, datetime
+
 import pytest
 import psycopg2
 from src.models.member import Member
+from src.models.period import Period
+from src.models.constants import Phase
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
+from src.storage.period_repository import PeriodRepository
+from src.storage.debt_repository import DebtRepository
 from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 # ===============================================
@@ -151,3 +157,67 @@ def test_change_incomes_updates_income(member_id, member_repo):
     member = member_repo.get_member_by_id(member_id)
 
     assert member["monthly_income"] == new_incomes
+
+
+# ===============================================
+# FIXTURES: DebtRepository
+# ===============================================
+
+
+@pytest.fixture
+def period_repo(conn):
+    """Repositorio de períodos con conexión de test"""
+    return PeriodRepository(conn)
+
+
+@pytest.fixture
+def period_id(period_repo, household_id):
+    """Período creado en BD, listo para colgar pagos de deuda"""
+    period = Period(
+        household_id=household_id,
+        start_date=date(2026, 1, 6),
+        status=Phase.PLANNING,
+    )
+    return period_repo.save(period)
+
+
+@pytest.fixture
+def debt_repo(conn):
+    """Repositorio de deuda con conexión de test"""
+    return DebtRepository(conn)
+
+
+# ===============================================
+# TESTS: DebtRepository
+# ===============================================
+
+
+def test_debt_save_returns_correct_id(debt_repo, period_id, member_id):
+    """save devuelve un id entero mayor que cero"""
+    entry_id = debt_repo.save(
+        period_id=period_id,
+        member_id=member_id,
+        amount_cents=20000,
+        payment_date=datetime.now(),
+    )
+
+    assert isinstance(entry_id, int)
+    assert entry_id > 0
+
+
+def test_debt_find_by_period_returns_saved_payment(debt_repo, period_id, member_id):
+    """find_by_period devuelve el pago guardado con sus datos"""
+    debt_repo.save(
+        period_id=period_id,
+        member_id=member_id,
+        amount_cents=20000,
+        payment_date=datetime.now(),
+        description="pago enero",
+    )
+
+    entries = debt_repo.find_by_period(period_id)
+
+    assert len(entries) == 1
+    assert entries[0]["member_id"] == member_id
+    assert entries[0]["amount_cents"] == 20000
+    assert entries[0]["description"] == "pago enero"
