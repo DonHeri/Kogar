@@ -68,7 +68,8 @@ class Household:
             self.debt_tracker.create_account(name)
 
         # Crear categorías estándar
-        self.budget.set_standard_categories()
+        if not self.budget.categories:
+            self.budget.set_standard_categories()
 
     # ====== PLANNING — CATEGORIES ======
 
@@ -271,6 +272,19 @@ class Household:
         self.savings_tracker.withdraw_from_bucket(
             bucket_id, member_name, amount_cents, date
         )
+
+    # ====== MONTH — NEW MONTH ======
+
+    def reset_for_new_month(self):
+        """Reinicia el estado mutable del período. Miembros, categorías, SavingTracker
+        y DebtTracker persisten — acumulan entre meses y se filtran por fecha."""
+        self.expense_tracker = ExpenseTracker()
+        self.debt_tracker = DebtTracker()
+        self._registered_incomes = {}
+        self._agreed_contributions = {}
+        self._agreed_percentages = {}
+        self._member_debts = {name: 0 for name in self.members}
+        self._saving_goals = {name: 0 for name in self.members}
 
     # ====== QUERIES — REGISTRATION ======
 

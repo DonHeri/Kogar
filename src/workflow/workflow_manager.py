@@ -34,6 +34,8 @@ class WorkflowManager:
         self.period_repo = period_repo
         self.expense_repo = expense_repo
         self.period_id: int | None = None
+        self.period: Period | None = None
+        self.household_id: int | None = None
         self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
     # ====== REGISTRATION PHASE ======
@@ -50,9 +52,7 @@ class WorkflowManager:
         amount_cents = to_cents(amount_eur)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(
-        self, start_date: date | None = None
-    ) -> int | None:
+    def finish_registration(self, start_date: date | None = None) -> int | None:
         """Validar, congelar ingresos y avanzar a planificación.
 
         start_date es requerido cuando period_repo está inyectado.
@@ -65,6 +65,8 @@ class WorkflowManager:
             raise ValueError(
                 "start_date es requerido cuando period_repo está configurado"
             )
+        if start_date is None:
+            start_date = date.today()
 
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
@@ -74,24 +76,25 @@ class WorkflowManager:
         self._completed_phases.add(Phase.PLANNING)
 
         # Persistir si hay repositorios
-        if self.household_repo and self.member_repo:
+        if self.household_repo and self.member_repo and not self.household_id:
             household_id = self.household_repo.save()
-
+            self.household_id = household_id
             for name, member in self.household.members.items():
                 member_id = self.member_repo.save(
                     member=member, household_id=household_id
                 )
                 self.member_ids[name] = member_id
 
-            if self.period_repo:
-                period = Period(
-                    household_id=household_id,
-                    start_date=start_date,
-                    status=Phase.PLANNING,
-                )
-                self.period_id = self.period_repo.save(period)
+        period = Period(
+            household_id=self.household_id,
+            start_date=start_date,
+            status=Phase.PLANNING,
+        )
+        self.period = period
 
-            return household_id
+        if self.period_repo and not self.period_id:
+            self.period_id = self.period_repo.save(period)
+            return self.household_id
 
     # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -165,7 +168,7 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_budget_as_percentage(category=category)
 
-    # ====== SET SAVING GOAL  ======
+    # ====== PLANNING PHASE — SAVING & DEBT ======
     def set_member_saving_goal(self, member: str, amount_euros: float) -> None:
         """Declara el ahorro personal de un miembro (PLANNING)"""
         self.validate_phase(Phase.PLANNING)
@@ -174,6 +177,7 @@ class WorkflowManager:
         self.household.set_member_saving_goal(member, amount_cents)
 
     def get_saving_goal_status(self, member_name):
+        """Retorna {committed, paid, remaining} para el objetivo de ahorro del miembro."""
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member_name)
         return self.household.get_saving_goal_status(member)
@@ -187,6 +191,7 @@ class WorkflowManager:
         self.household.set_member_debt(member, amount_cents)
 
     def auto_assign_saving_goals(self):
+        """Asigna metas de ahorro automáticamente: parte de reserva de cada miembro menos su deuda."""
         self.validate_phase(Phase.PLANNING)
         return self.household.auto_assign_saving_goals()
 
@@ -253,6 +258,7 @@ class WorkflowManager:
         return self.household.get_missing_money_by_member(member_name)
 
     def validate_debt_and_saving_dont_exceed_capacity(self):
+        """Valida que deuda + ahorro comprometidos no superen la parte de reserva de cada miembro."""
         self.validate_phase(Phase.PLANNING)
         return self.household.validate_debt_and_saving_dont_exceed_capacity()
 
@@ -498,6 +504,29 @@ class WorkflowManager:
         """Transferencias mínimas para saldar gastos compartidos entre miembros"""
         self.validate_phase_accessible(Phase.MONTH)
         return self.household.get_settlement()
+
+    # ====== MONTH - NEW-MONTH ======
+    def start_new_month(self, start_date: date = None):
+        """Comenzar nuevo mes. Necesita haber finalizado mes anterior primero: finish_month"""
+        # Validar
+        self.validate_phase_accessible(Phase.CLOSING)
+
+        if start_date is None:
+            start_date = date.today()
+
+        self.household.reset_for_new_month()
+        self._completed_phases = {Phase.REGISTRATION}
+        self.current_phase = Phase.REGISTRATION
+
+        period = Period(
+            household_id=self.household_id,
+            start_date=start_date,
+            status=Phase.REGISTRATION,
+        )
+        self.period = period
+
+        if self.period_repo:
+            self.period_id = self.period_repo.save(period)
 
     # ====== QUERIES - General (Phase-independent) ======
     def get_registered_members(self) -> list[str]:
