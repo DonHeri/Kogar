@@ -29,6 +29,7 @@ from src.storage.connection import DatabaseConnection
 from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
+from src.storage.debt_repository import DebtRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 with DatabaseConnection(
@@ -41,6 +42,7 @@ with DatabaseConnection(
     household_repo = HouseholdRepository(conn)
     member_repo = MemberRepository(conn)
     period_repo = PeriodRepository(conn)
+    debt_repo = DebtRepository(conn)
     # =============================================
     # SETUP — Instanciar todo
     # =============================================
@@ -57,6 +59,7 @@ with DatabaseConnection(
         household_repo=household_repo,
         member_repo=member_repo,
         period_repo=period_repo,
+        debt_repo=debt_repo
     )
 
     # =============================================
@@ -191,7 +194,7 @@ with DatabaseConnection(
     print("  Heri:   supermercado 150€")
 
     # --- Pagos de deuda ---
-    wm.register_debt_payment("amanda", 118.90, "Cuota préstamo coche")
+    wm.register_debt_payment(member="amanda", amount_euros=118.90, description="Cuota préstamo coche")
     print(
         f"\nDeuda Amanda: pago único {to_euros(wm.get_debt_status('amanda')['paid'])}"
     )
