@@ -23,6 +23,16 @@ def wm(household):
     return WorkflowManager(household)
 
 
+@pytest.fixture
+def wm_in_planning(wm):
+    """WM en PLANNING: un miembro (Amanda, 5000) y categorías estándar."""
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 5000)
+    wm.finish_registration()
+    return wm
+
+
 # ====================================================
 # TESTS: Initialization
 # ====================================================
@@ -235,13 +245,9 @@ def test_validate_phase_wrong(wm):
 # ====================================================
 
 
-def test_set_budget_for_category_in_planning_phase(wm):
+def test_set_budget_for_category_in_planning_phase(wm_in_planning):
     """Puedo asignar presupuesto a una categoría en fase PLANNING"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 5000)
-    wm.finish_registration()
-
+    wm = wm_in_planning
     wm.set_budget_for_category("fijos", 2000)
     assert wm.household.get_category_budget("fijos") == 200000
 
@@ -267,6 +273,14 @@ def test_set_budget_for_category_multiple_categories(wm):
 
     assert wm.household.get_category_budget("fijos") == 500000
     assert wm.household.get_category_budget("variables") == 300000
+
+
+def test_add_category_with_parent_in_planning(wm_in_planning):
+    """add_category en WM crea una hija colgando de su raíz."""
+    wm = wm_in_planning
+    wm.add_category("vivienda", parent="fijos")
+
+    assert wm.household.budget.categories["vivienda"].parent == "fijos"
 
 
 # ====================================================
@@ -435,12 +449,9 @@ def test_finish_planning_allows_over_budget(wm):
 # ====================================================
 
 
-def test_add_category_in_planning_phase(wm):
+def test_add_category_in_planning_phase(wm_in_planning):
     """add_category() crea categoría en PLANNING"""
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 5000)
-    wm.finish_registration()
-
+    wm = wm_in_planning
     wm.add_category("educacion")
 
     assert "educacion" in wm.get_active_categories()
@@ -466,13 +477,9 @@ def test_set_standard_categories_creates_defaults(wm):
     assert "reserva" in categories
 
 
-def test_remove_category_in_planning_phase(wm):
+def test_remove_category_in_planning_phase(wm_in_planning):
     """remove_category() elimina categoría en PLANNING"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 5000)
-    wm.finish_registration()
-
+    wm = wm_in_planning
     wm.remove_category("fijos")
 
     assert "fijos" not in wm.get_active_categories()
@@ -491,12 +498,9 @@ def test_remove_category_raises_if_not_in_planning(wm):
 # ====================================================
 
 
-def test_assign_distribution_method_sets_method(wm):
+def test_assign_distribution_method_sets_method(wm_in_planning):
     """assign_distribution_method() establece método de reparto"""
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 5000)
-    wm.finish_registration()
-
+    wm = wm_in_planning
     wm.assign_distribution_method(MetodoReparto.EQUAL)
 
     assert wm.household.method == MetodoReparto.EQUAL

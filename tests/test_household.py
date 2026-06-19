@@ -1,4 +1,4 @@
-from datetime import datetime,date
+from datetime import datetime, date
 
 import pytest
 
@@ -55,6 +55,14 @@ def household_with_members(base_household, members_with_incomes):
     for member in members_with_incomes.values():
         base_household.register_member(member)
     return base_household
+
+
+@pytest.fixture
+def household_with_members_and_child_categories(household_with_members):
+    """Household con dos hijas (vivienda, suministros) colgando de fijos."""
+    household_with_members.add_category("vivienda", parent="fijos")
+    household_with_members.add_category("suministros", parent="fijos")
+    return household_with_members
 
 
 # ====================================================
@@ -435,6 +443,16 @@ def test_set_budget_for_category(household_with_members):
     assert household_with_members.get_category_budget("fijos") == 200000
 
 
+def test_set_budget_for_child_category(household_with_members):
+    """Asigna presupuesto a una hija dentro del techo de su raíz."""
+    household_with_members.set_budget_for_category("fijos", 40000)
+    household_with_members.add_category("vivienda", parent="fijos")
+
+    household_with_members.set_budget_for_category("vivienda", 30000)
+
+    assert household_with_members.get_category_budget("vivienda") == 30000
+
+
 def test_set_budget_for_category_normalizes_input(household_with_members):
     """set_budget_for_category normaliza la entrada (mayúsculas)"""
     household_with_members.set_budget_for_category("FIJOS", 200000)
@@ -464,6 +482,20 @@ def test_set_budget_for_category_reassign_doesnt_double_count(household_with_mem
     reserva = household_with_members.get_category_budget("reserva")
 
     assert reserva == (household_with_members.get_total_incomes() - 50000)
+
+
+def test_set_budget_over_ceiling_raises_error(
+    household_with_members_and_child_categories,
+):
+    """Asignar a una hija por encima del techo de su raíz lanza error."""
+    household = household_with_members_and_child_categories
+    household.set_budget_for_category("fijos", 50000)
+    household.set_budget_for_category("vivienda", 30000)
+
+    with pytest.raises(
+        ValueError, match="No se puede superar el techo de la categoría raíz"
+    ):
+        household.set_budget_for_category("suministros", 30000)
 
 
 # ====================================================

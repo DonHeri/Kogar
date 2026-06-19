@@ -113,6 +113,31 @@ def test_add_category_adds_to_library_if_unknown(budget):
 
 
 # ====================================================
+# TESTS: Jerarquía padre/hija
+# ====================================================
+
+
+def test_add_category_with_parent_sets_parent(budget):
+    budget.add_category("vivienda", parent="fijos")
+
+    assert budget.categories["vivienda"].parent == "fijos"
+
+
+def test_add_category_with_nonexistent_parent_raises_error(budget):
+    with pytest.raises(ValueError, match="La categoría debe estar creada"):
+        budget.add_category("vivienda", parent="inexistente")
+
+
+def test_get_child_total_planned_sums_children(budget):
+    budget.add_category("vivienda", parent="fijos")
+    budget.add_category("suministros", parent="fijos")
+    budget.set_budget("vivienda", 30000)
+    budget.set_budget("suministros", 20000)
+
+    assert budget.get_child_total_planned("fijos") == 50000
+
+
+# ====================================================
 # DELETE_BUDGET_CATEGORY
 # ====================================================
 
