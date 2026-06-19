@@ -15,21 +15,27 @@ class CategoryLibrary:
     Las categorías custom son por instancia — cada Budget tiene su propia librería."""
 
     STANDARD_CATEGORIES: dict[str, CategoryInfo] = {
-        "fijos":     CategoryInfo("Gastos fijos mensuales recurrentes", is_shared=True),
-        "variables": CategoryInfo("Gastos variables del día a día",     is_shared=False),
-        "reserva":   CategoryInfo("Reserva personal: deuda y ahorro",   is_shared=False, auto_calculated=True),
+        "fijos": CategoryInfo("Gastos fijos mensuales recurrentes", is_shared=True),
+        "variables": CategoryInfo("Gastos variables del día a día", is_shared=False),
+        "reserva": CategoryInfo(
+            "Reserva personal: deuda y ahorro", is_shared=False, auto_calculated=True
+        ),
     }
 
     EXTENDED_CATEGORIES: dict[str, CategoryInfo] = {
-        "deuda":      CategoryInfo("Préstamos e intereses personales",      is_shared=False),
-        "salud":      CategoryInfo("Gastos médicos y farmacia",             is_shared=False),
-        "transporte": CategoryInfo("Coche, gasolina, transporte público",   is_shared=False),
-        "ocio":       CategoryInfo("Entretenimiento y hobbies",             is_shared=False),
-        "educacion":  CategoryInfo("Formación, cursos, libros",             is_shared=False),
-        "mascotas":   CategoryInfo("Cuidado y gastos de mascotas",          is_shared=False),
-        "regalos":    CategoryInfo("Regalos y celebraciones",               is_shared=False),
-        "viajes":     CategoryInfo("Vacaciones y escapadas",                is_shared=False),
-        "tecnologia": CategoryInfo("Dispositivos, software, suscripciones", is_shared=False),
+        "deuda": CategoryInfo("Préstamos e intereses personales", is_shared=False),
+        "salud": CategoryInfo("Gastos médicos y farmacia", is_shared=False),
+        "transporte": CategoryInfo(
+            "Coche, gasolina, transporte público", is_shared=False
+        ),
+        "ocio": CategoryInfo("Entretenimiento y hobbies", is_shared=False),
+        "educacion": CategoryInfo("Formación, cursos, libros", is_shared=False),
+        "mascotas": CategoryInfo("Cuidado y gastos de mascotas", is_shared=False),
+        "regalos": CategoryInfo("Regalos y celebraciones", is_shared=False),
+        "viajes": CategoryInfo("Vacaciones y escapadas", is_shared=False),
+        "tecnologia": CategoryInfo(
+            "Dispositivos, software, suscripciones", is_shared=False
+        ),
     }
 
     def __init__(self):
@@ -41,8 +47,7 @@ class CategoryLibrary:
     def get_standards_categories(cls) -> dict[str, str]:
         """Retorna {nombre: descripción} de las categorías estándar"""
         return {
-            name: info.description
-            for name, info in cls.STANDARD_CATEGORIES.items()
+            name: info.description for name, info in cls.STANDARD_CATEGORIES.items()
         }
 
     @classmethod

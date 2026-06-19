@@ -114,10 +114,11 @@ class WorkflowManager:
         self.household.set_custom_splits(splits)
 
     # ====== PLANNING PHASE - Category Management ======
-    def add_category(self, name: str):
+    def add_category(self, name: str, parent: str | None = None):
         """Crea categoría en PLANNING"""
         self.validate_phase(Phase.PLANNING)
-        self.household.add_category(name)
+        parent = normalize_name(parent) if parent else None
+        self.household.add_category(name, parent=parent)
 
     def set_standard_categories(self):
         """Establece categorías estándar [fijos,variables,deuda,ahorro]"""
@@ -217,7 +218,7 @@ class WorkflowManager:
             payment_date=payment_date,
             description=description,
         )
-        
+
         if self.debt_repo and self.period_id:
             self.debt_repo.save(
                 period_id=self.period_id,
@@ -532,7 +533,7 @@ class WorkflowManager:
         return self.household.get_settlement()
 
     # ====== MONTH - NEW-MONTH ======
-    def start_new_month(self, start_date: date = None):
+    def start_new_month(self, start_date: date | None = None):
         """Comenzar nuevo mes. Necesita haber finalizado mes anterior primero: finish_month"""
         # Validar
         self.validate_phase_accessible(Phase.CLOSING)

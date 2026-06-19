@@ -73,9 +73,9 @@ class Household:
 
     # ====== PLANNING — CATEGORIES ======
 
-    def add_category(self, name: str):
+    def add_category(self, name: str, parent: str | None = None):
         """Agrega categoría y la propaga a Budget"""
-        self.budget.add_category(name)
+        self.budget.add_category(name, parent=parent)
 
     def remove_category(self, name: str):
         """Elimina categoría"""
@@ -87,28 +87,54 @@ class Household:
     # ====== PLANNING — BUDGET ======
 
     def set_budget_for_category(self, category: str, amount_cents: int) -> None:
-        """Asigna presupuesto a una categoría en PLANNING. La auto-calculada se ajusta sola."""
+        """Asigna presupuesto a una categoría en PLANNING. La reserva se ajusta sola."""
         if isinstance(self.budget.get_category(category), AutoCalculatedCategory):
             raise ValueError("Reserva se autocalcula")
 
-        auto_cat = self.budget.get_auto_calculated_category()
-        total_incomes = self.get_total_incomes()
-        current = self.get_category_budget(
-            category
-        )  # Evitar que categoría cuente doble en el total
-        reserva_actual = self.get_category_budget(auto_cat.name)
-        total_sin_reserva = self.get_total_budgeted() - current - reserva_actual
-        nuevo_total_sin_reserva = total_sin_reserva + amount_cents
+        category = normalize_name(category)
 
-        if nuevo_total_sin_reserva > total_incomes:
+        if self.budget.categories[category].parent is None:
+            self._set_root_budget(category, amount_cents)
+        else:
+            self._set_child_budget(category, amount_cents)
+
+    def _set_root_budget(self, category: str, amount_cents: int) -> None:
+        """Raíz: cuenta contra los ingresos y recalcula la reserva."""
+        reserve_cat = self.budget.get_auto_calculated_category()
+        total_incomes = self.get_total_incomes()
+        current_amount = self.get_category_budget(category)
+        current_reserve = self.get_category_budget(reserve_cat.name)
+
+        other_budgeted = self.get_total_budgeted() - current_amount - current_reserve
+        new_budgeted = other_budgeted + amount_cents
+
+        if new_budgeted > total_incomes:
             raise ValueError(
                 "No se puede superar el total de ingresos en los presupuestos"
             )
+
         self.budget.set_budget(category, amount_cents)
         self.budget.set_budget(
-            auto_cat.name,
-            auto_cat.calculate_own_budget(total_incomes, nuevo_total_sin_reserva),
+            reserve_cat.name,
+            reserve_cat.calculate_own_budget(total_incomes, new_budgeted),
         )
+
+    def _set_child_budget(self, category: str, amount_cents: int) -> None:
+        """Hija: se mueve dentro del techo de su raíz, sin tocar la reserva."""
+        parent_name = self.budget.categories[category].parent
+        ceiling = self.get_category_budget(parent_name)
+        current_amount = self.get_category_budget(category)
+
+        siblings_total = (
+            self.budget.get_child_total_planned(parent_name) - current_amount
+        )
+
+        if siblings_total + amount_cents > ceiling:
+            raise ValueError(
+                f"No se puede superar el techo de la categoría raíz: {parent_name.title()}"
+            )
+
+        self.budget.set_budget(category, amount_cents)
 
     def set_budget_by_percentages(self, percentages: dict[str, int]):
         """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""

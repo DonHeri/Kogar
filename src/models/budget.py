@@ -16,10 +16,10 @@ class Budget:
         """Establece las categorías estándar predefinidas"""
         for name in CategoryLibrary.get_standards_categories().keys():
             category = self.library.create_category(name)
-            self.categories[name] = BudgetCategory(category, 0)
+            self.categories[name] = BudgetCategory(category, 0, parent=None)
 
     # ====== CATEGORY MANAGEMENT ======
-    def add_category(self, name: str):
+    def add_category(self, name: str, parent: str | None = None):
         """Agrega una nueva categoría al presupuesto"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_active_category(normalized)
@@ -27,8 +27,12 @@ class Budget:
         if not self.library.is_known(normalized):
             self.library.add_category(normalized)
 
+        if parent is not None:
+            parent = CategoryLibrary.normalize(parent)
+            self._validate_category_exists(parent)
+
         category = self.library.create_category(normalized)
-        self.categories[normalized] = BudgetCategory(category, 0)
+        self.categories[normalized] = BudgetCategory(category, 0, parent=parent)
 
     # ====== BUDGET ASSIGNMENT ======
     def set_budget(self, category: str, amount_cents: int) -> None:
@@ -56,8 +60,10 @@ class Budget:
         return self.categories[normalized].planned_amount
 
     def get_total_budgeted(self) -> int:
-        """Obtiene total presupuestado"""
-        return sum(cat.planned_amount for cat in self.categories.values())
+        """Obtiene total presupuestado en las categorías raíces. Las categorías hijas viven dentro del techo de la categoría padre"""
+        return sum(
+            cat.planned_amount for cat in self.categories.values() if cat.parent is None
+        )
 
     def get_category(self, name: str) -> Category:
         """Obtiene el objeto Category de una categoría activa"""
@@ -72,7 +78,29 @@ class Budget:
                 return budget_category.category
         raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
+    def _category_is_child(self, name: str) -> bool:
+        return self.categories[name].parent is not None
+
+    def get_child_total_planned(self, category: str) -> int:
+        """Calcula el total planificado entre categorías hijas"""
+        normalized = CategoryLibrary.normalize(category)
+        self._validate_category_exists(category)
+
+        if self._category_is_child(normalized):
+            parent = self.categories[normalized].parent
+        else:
+            parent = normalized
+
+        child_planned_amount = sum(
+            cat.planned_amount
+            for cat in self.categories.values()
+            if cat.parent == parent
+        )
+
+        return child_planned_amount
+
     # ====== VALIDATORS ======
+
     def _validate_active_category(self, name: str) -> None:
         """Valida que la categoría no existe (para agregar nueva)"""
         if name in self.categories:
