@@ -34,8 +34,8 @@ class Household:
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._member_debts: dict[str, int] = {}  # {member_name: amount_cents}K)
-        self._saving_goals: dict[str, int] = {}  # {member_name: amount_cents}
+        self._member_debts: dict[str, int] = {}  
+        self._saving_goals: dict[str, int] = {}  
         self._agreed_percentages = {}
         self._agreed_contributions = {}
 
@@ -847,11 +847,7 @@ class Household:
         "balance_total" : int -> total ahorrado por el miembro,
         "balance_personal": int -> total ahorrado por el miembro, destino PERSONAL,
         "balance_shared": int -> total ahorrado por el miembro, destino SHARED,
-        "history": list[SavingEntry] -> Copia completa de movimientos del miembro,
-        "actual_month": {
-            "personal":int -> suma de ahorro personal del mes actual,
-            "shared":int -> suma de ahorro compartido del mes actual
-        }
+        "history": list[SavingEntry] -> Copia completa de movimientos del miembro
         }
         """
         return self.savings_tracker.get_member_summary(member_name)

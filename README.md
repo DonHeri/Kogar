@@ -2,7 +2,7 @@
 
 Gestión financiera para hogares compartidos. Resuelve _cuánto debe pagar cada miembro del núcleo familiar, acorde a como quieran hacer el reparto_, registra gastos del mes y calcula transferencias mínimas para saldar las cuentas.
 
-> _Estado_: core de dominio funcional y testeado. Sin UI ni persistencia aún -- todo vive en memoria. Próxima fase SQLite.
+> _Estado_: core de dominio funcional y testeado. Persistencia parcial en PostgreSQL (miembros, períodos, gastos, deuda); budget, categorías y ahorro aún viven en memoria. Sin UI.
 
 ---
 
@@ -24,6 +24,8 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - Planifica presupuesto por categorías (fijos, variables, reserva, o las que añadas), _asignable por monto o por porcentaje de ingreso_.
 
+- Organiza las categorías en árbol: una raíz actúa de techo y sus subcategorías reparten ese importe dentro del límite (p. ej. "fijos" → alquiler, luz, internet).
+
 - Reparte cada presupuesto entre miembros según el método elegido, con precisión de céntimo.
 
 - Registra gastos reales del mes, diferenciando compartidos vs personales.
@@ -38,7 +40,7 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - No hay interfaz de usuario (solo API de Python).
 
-- No hay persistencia — al matar el proceso se pierde el estado.
+- Persistencia parcial: se guardan miembros, períodos, gastos y deuda; faltan budget, categorías y ahorro, y reconstruir el estado del hogar desde BD entre requests.
 
 - No hay histórico multi-mes ni comparativas.
 
@@ -70,8 +72,8 @@ wm = WorkflowManager(Household(
 # Fase REGISTRATION
 wm.register_member("Amanda")
 wm.register_member("Heri")
-wm.set_incomes("Amanda", 2000.0)
-wm.set_incomes("Heri", 1500.0)
+wm.set_member_incomes("Amanda", 2000.0)
+wm.set_member_incomes("Heri", 1500.0)
 wm.finish_registration()
 
 # Fase PLANNING — porcentajes deben sumar 100%; reserva se autocalcula

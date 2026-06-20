@@ -105,6 +105,17 @@ with DatabaseConnection(
             f"  ({format_percentage(pct)})"
         )
 
+    # --- Desglose de "fijos" en subcategorías (árbol: fijos es el techo) ---
+    wm.add_category("alquiler", parent="fijos")
+    wm.add_category("luz", parent="fijos")
+    wm.add_category("internet", parent="fijos")
+    wm.set_budget_for_category("alquiler", 800.0)
+    wm.set_budget_for_category("luz", 90.0)
+    wm.set_budget_for_category("internet", 50.0)
+    print("\nSubcategorías de 'fijos' (reparten su techo):")
+    for child in ("alquiler", "luz", "internet"):
+        print(f"  {child.title():<12} {to_euros(wm.get_category_budget(child)):>10}")
+
     # --- Método de reparto ---
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     print("\nMétodo de reparto: PROPORCIONAL")
@@ -179,9 +190,9 @@ with DatabaseConnection(
     print("=" * 60)
 
     # --- Gastos fijos (compartidos → cuentan para el settlement) ---
-    wm.register_expense("Amanda", "fijos", 800.00, "Alquiler")
-    wm.register_expense("Heri", "fijos", 85.50, "Luz")
-    wm.register_expense("Amanda", "fijos", 45.00, "Internet")
+    wm.register_expense("Amanda", "alquiler", 800.00, "Alquiler")
+    wm.register_expense("Heri", "luz", 85.50, "Luz")
+    wm.register_expense("Amanda", "internet", 45.00, "Internet")
     print("Gastos fijos registrados:")
     print("  Amanda: alquiler 800€ + internet 45€")
     print("  Heri:   luz 85.50€")
