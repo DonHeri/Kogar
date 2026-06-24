@@ -4,11 +4,12 @@ from uuid import UUID
 
 from src.models.budget import Budget
 from src.models.category import AutoCalculatedCategory
-from src.models.constants import MetodoReparto, SavingScope
+from src.models.constants import MetodoReparto, SavingScope, IncomeDestination
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
 from src.models.member import Member
+from src.models.income_entry import IncomeEntry
 from src.models.saving_bucket import SavingBucket
 from src.models.saving_tracker import SavingTracker
 from src.models.debt_tracker import DebtTracker
@@ -38,6 +39,7 @@ class Household:
         self._saving_goals: dict[str, int] = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
+        self._income_entries: list[IncomeEntry] = []
 
     # ====== REGISTRATION ======
 
@@ -347,6 +349,51 @@ class Household:
         return self._registered_incomes.copy()
 
     # ====== QUERIES — PLANNING ======
+    def add_income_entry(
+        self,
+        member_name: str,
+        amount_cents: int,
+        destination: IncomeDestination,
+        description: str = "",
+        category_name: str | None = None,
+        scope: IncomeDestination | None = None,
+    ):
+        self._validate_member_exist(member_name)
+        if category_name:
+            self._validate_category_exist(category_name)
+        if amount_cents <= 0:
+            raise ValueError("Amount debe ser positivo")
+
+        income_entry = IncomeEntry(
+            member_name=member_name,
+            amount_cents=amount_cents,
+            destination=destination,
+            description=description,
+            category_name=category_name,
+            scope=scope,
+        )
+        self._income_entries.append(income_entry)
+
+        if destination is IncomeDestination.DISTRIBUTION:
+            self._income_destination_distribution()
+        elif destination is IncomeDestination.SAVING:
+            self._income_destination_saving
+        elif destination is IncomeDestination.CATEGORY:
+            self._income_destination_category
+        elif destination is IncomeDestination.DEBT:
+            self._income_destination_debt
+
+    def _income_destination_distribution(self):
+        pass
+
+    def _income_destination_category(self):
+        pass
+
+    def _income_destination_debt(self):
+        pass
+
+    def _income_destination_saving(self):
+        pass
 
     def get_active_categories(self) -> list[str]:
         """Lista categorías activas"""

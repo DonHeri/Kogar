@@ -259,7 +259,7 @@ def summary_box(title_text: str, items: dict, color: str = CYAN) -> None:
 # ─────────────────────────────────────────────
 # BANNER / SPLASH
 # ─────────────────────────────────────────────
-def banner(app_name: str = "FINANZAS PRO", version: str = "v1.0") -> None:
+def banner(app_name: str = "KOGAR", version: str = "v1.0") -> None:
     """Splash screen minimalista al arrancar."""
     lines = [
         f"  {BOLD}{BGREEN}{'█' * 3} {BOLD}{BWHITE}{app_name}{RESET}",
@@ -320,4 +320,4 @@ if __name__ == "__main__":  # pragma: no cover
         col_widths=[12, 10, 10, 10],
     )
 
-    muted("Generado el 2025-01-01 · Finanzas Pro")
+    muted("Generado el 2025-01-01 · Kogar")
