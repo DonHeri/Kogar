@@ -34,8 +34,8 @@ class Household:
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._member_debts: dict[str, int] = {}  
-        self._saving_goals: dict[str, int] = {}  
+        self._member_debts: dict[str, int] = {}
+        self._saving_goals: dict[str, int] = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
 
@@ -311,10 +311,10 @@ class Household:
 
     def reset_for_new_month(self):
         """Reinicia el estado mutable del período. Miembros, categorías.
-        También se reinicia el estado de ExpenseTracker y DebtTracker para evitar acumulación de movimientos pasados.
-        SavingTracker persiste — acumula entre meses y se filtran por fecha."""
+        También se reinicia el estado de ExpenseTracker, DebtTracker y SavingTracker para evitar acumulación de movimientos pasados."""
         self.expense_tracker = ExpenseTracker()
         self.debt_tracker = DebtTracker()
+        self.savings_tracker = SavingTracker()
         self._registered_incomes = {}
         self._agreed_contributions = {}
         self._agreed_percentages = {}

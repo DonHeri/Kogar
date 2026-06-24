@@ -97,7 +97,8 @@ class WorkflowManager:
 
         if self.period_repo and not self.period_id:
             self.period_id = self.period_repo.save(period)
-            return self.household_id
+
+        return self.household_id
 
     # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -219,7 +220,7 @@ class WorkflowManager:
             description=description,
         )
 
-        if self.debt_repo and self.period_id:
+        if self.debt_repo and self.period_id and member in self.member_ids:
             self.debt_repo.save(
                 period_id=self.period_id,
                 member_id=self.member_ids[member],
@@ -533,27 +534,17 @@ class WorkflowManager:
         return self.household.get_settlement()
 
     # ====== MONTH - NEW-MONTH ======
-    def start_new_month(self, start_date: date | None = None):
+    def start_new_month(
+        self,
+    ):
         """Comenzar nuevo mes. Necesita haber finalizado mes anterior primero: finish_month"""
         # Validar
         self.validate_phase_accessible(Phase.CLOSING)
 
-        if start_date is None:
-            start_date = date.today()
-
         self.household.reset_for_new_month()
         self._completed_phases = {Phase.REGISTRATION}
         self.current_phase = Phase.REGISTRATION
-
-        period = Period(
-            household_id=self.household_id,
-            start_date=start_date,
-            status=Phase.REGISTRATION,
-        )
-        self.period = period
-
-        if self.period_repo:
-            self.period_id = self.period_repo.save(period)
+        self.period_id = None
 
     # ====== QUERIES - General (Phase-independent) ======
     def get_registered_members(self) -> list[str]:

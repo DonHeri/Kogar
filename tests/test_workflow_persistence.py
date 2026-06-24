@@ -114,6 +114,14 @@ def wm_pre_month(wm_pre_planning):
     return wm_pre_planning
 
 
+@pytest.fixture
+def wm_finish_month(wm_pre_month):
+    """WM en CLOSED tras finish_month, listo para start_new_month"""
+    wm_pre_month.finish_month()
+
+    return wm_pre_month
+
+
 # ===============================================
 # TESTS — Household y miembros
 # ===============================================
@@ -256,3 +264,21 @@ def test_assign_distribution_method_persists_method(wm_pre_registration):
     repo_method = current_period.method
 
     assert repo_method == MetodoReparto.PROPORTIONAL
+
+
+# ===============================================
+# TEST - Flujo comienzo nuevo mes
+# ===============================================
+
+
+def test_start_new_month_permite_avanzar_a_planning(wm_finish_month):
+    wm_finish_month.start_new_month()
+
+    wm_finish_month.set_member_incomes(name="heri", amount_eur=1652)
+    wm_finish_month.set_member_incomes(name="amanda", amount_eur=1456)
+
+    household_id = wm_finish_month.finish_registration(start_date=date(2026, 2, 6))
+
+    assert (
+        wm_finish_month.period_repo.get_current(household_id).status == Phase.PLANNING
+    )
