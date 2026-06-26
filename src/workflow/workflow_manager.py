@@ -17,6 +17,7 @@ from src.models.saving_bucket import SavingBucket
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
+from src.workflow.setllement_calculator import SettlementCalculator
 
 
 class WorkflowManager:
@@ -533,7 +534,7 @@ class WorkflowManager:
     def get_settlement(self) -> list[dict]:
         """Transferencias mínimas para saldar gastos compartidos entre miembros"""
         self.validate_phase_accessible(Phase.MONTH)
-        return self.household.get_settlement()
+        return SettlementCalculator.calculate(household=self.household)
 
     # ====== MONTH - NEW-MONTH ======
     def start_new_month(
