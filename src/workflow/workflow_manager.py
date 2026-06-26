@@ -16,6 +16,7 @@ from src.models.member import Member
 from src.models.saving_bucket import SavingBucket
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
+from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
 class WorkflowManager:
@@ -29,6 +30,7 @@ class WorkflowManager:
         debt_repo: DebtRepository | None = None,
     ) -> None:
         self.household = household
+        self.budget_service = BudgetDistributionService(household=household)
         self.current_phase = Phase.REGISTRATION
         self._completed_phases = {Phase.REGISTRATION}
         self.household_repo = household_repo
@@ -140,7 +142,7 @@ class WorkflowManager:
         """Asigna presupuesto a categoría (recibe euros, convierte a céntimos)"""
         self.validate_phase(Phase.PLANNING)
         amount_cents = to_cents(amount_euros)
-        self.household.set_budget_for_category(category, amount_cents)
+        self.budget_service.set_budget_for_category(category, amount_cents)
 
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
         """Asigna presupuesto a categoría calculando monto desde % de ingresos totales.
@@ -159,7 +161,7 @@ class WorkflowManager:
             percentage_int = to_percentage_basis(percentage_float)
             percentages_int[category] = percentage_int
 
-        self.household.set_budget_by_percentages(percentages=percentages_int)
+        self.budget_service.set_budget_by_percentages(percentages=percentages_int)
 
     def get_budget_as_percentage(self, category: str):
         """

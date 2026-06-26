@@ -86,73 +86,6 @@ class Household:
 
     # ====== PLANNING — BUDGET ======
 
-    def set_budget_for_category(self, category: str, amount_cents: int) -> None:
-        """Asigna presupuesto a una categoría en PLANNING. La reserva se ajusta sola."""
-        if isinstance(self.budget.get_category(category), AutoCalculatedCategory):
-            raise ValueError("Reserva se autocalcula")
-
-        category = normalize_name(category)
-
-        if self.budget.categories[category].parent is None:
-            self._set_root_budget(category, amount_cents)
-        else:
-            self._set_child_budget(category, amount_cents)
-
-    def _set_root_budget(self, category: str, amount_cents: int) -> None:
-        """Raíz: cuenta contra los ingresos y recalcula la reserva."""
-        reserve_cat = self.budget.get_auto_calculated_category()
-        total_incomes = self.get_total_incomes()
-        current_amount = self.get_category_budget(category)
-        current_reserve = self.get_category_budget(reserve_cat.name)
-
-        other_budgeted = self.get_total_budgeted() - current_amount - current_reserve
-        new_budgeted = other_budgeted + amount_cents
-
-        if new_budgeted > total_incomes:
-            raise ValueError(
-                "No se puede superar el total de ingresos en los presupuestos"
-            )
-
-        self.budget.set_budget(category, amount_cents)
-        self.budget.set_budget(
-            reserve_cat.name,
-            reserve_cat.calculate_own_budget(total_incomes, new_budgeted),
-        )
-
-    def _set_child_budget(self, category: str, amount_cents: int) -> None:
-        """Hija: se mueve dentro del techo de su raíz, sin tocar la reserva."""
-        parent_name = self.budget.categories[category].parent
-        ceiling = self.get_category_budget(parent_name)
-        current_amount = self.get_category_budget(category)
-
-        siblings_total = (
-            self.budget.get_child_total_planned(parent_name) - current_amount
-        )
-
-        if siblings_total + amount_cents > ceiling:
-            raise ValueError(
-                f"No se puede superar el techo de la categoría raíz: {parent_name.title()}"
-            )
-
-        self.budget.set_budget(category, amount_cents)
-
-    def set_budget_by_percentages(self, percentages: dict[str, int]):
-        """Asigna presupuestos desde porcentajes. Reserva se autocalcula."""
-        total_incomes = self.get_total_incomes()
-
-        budgets = FinanceCalculator.calculate_budget_from_percentages(
-            total_incomes, percentages
-        )
-
-        auto_cat = self.budget.get_auto_calculated_category()
-        for category, amount_cents in budgets.items():
-            # La categoría auto-calculada se ajusta sola en set_budget_for_category
-            if category == auto_cat.name:
-                continue
-
-            self._validate_category_exist(category=category)
-            self.set_budget_for_category(category=category, amount_cents=amount_cents)
-
     def set_member_debt(self, member_name: str, amount_cents: int) -> None:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
         self._validate_member_exist(member_name)
@@ -222,7 +155,7 @@ class Household:
     def register_expense(self, expense: Expense):
         """Registra un gasto (almacena solo en ExpenseTracker)"""
         self._validate_member_exist(expense.member)
-        self._validate_category_exist(expense.category.name)
+        self.validate_category_exist(expense.category.name)
         self.expense_tracker.add_expense(expense)
 
     # ====== MONTH — SAVINGS ======
@@ -900,7 +833,7 @@ class Household:
             if name not in splits:
                 raise ValueError(f"Falta el porcentaje para el miembro: {name}")
 
-    def _validate_category_exist(self, category: str):
+    def validate_category_exist(self, category: str):
         """Valida que una categoría existe en el presupuesto"""
         return self.budget._validate_category_exists(category)
 
