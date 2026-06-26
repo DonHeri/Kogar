@@ -12,15 +12,16 @@ from src.models.member import Member
 from src.models.saving_tracker import SavingTracker
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.setllement_calculator import SettlementCalculator
+from src.workflow.summary_service import SummaryService
 from tests.helpers import make_category
 
 
 def _set_budget(hh, category, amount):
-    BudgetDistributionService(hh).set_budget_for_category(category, amount)
+    BudgetDistributionService.set_budget_for_category(hh, category, amount)
 
 
 def _set_budget_by_percentages(hh, percentages):
-    BudgetDistributionService(hh).set_budget_by_percentages(percentages)
+    BudgetDistributionService.set_budget_by_percentages(hh, percentages)
 
 
 def _get_settlement(hh):
@@ -73,21 +74,11 @@ def household_with_members(base_household, members_with_incomes):
 
 
 @pytest.fixture
-def household_and_budget_service(household_with_members):
-    from src.workflow.budget_distribution_service import BudgetDistributionService
-
-    household_with_budget_service = BudgetDistributionService(household_with_members)
-
-    return (household_with_members, household_with_budget_service)
-
-
-@pytest.fixture
-def household_with_members_and_child_categories(household_and_budget_service):
+def household_with_members_and_child_categories(household_with_members):
     """Household con dos hijas (vivienda, suministros) colgando de fijos."""
-    household, service = household_and_budget_service
-    household.add_category("vivienda", parent="fijos")
-    household.add_category("suministros", parent="fijos")
-    return household_and_budget_service
+    household_with_members.add_category("vivienda", parent="fijos")
+    household_with_members.add_category("suministros", parent="fijos")
+    return household_with_members
 
 
 # ====================================================
@@ -419,12 +410,12 @@ def test_preview_budget_contribution_summary_with_zero_budgets(
 def test_validate_members_exist_raises_if_empty(base_household):
     """Validador lanza error si no hay miembros"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
-        base_household._validate_has_members()
+        base_household.validate_has_members()
 
 
 def test_validate_members_exist_passes_if_members(household_with_members):
     """Validador pasa sin error si hay miembros"""
-    household_with_members._validate_has_members()
+    household_with_members.validate_has_members()
 
 
 def test_validate_total_incomes_positive_raises_if_zero(
@@ -433,12 +424,12 @@ def test_validate_total_incomes_positive_raises_if_zero(
     """Validador lanza error si ingresos son 0"""
     base_household.register_member(member_zero_income)
     with pytest.raises(ValueError, match="Al menos un miembro debe tener ingresos > 0"):
-        base_household._validate_total_incomes_positive()
+        base_household.validate_total_incomes_positive()
 
 
 def test_validate_total_incomes_positive_passes_if_positive(household_with_members):
     """Validador pasa sin error si ingresos > 0"""
-    household_with_members._validate_total_incomes_positive()
+    household_with_members.validate_total_incomes_positive()
 
 
 def test_validate_all_members_have_split_raises_if_missing(household_with_members):
@@ -461,77 +452,62 @@ def test_validate_all_members_have_split_passes_if_all_present(household_with_me
 # ====================================================
 
 
-def test_set_budget_for_category(household_and_budget_service):
+def test_set_budget_for_category(household_with_members):
     """set_budget_for_category asigna presupuesto correctamente"""
-    household, service = household_and_budget_service
-    service.set_budget_for_category("fijos", 200000)
+    _set_budget(household_with_members, "fijos", 200000)
 
-    assert household.get_category_budget("fijos") == 200000
+    assert household_with_members.get_category_budget("fijos") == 200000
 
 
-def test_set_budget_for_child_category(household_and_budget_service):
+def test_set_budget_for_child_category(household_with_members):
     """Asigna presupuesto a una hija dentro del techo de su raíz."""
-    household, service = household_and_budget_service
-    service.set_budget_for_category("fijos", 40000)
-    household.add_category("vivienda", parent="fijos")
+    _set_budget(household_with_members, "fijos", 40000)
+    household_with_members.add_category("vivienda", parent="fijos")
 
-    service.set_budget_for_category("vivienda", 30000)
+    _set_budget(household_with_members, "vivienda", 30000)
 
-    assert household.get_category_budget("vivienda") == 30000
+    assert household_with_members.get_category_budget("vivienda") == 30000
 
 
-def test_set_budget_for_category_normalizes_input(
-    household_and_budget_service,
-):
+def test_set_budget_for_category_normalizes_input(household_with_members):
     """set_budget_for_category normaliza la entrada (mayúsculas)"""
-    household, service = household_and_budget_service
-    service.set_budget_for_category("FIJOS", 200000)
+    _set_budget(household_with_members, "FIJOS", 200000)
 
-    assert household.get_category_budget("fijos") == 200000
+    assert household_with_members.get_category_budget("fijos") == 200000
 
 
-def test_set_budget_for_category_raises_if_nonexistent(
-    household_and_budget_service,
-):
+def test_set_budget_for_category_raises_if_nonexistent(household_with_members):
     """set_budget_for_category lanza ValueError si categoría no existe"""
-    household, service = household_and_budget_service
     with pytest.raises(ValueError, match="debe estar creada"):
-        service.set_budget_for_category("inexistente", 200000)
+        _set_budget(household_with_members, "inexistente", 200000)
 
 
-def test_set_budget_for_category_multiple(household_and_budget_service):
+def test_set_budget_for_category_multiple(household_with_members):
     """Puedo asignar presupuesto a múltiples categorías"""
-    household, service = household_and_budget_service
-    service.set_budget_for_category("fijos", 200000)
-    service.set_budget_for_category("variables", 100000)
+    _set_budget(household_with_members, "fijos", 200000)
+    _set_budget(household_with_members, "variables", 100000)
 
-    assert household.get_category_budget("fijos") == 200000
-    assert household.get_category_budget("variables") == 100000
-
-
-def test_set_budget_for_category_reassign_doesnt_double_count(
-    household_and_budget_service,
-):
-    household, service = household_and_budget_service
-    service.set_budget_for_category("fijos", 40000)
-    service.set_budget_for_category("fijos", 50000)
-    reserva = household.get_category_budget("reserva")
-
-    assert reserva == (household.get_total_incomes() - 50000)
+    assert household_with_members.get_category_budget("fijos") == 200000
+    assert household_with_members.get_category_budget("variables") == 100000
 
 
-def test_set_budget_over_ceiling_raises_error(
-    household_with_members_and_child_categories,
-):
+def test_set_budget_for_category_reassign_doesnt_double_count(household_with_members):
+    _set_budget(household_with_members, "fijos", 40000)
+    _set_budget(household_with_members, "fijos", 50000)
+    reserva = household_with_members.get_category_budget("reserva")
+
+    assert reserva == (household_with_members.get_total_incomes() - 50000)
+
+
+def test_set_budget_over_ceiling_raises_error(household_with_members_and_child_categories):
     """Asignar a una hija por encima del techo de su raíz lanza error."""
-    household, service = household_with_members_and_child_categories
-    service.set_budget_for_category("fijos", 50000)
-    service.set_budget_for_category("vivienda", 30000)
+    _set_budget(household_with_members_and_child_categories, "fijos", 50000)
+    _set_budget(household_with_members_and_child_categories, "vivienda", 30000)
 
     with pytest.raises(
         ValueError, match="No se puede superar el techo de la categoría raíz"
     ):
-        service.set_budget_for_category("suministros", 30000)
+        _set_budget(household_with_members_and_child_categories, "suministros", 30000)
 
 
 # ====================================================
@@ -543,7 +519,7 @@ def test_get_planning_summary_basic(household_with_members):
     """get_planning_summary retorna estructura completa"""
     _set_budget(household_with_members, "fijos", 300000)
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     assert isinstance(summary, dict)
     assert summary["members"] == ["member1", "member2"]
@@ -561,7 +537,7 @@ def test_get_planning_summary_includes_distribution_method(household_with_member
     """get_planning_summary incluye método de distribución"""
     _set_budget(household_with_members, "fijos", 200000)
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     assert summary["distribution_method"] == MetodoReparto.EQUAL.value
 
@@ -570,7 +546,7 @@ def test_get_planning_summary_with_missing_money(household_with_members):
     """reserva autocalcula: total_budgeted siempre == total_incomes cuando hay reserva"""
     _set_budget(household_with_members, "fijos", 200000)
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     # fijos=200000, reserva autocalcula=100000 → total=300000 == total_incomes
     assert summary["total_budgeted"] == 300000
@@ -581,7 +557,7 @@ def test_get_planning_summary_includes_contributions_preview(household_with_memb
     """get_planning_summary incluye preview de contribuciones"""
     _set_budget(household_with_members, "fijos", 200000)  # <= 300000 ingresos
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     assert "contributions_preview" in summary
     assert "fijos" in summary["contributions_preview"]
@@ -594,7 +570,7 @@ def test_get_planning_summary_includes_debts(household_with_members):
     _set_budget(household_with_members, "variables", 50000)
     # reserva autocalcula a 150000
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     assert summary["missing_money"]["total"] == 0
 
@@ -602,7 +578,7 @@ def test_get_planning_summary_includes_debts(household_with_members):
 def test_get_planning_summary_raises_if_no_members(base_household):
     """get_planning_summary lanza ValueError si no hay miembros"""
     with pytest.raises(ValueError, match="No hay miembros"):
-        base_household.get_planning_summary()
+        SummaryService.get_planning_summary(base_household)
 
 
 def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
@@ -619,7 +595,7 @@ def test_get_planning_summary_percentages_sum_to_10000(household_with_members):
     """get_planning_summary percentages siempre suman 10000 (100%)"""
     _set_budget(household_with_members, "fijos", 200000)  # <= 300000 ingresos
 
-    summary = household_with_members.get_planning_summary()
+    summary = SummaryService.get_planning_summary(household_with_members)
 
     total_pct = sum(summary["distribution_percentages"].values())
     assert total_pct == 10000
@@ -905,7 +881,7 @@ def test_get_total_remaining_can_be_negative(household_with_members):
 
 def test_get_registration_summary_returns_correct_structure(household_with_members):
     """Debe retornar members, member_incomes, total_household_income"""
-    summary = household_with_members.get_registration_summary()
+    summary = SummaryService.get_registration_summary(household_with_members)
 
     assert "members" in summary
     assert "member_incomes" in summary
@@ -1099,7 +1075,7 @@ def test_get_member_status_returns_complete_structure(household_with_members):
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
-    status = household_with_members.get_member_status("member1")
+    status = SummaryService.get_member_status(household_with_members, "member1")
 
     assert "income" in status
     assert "owed" in status
@@ -1141,7 +1117,7 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
     household_with_members.register_expense(expense2)
     household_with_members.register_expense(expense3)
 
-    status = household_with_members.get_member_status("member1")
+    status = SummaryService.get_member_status(household_with_members, "member1")
 
     # 'paid' debe ser la SUMA de todos los gastos (20000+15000+5000=40000)
     assert status["paid"] == 40000
@@ -1163,7 +1139,7 @@ def test_get_member_status_by_category_has_correct_structure(household_with_memb
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
-    status = household_with_members.get_member_status("member1")
+    status = SummaryService.get_member_status(household_with_members, "member1")
     by_category = status["by_category"]
 
     assert "fijos" in by_category
@@ -1189,7 +1165,7 @@ def test_get_member_status_normalizes_name(household_with_members):
     household_with_members.freeze_registration_state()
     household_with_members.freeze_planning_state()
 
-    status = household_with_members.get_member_status("MEMBER1")
+    status = SummaryService.get_member_status(household_with_members, "MEMBER1")
 
     assert status["income"] == 200000
 
@@ -1204,7 +1180,7 @@ def test_get_member_status_includes_debt_and_saving_goal(household_with_members)
     household_with_members.set_member_saving_goal("member1", 30000)
     household_with_members.freeze_planning_state()
 
-    status = household_with_members.get_member_status("member1")
+    status = SummaryService.get_member_status(household_with_members, "member1")
 
     assert status["debt"] == 20000
     assert status["saving_goal"] == 30000
@@ -1213,7 +1189,7 @@ def test_get_member_status_includes_debt_and_saving_goal(household_with_members)
 def test_get_member_status_raises_if_member_not_exists(household_with_members):
     """Debe fallar si el miembro no existe"""
     with pytest.raises(ValueError, match="no existe en el hogar"):
-        household_with_members.get_member_status("member3")
+        SummaryService.get_member_status(household_with_members, "member3")
 
 
 # ====================================================
@@ -1233,7 +1209,7 @@ def test_get_month_summary_returns_complete_structure(household_with_members):
     expense = Expense("member1", make_category("fijos"), 30000, ["member1"])
     household_with_members.register_expense(expense)
 
-    summary = household_with_members.get_month_summary()
+    summary = SummaryService.get_month_summary(household_with_members)
 
     assert "totals" in summary
     assert "by_category" in summary
@@ -1251,7 +1227,7 @@ def test_get_month_summary_includes_missing_money(household_with_members):
     # reserva autocalcula a 100000 → total = 300000 → missing = 0
     household_with_members.freeze_planning_state()
 
-    summary = household_with_members.get_month_summary()
+    summary = SummaryService.get_month_summary(household_with_members)
 
     assert "missing_money" in summary
     assert summary["missing_money"]["total"] == 0
@@ -1274,7 +1250,7 @@ def test_get_month_summary_calculates_correctly(household_with_members):
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
 
-    summary = household_with_members.get_month_summary()
+    summary = SummaryService.get_month_summary(household_with_members)
 
     assert summary["totals"]["total_budgeted"] == 300000
     assert summary["totals"]["total_spent"] == 50000
@@ -1293,7 +1269,7 @@ def test_get_month_summary_by_category_has_correct_structure(household_with_memb
     expense = Expense("member1", make_category("fijos"), 25000, ["member1"])
     household_with_members.register_expense(expense)
 
-    summary = household_with_members.get_month_summary()
+    summary = SummaryService.get_month_summary(household_with_members)
     by_category = summary["by_category"]
 
     assert "fijos" in by_category

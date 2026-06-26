@@ -104,7 +104,7 @@ class Household:
 
     def set_custom_splits(self, splits: dict[str, float]):
         """Define porcentajes de reparto personalizados (0-100)"""
-        self._validate_has_members()
+        self.validate_has_members()
         self._validate_all_members_have_split(splits)
 
         self._custom_splits = {
@@ -259,18 +259,6 @@ class Household:
 
     # ====== QUERIES — REGISTRATION ======
 
-    def get_registration_summary(self):
-        """Resumen de fase REGISTRATION: miembros e ingresos"""
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
-        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
-        total_incomes = self.get_total_incomes()
-        return {
-            "members": list(self.members.keys()),
-            "member_incomes": member_incomes,
-            "total_household_income": total_incomes,
-        }
-
     def get_member_names(self):
         return self.members.keys()
 
@@ -294,8 +282,8 @@ class Household:
 
     def get_total_incomes(self):
         """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
+        self.validate_has_members()
+        self.validate_total_incomes_positive()
 
         # Usar datos congelados si están disponibles (PLANNING/MONTH)
         if self._registered_incomes:
@@ -356,8 +344,8 @@ class Household:
 
     def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto (usa datos congelados si están disponibles)"""
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
+        self.validate_has_members()
+        self.validate_total_incomes_positive()
 
         # Usar datos congelados si están disponibles (PLANNING/MONTH)
         if self._registered_incomes:
@@ -472,49 +460,6 @@ class Household:
     def get_saving_goals(self):
         return self._saving_goals
 
-    def get_planning_summary(self) -> dict:
-        """
-        Resumen completo de fase PLANNING con el método ya configurado.
-        Incluye: miembros, ingresos, método, porcentajes, categorías, presupuestos, missing_money, preview de contribuciones.
-        """
-        self._validate_has_members()
-        self._validate_total_incomes_positive()
-        members = list(self.members.keys())
-        total_incomes = self.get_total_incomes()
-        categories = self.get_active_categories()
-        debts = self.get_member_debts()
-        saving_goals = self.get_saving_goals()
-        total_budgeted = self.get_total_budgeted()
-        missing_money = total_incomes - total_budgeted
-        missing_money_by_member = {
-            name: self.get_missing_money_by_member(name) for name in members
-        }
-        percentages = self.get_percentages_by_method(self.method)
-
-        contributions = self.get_current_contributions()
-
-        member_incomes = {name: m.monthly_income for name, m in self.members.items()}
-
-        return {
-            "members": members,
-            "member_incomes": member_incomes,
-            "total_household_income": total_incomes,
-            "distribution_method": self.method.value,
-            "distribution_percentages": percentages,
-            "categories": categories,
-            "budget_by_category": {
-                cat: self.budget.categories[cat].planned_amount for cat in categories
-            },
-            "debts": debts,
-            "saving_goals": saving_goals,
-            "total_budgeted": total_budgeted,
-            "missing_money": {
-                "total": missing_money,
-                "by_member": missing_money_by_member,
-            },
-            "contributions_preview": contributions,
-        }
-
     # ====== QUERIES — MONTH ======
 
     def get_member_owed_total(self, member_name: str) -> int:
@@ -542,45 +487,6 @@ class Household:
 
         return paid - owed
 
-    def get_member_status(self, member_name: str) -> dict:
-        """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
-        member_name = normalize_name(member_name)
-        self._validate_member_exist(member_name)
-        # Totales
-        member_income = self.members[member_name].monthly_income
-
-        owed = self.get_member_owed_total(member_name)
-        paid = self.expense_tracker.get_total_spent_by_member(member_name)
-        balance = self.get_member_balance(member_name)
-
-        # Acordado vs pagado
-        agreed_contributions = self.get_agreed_contributions()
-        by_category = {}
-
-        for cat_name, cat_data in agreed_contributions.items():
-            contribution = cat_data["contributions"][member_name]
-            paid_in_category = (
-                self.expense_tracker.get_total_spent_by_member_and_category(
-                    member=member_name, category=cat_name
-                )
-            )
-
-            by_category[cat_name] = {
-                "contribution": contribution,
-                "paid": paid_in_category,
-                "remaining": contribution - paid_in_category,
-            }
-
-        return {
-            "income": member_income,
-            "owed": owed,
-            "paid": paid,
-            "balance": balance,
-            "debt": self._member_debts.get(member_name, 0),
-            "saving_goal": self._saving_goals.get(member_name, 0),
-            "by_category": by_category,
-        }
-
     def get_category_spent(self, category: str) -> int:
         """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
         return self.expense_tracker.get_total_spent_by_category(category)
@@ -600,88 +506,6 @@ class Household:
         budgeted = self.get_total_budgeted()
         spent = self.get_total_spent()
         return budgeted - spent
-
-    def get_month_summary(self):
-        """
-        Retorna resumen financiero completo del mes:
-
-        {
-            "totals": {
-                "total_budgeted":  300000,   # céntimos presupuestados
-                "total_spent":      95000,   # céntimos gastados
-                "total_remaining": 205000    # céntimos restantes
-            },
-            "by_category": {
-                "fijos": {
-                    "budget":    150000,
-                    "spent":      80000,
-                    "remaining":  70000
-                }
-            },
-            "by_member": {
-                "amanda": {
-                    "income":  200000,
-                    "owed":    200000,
-                    "paid":     80000,
-                    "balance": -120000,      # negativo = debe dinero
-                    "debt": cuanto paga cada miembro de deuda,
-                    "saving_goal": cuanto ahorra cada miembro,
-                    "by_category": {
-                        "fijos": {
-                            "contribution": 100000,
-                            "paid":          80000,
-                            "remaining":     20000
-                        }
-                    }
-                }
-            },
-            "missing_money": {
-                "total": 0,
-                "by_member": {
-                    "amanda": 0,
-                    "heri":   0
-                }
-            }
-        }
-        """
-
-        categories = self.get_active_categories()
-        members = self.members.keys()
-        total_budgeted = self.get_total_budgeted()
-
-        missing_money_total = self.get_missing_money()
-        missing_money_by_member = {
-            member: self.get_missing_money_by_member(member) for member in members
-        }
-        total_spent = self.get_total_spent()
-        total_remaining = self.get_total_remaining()
-
-        # Total presupuestado + total gastado + total restante
-        total = {
-            "total_budgeted": total_budgeted,
-            "total_spent": total_spent,
-            "total_remaining": total_remaining,
-        }
-
-        # Categoría {Presupuestado + Gastado + faltante por pagar} + {missing_money}
-        by_category = {}
-        for cat in categories:
-            by_category[cat] = {
-                "budget": self.budget.get_category_budget(cat),
-                "spent": self.get_category_spent(cat),
-                "remaining": self.get_category_remaining(cat),
-            }
-        by_member = {member: self.get_member_status(member) for member in members}
-
-        return {
-            "totals": total,
-            "by_category": by_category,
-            "by_member": by_member,
-            "missing_money": {
-                "total": missing_money_total,
-                "by_member": missing_money_by_member,
-            },
-        }
 
     def get_debt_status(self, member_name):
         self._validate_member_exist(member_name)
@@ -728,12 +552,12 @@ class Household:
 
     # ====== VALIDATORS ======
 
-    def _validate_has_members(self):
+    def validate_has_members(self):
         """Valida que hay miembros registrados"""
         if not self.members:
             raise ValueError("No hay miembros registrados")
 
-    def _validate_total_incomes_positive(self):
+    def validate_total_incomes_positive(self):
         """Valida que el ingreso total es mayor a 0 (usa datos congelados si están disponibles)"""
         # Usar datos congelados si están disponibles (PLANNING/MONTH)
         if self._registered_incomes:

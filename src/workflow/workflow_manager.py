@@ -18,6 +18,7 @@ from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.setllement_calculator import SettlementCalculator
+from src.workflow.summary_service import SummaryService
 
 
 class WorkflowManager:
@@ -31,7 +32,6 @@ class WorkflowManager:
         debt_repo: DebtRepository | None = None,
     ) -> None:
         self.household = household
-        self.budget_service = BudgetDistributionService(household=household)
         self.current_phase = Phase.REGISTRATION
         self._completed_phases = {Phase.REGISTRATION}
         self.household_repo = household_repo
@@ -143,7 +143,7 @@ class WorkflowManager:
         """Asigna presupuesto a categoría (recibe euros, convierte a céntimos)"""
         self.validate_phase(Phase.PLANNING)
         amount_cents = to_cents(amount_euros)
-        self.budget_service.set_budget_for_category(category, amount_cents)
+        BudgetDistributionService.set_budget_for_category(self.household, category, amount_cents)
 
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
         """Asigna presupuesto a categoría calculando monto desde % de ingresos totales.
@@ -162,7 +162,7 @@ class WorkflowManager:
             percentage_int = to_percentage_basis(percentage_float)
             percentages_int[category] = percentage_int
 
-        self.budget_service.set_budget_by_percentages(percentages=percentages_int)
+        BudgetDistributionService.set_budget_by_percentages(self.household, percentages=percentages_int)
 
     def get_budget_as_percentage(self, category: str):
         """
@@ -508,7 +508,9 @@ class WorkflowManager:
     def get_member_status(self, member_name: str) -> dict:
         """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
         self.validate_phase_accessible(Phase.MONTH)
-        return self.household.get_member_status(member_name)
+        return SummaryService.get_member_status(
+            household=self.household, member_name=member_name
+        )
 
     # ====== MONTH PHASE - Category spent Queries ======
     def get_category_spent(self, category_name: str) -> int:
@@ -573,17 +575,17 @@ class WorkflowManager:
     def get_registration_summary(self):
         """Obtiene resumen completo de registro (disponible desde REGISTRATION)"""
         self.validate_phase_accessible(Phase.REGISTRATION)
-        return self.household.get_registration_summary()
+        return SummaryService.get_registration_summary(household=self.household)
 
     def get_planning_summary(self) -> dict:
         """Obtiene resumen completo de planificación (disponible desde PLANNING)"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_planning_summary()
+        return SummaryService.get_planning_summary(household=self.household)
 
     def get_month_summary(self):
         """Obtiene resumen completo de month (disponible desde MONTH)"""
         self.validate_phase_accessible(Phase.MONTH)
-        return self.household.get_month_summary()
+        return SummaryService.get_month_summary(household=self.household)
 
     # ====== QUERIES - Frozen Data ======
     def get_registered_incomes(self) -> dict[str, int]:

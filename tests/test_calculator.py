@@ -12,7 +12,7 @@ from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
 def _set_budget(hh, category, amount):
-    BudgetDistributionService(hh).set_budget_for_category(category, amount)
+    BudgetDistributionService.set_budget_for_category(hh, category, amount)
 
 # ====================================================
 # FIXTURES
