@@ -8,6 +8,11 @@ from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
 from src.models.member import Member
 from src.models.saving_tracker import SavingTracker
+from src.workflow.budget_distribution_service import BudgetDistributionService
+
+
+def _set_budget(hh, category, amount):
+    BudgetDistributionService.set_budget_for_category(hh, category, amount)
 
 # ====================================================
 # FIXTURES
@@ -271,8 +276,8 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
     household_base.register_member(m2)
     household_base.freeze_registration_state()
 
-    household_base.set_budget_for_category("fijos", 150000)
-    household_base.set_budget_for_category("variables", 90000)
+    _set_budget(household_base,"fijos", 150000)
+    _set_budget(household_base,"variables", 90000)
     # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
@@ -307,7 +312,7 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base):
 
     for i in range(1, 6):
         household_base.add_category(f"categoria{i}")
-        household_base.set_budget_for_category(f"categoria{i}", 60000)
+        _set_budget(household_base,f"categoria{i}", 60000)
 
     contributions = household_base.get_current_contributions()
     amanda_total = sum(
@@ -327,8 +332,8 @@ def test_edge_case_five_members_equal_split(household_base):
     household_base.freeze_registration_state()
     household_base.assign_distribution_method(MetodoReparto.EQUAL)
 
-    household_base.set_budget_for_category("fijos", 150000)
-    household_base.set_budget_for_category("variables", 90000)
+    _set_budget(household_base,"fijos", 150000)
+    _set_budget(household_base,"variables", 90000)
     # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
@@ -354,8 +359,8 @@ def test_edge_case_one_cent_per_category(household_base):
     household_base.register_member(m2)
     household_base.freeze_registration_state()
 
-    household_base.set_budget_for_category("fijos", 1)
-    household_base.set_budget_for_category("variables", 1)
+    _set_budget(household_base,"fijos", 1)
+    _set_budget(household_base,"variables", 1)
     # reserva autocalcula = 300000 - 1 - 1 = 299998
 
     contributions = household_base.get_current_contributions()
@@ -378,7 +383,7 @@ def test_edge_case_ten_categories_accumulate_remainders(household_base):
 
     for i in range(1, 11):
         household_base.add_category(f"categoria{i}")
-        household_base.set_budget_for_category(f"categoria{i}", 30000)
+        _set_budget(household_base,f"categoria{i}", 30000)
 
     contributions = household_base.get_current_contributions()
     amanda_total = sum(
