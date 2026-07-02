@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from src.models.bucket_tracker import BucketTracker
@@ -40,13 +40,13 @@ class SavingTracker:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingScope,
-        description="",
-        date=None,
+        scope: SavingScope,
+        description: str = "",
+        date: datetime | None = None,
     ):
         self._accounts[member_name].deposit(
             amount_cents=amount_cents,
-            destination=destination,
+            destination=scope,
             description=description,
             date=date,
         )
@@ -71,10 +71,14 @@ class SavingTracker:
         bucket_id = self._bucket_tracker.add_bucket(bucket)
         return bucket_id
 
-    def deposit_to_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+    def deposit_to_bucket(
+        self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
+    ) -> None:
         self._bucket_tracker.deposit(bucket_id, amount_cents, member_name, date)
 
-    def withdraw_from_bucket(self, bucket_id: UUID, member_name: str, amount_cents: int, date=None) -> None:
+    def withdraw_from_bucket(
+        self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
+    ) -> None:
         self._bucket_tracker.withdraw(bucket_id, amount_cents, member_name, date)
 
     def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:

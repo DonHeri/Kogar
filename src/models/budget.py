@@ -78,7 +78,7 @@ class Budget:
                 return budget_category.category
         raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
-    def _category_is_child(self, name: str) -> bool:
+    def category_is_child(self, name: str) -> bool:
         return self.categories[name].parent is not None
 
     def get_child_total_planned(self, category: str) -> int:
@@ -86,7 +86,7 @@ class Budget:
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(category)
 
-        if self._category_is_child(normalized):
+        if self.category_is_child(normalized):
             parent = self.categories[normalized].parent
         else:
             parent = normalized
