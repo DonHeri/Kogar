@@ -6,6 +6,7 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
 from src.storage.debt_repository import DebtRepository
+from src.storage.income_entry_repo import IncomeEntryRepository
 from src.models.period import Period
 
 from src.models.category import Category
@@ -19,6 +20,8 @@ from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.setllement_calculator import SettlementCalculator
 from src.workflow.summary_service import SummaryService
+from src.workflow.incomes_entries_service import IncomeEntryService
+from src.models.income_entry import IncomeEntry
 
 
 class WorkflowManager:
@@ -30,6 +33,7 @@ class WorkflowManager:
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
         debt_repo: DebtRepository | None = None,
+        income_entry_repo: IncomeEntryRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
@@ -39,6 +43,7 @@ class WorkflowManager:
         self.period_repo = period_repo
         self.expense_repo = expense_repo
         self.debt_repo = debt_repo
+        self.income_entry_repo = income_entry_repo
         self.period_id: int | None = None
         self.period: Period | None = None
         self.household_id: int | None = None
@@ -143,7 +148,9 @@ class WorkflowManager:
         """Asigna presupuesto a categoría (recibe euros, convierte a céntimos)"""
         self.validate_phase(Phase.PLANNING)
         amount_cents = to_cents(amount_euros)
-        BudgetDistributionService.set_budget_for_category(self.household, category, amount_cents)
+        BudgetDistributionService.set_budget_for_category(
+            self.household, category, amount_cents
+        )
 
     def set_budget_by_percentages(self, percentages_floats: dict[str, float]) -> None:
         """Asigna presupuesto a categoría calculando monto desde % de ingresos totales.
@@ -162,7 +169,9 @@ class WorkflowManager:
             percentage_int = to_percentage_basis(percentage_float)
             percentages_int[category] = percentage_int
 
-        BudgetDistributionService.set_budget_by_percentages(self.household, percentages=percentages_int)
+        BudgetDistributionService.set_budget_by_percentages(
+            self.household, percentages=percentages_int
+        )
 
     def get_budget_as_percentage(self, category: str):
         """
@@ -278,15 +287,10 @@ class WorkflowManager:
         "Contribución total por miembro según el método de reparto activo (disponible en PLANNING)."
         return self.household.get_total_contributions_by_member()
 
-    def get_missing_money(self) -> int:
-        """Dinero no presupuestado total (ingresos - presupuesto)"""
-        self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_missing_money()
-
-    def get_missing_money_by_member(self, member_name: str) -> int:
+    def get_reserve_contribution_by_member(self, member_name: str) -> int:
         """Dinero no presupuestado de un miembro según su porcentaje"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_missing_money_by_member(member_name)
+        return self.household.get_reserve_contribution_by_member(member_name)
 
     def validate_debt_and_saving_dont_exceed_capacity(self):
         """Valida que deuda + ahorro comprometidos no superen la parte de reserva de cada miembro."""
@@ -552,6 +556,41 @@ class WorkflowManager:
         self.period_id = None
 
     # ====== QUERIES - General (Phase-independent) ======
+    def add_income_entry(
+        self,
+        member_name: str,
+        amount_euros: float,
+        description: str = "",
+    ):
+        """Registra un ingreso extra y lo envía al destino indicado (MONTH)."""
+        self.validate_phase(Phase.MONTH)
+
+        member_name = normalize_name(member_name)
+        if member_name not in self.household.members:
+            raise ValueError(f"Miembro '{member_name}' no registrado")
+
+        amount_cents = to_cents(amount_euros)
+
+        income_entry = IncomeEntry(
+            member_name=member_name, amount_cents=amount_cents, description=description
+        )
+
+        IncomeEntryService.add_income_entry(
+            income_entry=income_entry, household=self.household
+        )
+
+        if self.income_entry_repo and self.period_id and member_name in self.member_ids:
+            self.income_entry_repo.save(
+                income_entry,
+                period_id=self.period_id,
+                member_id=self.member_ids[member_name],
+            )
+
+    def get_extra_income_entries(self) -> list[IncomeEntry]:
+        """Obtiene ingresos extra registrados en el mes (MONTH+)"""
+        self.validate_phase_accessible(Phase.MONTH)
+        return self.household.get_extra_income_entries()
+
     def get_registered_members(self) -> list[str]:
         """Muestra miembros registrados"""
         return list(self.household.members.keys())

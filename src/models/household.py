@@ -4,7 +4,7 @@ from uuid import UUID
 
 from src.models.budget import Budget
 from src.models.category import AutoCalculatedCategory
-from src.models.constants import MetodoReparto, SavingScope, IncomeDestination
+from src.models.constants import MetodoReparto, SavingScope
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
@@ -90,12 +90,12 @@ class Household:
 
     def set_member_debt(self, member_name: str, amount_cents: int) -> None:
         """Declara la deuda personal mensual de un miembro (PLANNING)"""
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         self._member_debts[member_name] = amount_cents
 
     def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
         """Declara el ahorro personal mensual de un miembro (PLANNING)"""
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         self._saving_goals[member_name] = amount_cents
 
     # ====== PLANNING — DISTRIBUTION ======
@@ -121,22 +121,15 @@ class Household:
         Valida que los compromisos personales (deuda + ahorro) no superen
         la parte de 'reserva' que le corresponde a cada miembro.
         """
-        contributions = self.get_current_contributions()
-
-        auto_cat = self.budget.get_auto_calculated_category()
-        reserva_contributions = {}
-        if auto_cat.name in contributions:
-            reserva_contributions = contributions[auto_cat.name]["contributions"]
-
         for member in self.members:
-            capacity = reserva_contributions.get(member, 0)
+            reserve_capacity = self.get_reserve_contribution_by_member(member)
             debt = self._member_debts.get(member, 0)
             saving = self._saving_goals.get(member, 0)
 
-            if (debt + saving) > capacity:
+            if (debt + saving) > reserve_capacity:
                 raise ValueError(
                     f"Compromisos ({debt + saving}¢) de {member} superan su "
-                    f"parte de reserva ({capacity}¢)"
+                    f"parte de reserva ({reserve_capacity}¢)"
                 )
 
     def freeze_planning_state(self):
@@ -145,21 +138,19 @@ class Household:
         self._agreed_contributions = self.get_current_contributions()
 
     def auto_assign_saving_goals(self):
-        contributions = self.get_current_contributions()
-        auto_cat = self.budget.get_auto_calculated_category()
-        reserva_contributions = contributions.get(auto_cat.name, {}).get(
-            "contributions", {}
-        )
+        """Calcula automáticamente los objetivos de ahorro de cada miembro según su parte de la categoría auto-calculada (reserva) y su deuda personal"""
+
         for member in self.members:
-            capacity = reserva_contributions.get(member, 0)
+            reserve_contribution = self.get_reserve_contribution_by_member(member)
             debt = self._member_debts.get(member, 0)
-            self._saving_goals[member] = capacity - debt
+
+            self._saving_goals[member] = reserve_contribution - debt
 
     # ====== MONTH — EXPENSES ======
 
     def register_expense(self, expense: Expense):
         """Registra un gasto (almacena solo en ExpenseTracker)"""
-        self._validate_member_exist(expense.member)
+        self.validate_member_exist(expense.member)
         self.validate_category_exist(expense.category.name)
         self.expense_tracker.add_expense(expense)
 
@@ -169,16 +160,16 @@ class Household:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingScope,
+        scope: SavingScope,
         description="",
         date=None,
     ):
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
 
         self.savings_tracker.deposit(
             member_name=member_name,
             amount_cents=amount_cents,
-            destination=destination,
+            scope=scope,
             description=description,
             date=date,
         )
@@ -191,7 +182,7 @@ class Household:
         description="",
         date=None,
     ):
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
 
         self.savings_tracker.withdraw(
             member_name=member_name,
@@ -209,6 +200,7 @@ class Household:
         amount_cents: int,
         payment_date: datetime | None = None,
         description="",
+        allow_overpayment: bool = False,
     ):
         """Registra un pago de deuda validando que no supera el compromiso del mes.
 
@@ -216,11 +208,13 @@ class Household:
         get_total_paid ya devuelve solo lo pagado en el período activo — sin filtrar
         por fechas. El histórico entre meses vive en BD (DebtRepository).
         """
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         committed = self._member_debts.get(member_name, 0)
         paid = self.debt_tracker.get_total_paid(member_name)
-        if paid + amount_cents > committed:
+
+        if not allow_overpayment and ((paid + amount_cents) > committed):
             raise ValueError(f"El pago supera el compromiso de deuda ({committed}¢)")
+
         self.debt_tracker.pay(member_name, amount_cents, description, date=payment_date)
 
     # ====== MONTH — BUCKETS ======
@@ -232,7 +226,7 @@ class Household:
     def deposit_to_bucket(
         self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
     ) -> None:
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         self.savings_tracker.deposit_to_bucket(
             bucket_id, member_name, amount_cents, date
         )
@@ -240,7 +234,7 @@ class Household:
     def withdraw_from_bucket(
         self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
     ) -> None:
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         self.savings_tracker.withdraw_from_bucket(
             bucket_id, member_name, amount_cents, date
         )
@@ -258,6 +252,7 @@ class Household:
         self._agreed_percentages = {}
         self._member_debts = {name: 0 for name in self.members}
         self._saving_goals = {name: 0 for name in self.members}
+        self._income_entries = list()
 
     # ====== QUERIES — REGISTRATION ======
 
@@ -273,51 +268,6 @@ class Household:
         return self._registered_incomes.copy()
 
     # ====== QUERIES — PLANNING ======
-    def add_income_entry(
-        self,
-        member_name: str,
-        amount_cents: int,
-        destination: IncomeDestination,
-        description: str = "",
-        category_name: str | None = None,
-        scope: IncomeDestination | None = None,
-    ):
-        self._validate_member_exist(member_name)
-        if category_name:
-            self._validate_category_exist(category_name)
-        if amount_cents <= 0:
-            raise ValueError("Amount debe ser positivo")
-
-        income_entry = IncomeEntry(
-            member_name=member_name,
-            amount_cents=amount_cents,
-            destination=destination,
-            description=description,
-            category_name=category_name,
-            scope=scope,
-        )
-        self._income_entries.append(income_entry)
-
-        if destination is IncomeDestination.DISTRIBUTION:
-            self._income_destination_distribution()
-        elif destination is IncomeDestination.SAVING:
-            self._income_destination_saving
-        elif destination is IncomeDestination.CATEGORY:
-            self._income_destination_category
-        elif destination is IncomeDestination.DEBT:
-            self._income_destination_debt
-
-    def _income_destination_distribution(self):
-        pass
-
-    def _income_destination_category(self):
-        pass
-
-    def _income_destination_debt(self):
-        pass
-
-    def _income_destination_saving(self):
-        pass
 
     def get_active_categories(self) -> list[str]:
         """Lista categorías activas"""
@@ -332,12 +282,14 @@ class Household:
         self.validate_has_members()
         self.validate_total_incomes_positive()
 
+        extra_incomes = [e.amount_cents for e in self._income_entries]
+
         # Usar datos congelados si están disponibles (PLANNING/MONTH)
         if self._registered_incomes:
-            incomes = list(self._registered_incomes.values())
+            incomes = list(self._registered_incomes.values()) + extra_incomes
         else:
             # Usar datos mutables solo en REGISTRATION
-            incomes = [m.monthly_income for m in self.members.values()]
+            incomes = [m.monthly_income for m in self.members.values()] + extra_incomes
 
         total = FinanceCalculator.sum_values(incomes)
         return total
@@ -346,34 +298,17 @@ class Household:
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
 
-    def get_missing_money(self):
-        """Calcula dinero no presupuestado (ingresos - total_budgeted).
-        Puede ser negativo si el presupuesto supera los ingresos."""
-        total_incomes = self.get_total_incomes()
-        total_budgeted = self.budget.get_total_budgeted()
-        return total_incomes - total_budgeted
-
-    def get_missing_money_by_member(self, name: str) -> int:
+    def get_reserve_contribution_by_member(self, name: str) -> int:
+        """Obtiene cuánto le corresponde a un miembro de la categoría auto-calculada (reserva) según el método activo"""
         name = normalize_name(name)
-        self._validate_member_exist(name)
-        income_map = self._registered_incomes or {
-            n: m.monthly_income for n, m in self.members.items()
-        }
-        missing_money = self.get_missing_money()
-
-        if self.method == MetodoReparto.CUSTOM:
-            return FinanceCalculator.calculate_contribution_from_custom_splits(
-                self._custom_splits, missing_money
-            )[name]
-        elif self.method == MetodoReparto.EQUAL:
-            equal_map = {n: 1 for n in income_map}
-            return FinanceCalculator.calculate_contribution_from_incomes(
-                equal_map, missing_money
-            )[name]
-        else:
-            return FinanceCalculator.calculate_contribution_from_incomes(
-                income_map, missing_money
-            )[name]
+        self.validate_member_exist(name)
+        auto_cat = self.budget.get_auto_calculated_category()
+        contributions = (
+            self.get_current_contributions()
+            .get(auto_cat.name, {})
+            .get("contributions", {})
+        )
+        return contributions.get(name, 0)
 
     def get_budget_as_percentage(self, category: str):
         """
@@ -435,6 +370,7 @@ class Household:
         income_map = self._registered_incomes or {
             name: m.monthly_income for name, m in self.members.items()
         }
+
         summary = {}
 
         for cat_name, category in self.budget.categories.items():
@@ -444,22 +380,17 @@ class Household:
                         self._custom_splits, category.planned_amount
                     )
                 )
+
+            elif method == MetodoReparto.EQUAL:
+                equal_income_map = {name: 1 for name in income_map}
+                contributions = FinanceCalculator.calculate_contribution_from_incomes(
+                    equal_income_map, category.planned_amount
+                )
+
             else:
-                # PROPORTIONAL y EQUAL ambos calculan desde ingresos directamente
-                # La diferencia está en cómo se ponderan (por ingreso o igual)
-                if method == MetodoReparto.EQUAL:
-                    equal_income_map = {name: 1 for name in income_map}
-                    contributions = (
-                        FinanceCalculator.calculate_contribution_from_incomes(
-                            equal_income_map, category.planned_amount
-                        )
-                    )
-                else:
-                    contributions = (
-                        FinanceCalculator.calculate_contribution_from_incomes(
-                            income_map, category.planned_amount
-                        )
-                    )
+                contributions = FinanceCalculator.calculate_contribution_from_incomes(
+                    income_map, category.planned_amount
+                )
 
             summary[cat_name] = {
                 "planned": category.planned_amount,
@@ -508,11 +439,26 @@ class Household:
         return self._saving_goals
 
     # ====== QUERIES — MONTH ======
+    def get_extra_income_entries(self):
+        """Obtiene ingresos extra registrados en MONTH"""
+        return self._income_entries.copy()
+
+    def recalculate_reserve(self):
+        """Recalcula la categoría auto-calculada (reserva) según ingresos y presupuestos actuales"""
+        reserve_cat = self.budget.get_auto_calculated_category()
+        total_incomes = self.get_total_incomes()
+        current_reserve = self.get_category_budget(reserve_cat.name)
+        other_budgeted = self.get_total_budgeted() - current_reserve
+
+        new_reserve_amount = reserve_cat.calculate_own_budget(
+            total_incomes, other_budgeted
+        )
+        self.budget.set_budget(reserve_cat.name, new_reserve_amount)
 
     def get_member_owed_total(self, member_name: str) -> int:
         """Cuánto acordó pagar el miembro"""
         member_name = normalize_name(member_name)
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         contributions = self.get_agreed_contributions()
         total = sum(
             cat_data["contributions"][member_name]
@@ -528,7 +474,7 @@ class Household:
     def get_member_balance(self, member_name: str) -> int:
         """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""
         member_name = normalize_name(member_name)
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         owed = self.get_member_owed_total(member_name)
         paid = self.get_member_paid_total(member_name)
 
@@ -555,13 +501,13 @@ class Household:
         return budgeted - spent
 
     def get_debt_status(self, member_name):
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         committed = self._member_debts.get(member_name, 0)
         paid = self.debt_tracker.get_total_paid(member_name)
         return {"committed": committed, "paid": paid, "remaining": committed - paid}
 
     def get_debt_history(self, member_name: str) -> list:
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         return self.debt_tracker.get_history(member_name)
 
     def get_member_savings_summary(self, member_name: str):
@@ -576,7 +522,7 @@ class Household:
         return self.savings_tracker.get_member_summary(member_name)
 
     def get_saving_goal_status(self, member_name):
-        self._validate_member_exist(member_name)
+        self.validate_member_exist(member_name)
         committed = self._saving_goals.get(member_name, 0)
         summary = self.get_member_savings_summary(member_name)
         paid = summary["balance_personal"] + summary["balance_shared"]
@@ -627,7 +573,7 @@ class Household:
         """Valida que una categoría existe en el presupuesto"""
         return self.budget._validate_category_exists(category)
 
-    def _validate_member_exist(self, member_name: str):
+    def validate_member_exist(self, member_name: str):
         """Valida que un miembro existe en el hogar"""
         member_name = normalize_name(member_name)
         if member_name not in self.members:

@@ -499,7 +499,9 @@ def test_set_budget_for_category_reassign_doesnt_double_count(household_with_mem
     assert reserva == (household_with_members.get_total_incomes() - 50000)
 
 
-def test_set_budget_over_ceiling_raises_error(household_with_members_and_child_categories):
+def test_set_budget_over_ceiling_raises_error(
+    household_with_members_and_child_categories,
+):
     """Asignar a una hija por encima del techo de su raíz lanza error."""
     _set_budget(household_with_members_and_child_categories, "fijos", 50000)
     _set_budget(household_with_members_and_child_categories, "vivienda", 30000)
@@ -550,7 +552,7 @@ def test_get_planning_summary_with_missing_money(household_with_members):
 
     # fijos=200000, reserva autocalcula=100000 → total=300000 == total_incomes
     assert summary["total_budgeted"] == 300000
-    assert summary["missing_money"]["total"] == 0
+    assert summary["missing_money"]["total"] == 100000
 
 
 def test_get_planning_summary_includes_contributions_preview(household_with_members):
@@ -572,7 +574,7 @@ def test_get_planning_summary_includes_debts(household_with_members):
 
     summary = SummaryService.get_planning_summary(household_with_members)
 
-    assert summary["missing_money"]["total"] == 0
+    assert summary["missing_money"]["total"] == 150000
 
 
 def test_get_planning_summary_raises_if_no_members(base_household):
@@ -901,27 +903,6 @@ def test_get_registration_summary_returns_correct_structure(household_with_membe
 # ====================================================
 
 
-def test_get_missing_money_returns_zero_when_reserva_fills_gap(
-    household_with_members,
-):
-    """missing_money = 0 porque reserva autocalcula y llena el gap"""
-    _set_budget(household_with_members, "fijos", 250000)
-    # reserva autocalcula a 50000 → total = 300000
-
-    missing_money = household_with_members.get_missing_money()
-
-    assert missing_money == 0
-
-
-def test_get_missing_money_zero_when_budget_equals_income(household_with_members):
-    """missing_money = 0 cuando presupuesto = ingresos"""
-    _set_budget(household_with_members, "fijos", 300000)
-
-    missing_money = household_with_members.get_missing_money()
-
-    assert missing_money == 0
-
-
 def test_get_missing_money_raises_when_over_budget(household_with_members):
     """set_budget_for_category bloquea presupuesto que supere los ingresos"""
     with pytest.raises(ValueError):
@@ -1230,7 +1211,7 @@ def test_get_month_summary_includes_missing_money(household_with_members):
     summary = SummaryService.get_month_summary(household_with_members)
 
     assert "missing_money" in summary
-    assert summary["missing_money"]["total"] == 0
+    assert summary["missing_money"]["total"] == 100000
 
 
 def test_get_month_summary_calculates_correctly(household_with_members):
@@ -1456,28 +1437,28 @@ def test_register_savings_withdrawal_delegates_to_tracker(household_with_members
     assert summary["balance_shared"] == 6000
 
 
-def test_get_missing_money_by_member_with_equal_method(household_with_members):
-    """Test: missing_money es 0 porque reserva autocalcula y llena el gap"""
+def test_get_reserve_contribution_by_member_with_equal_method(household_with_members):
+    """Reserva (100000, sobre total 300000) se reparte EQUAL entre los 2 miembros"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     _set_budget(household_with_members, "fijos", 200000)
-    # reserva autocalcula a 100000 → total = 300000 → missing = 0
+    # reserva autocalcula a 100000 → EQUAL → 50000 cada uno
 
-    loose_m1 = household_with_members.get_missing_money_by_member("member1")
-    loose_m2 = household_with_members.get_missing_money_by_member("member2")
+    share_m1 = household_with_members.get_reserve_contribution_by_member("member1")
+    share_m2 = household_with_members.get_reserve_contribution_by_member("member2")
 
-    assert loose_m1 == 0
-    assert loose_m2 == 0
+    assert share_m1 == 50000
+    assert share_m2 == 50000
 
 
-def test_get_missing_money_by_member_with_custom_method(household_with_members):
-    """Test: missing_money es 0 con método custom también"""
+def test_get_reserve_contribution_by_member_with_custom_method(household_with_members):
+    """Reserva (100000) se reparte según los splits CUSTOM (70/30)"""
     household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
     household_with_members.assign_distribution_method(MetodoReparto.CUSTOM)
     _set_budget(household_with_members, "fijos", 200000)
-    # reserva autocalcula a 100000 → missing = 0
+    # reserva autocalcula a 100000 → CUSTOM 70/30 → 70000 / 30000
 
-    loose_m1 = household_with_members.get_missing_money_by_member("member1")
-    assert loose_m1 == 0
+    share_m1 = household_with_members.get_reserve_contribution_by_member("member1")
+    assert share_m1 == 70000
 
 
 # ====================================================
@@ -1605,7 +1586,7 @@ def test_get_settlement_ignores_non_shared_expenses(household_with_members):
         )
     )
 
-    transfers =  _get_settlement(household_with_members)
+    transfers = _get_settlement(household_with_members)
 
     assert len(transfers) == 1
     assert transfers[0]["amount"] == 5000  # solo el gasto compartido cuenta

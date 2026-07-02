@@ -59,7 +59,7 @@ with DatabaseConnection(
         household_repo=household_repo,
         member_repo=member_repo,
         period_repo=period_repo,
-        debt_repo=debt_repo
+        debt_repo=debt_repo,
     )
 
     # =============================================
@@ -100,10 +100,7 @@ with DatabaseConnection(
     for cat in wm.get_active_categories():
         budget = wm.get_category_budget(cat)
         pct = wm.get_budget_as_percentage(cat)
-        print(
-            f"  {cat.title():<12} {to_euros(budget):>10}"
-            f"  ({format_percentage(pct)})"
-        )
+        print(f"  {cat.title():<12} {to_euros(budget):>10}  ({format_percentage(pct)})")
 
     # --- Desglose de "fijos" en subcategorías (árbol: fijos es el techo) ---
     wm.add_category("alquiler", parent="fijos")
@@ -205,7 +202,9 @@ with DatabaseConnection(
     print("  Heri:   supermercado 150€")
 
     # --- Pagos de deuda ---
-    wm.register_debt_payment(member="amanda", amount_euros=118.90, description="Cuota préstamo coche")
+    wm.register_debt_payment(
+        member="amanda", amount_euros=118.90, description="Cuota préstamo coche"
+    )
     print(
         f"\nDeuda Amanda: pago único {to_euros(wm.get_debt_status('amanda')['paid'])}"
     )
@@ -237,6 +236,20 @@ with DatabaseConnection(
         f"\nBucket '{bucket.bucket_name}': "
         f"{to_euros(bucket.balance)} / {to_euros(bucket.goal)} ({pct_meta}%)"
     )
+
+    # --- Agregar un ingreso extra ---
+    wm.add_income_entry("Amanda", 200.0, "Venta de bicicleta")
+    extra_incomes = wm.get_extra_income_entries()
+    print(
+        f"\nIngreso extra registrado: {extra_incomes[0].member_name.title()} - {to_euros(extra_incomes[0].amount_cents)} - {extra_incomes[0].description}"
+    )
+    new_reserve = wm.get_category_budget("reserva")
+
+    print(to_euros(new_reserve))
+    for member in ["amanda", "heri"]:
+        print(
+            f"{member.title()}: {to_euros(wm.get_reserve_contribution_by_member(member))}"
+        )
 
     # =============================================
     # CONSULTAS EN MONTH
@@ -336,6 +349,3 @@ with DatabaseConnection(
         print(f"  {member.title()}: Deuda {debt_ok} | Ahorro {saving_ok}")
 
     print("\n[OK] Mes cerrado.")
-
-
-# ====== C ======

@@ -32,10 +32,12 @@ class SummaryService:
         debts = household.get_member_debts()
         saving_goals = household.get_saving_goals()
         total_budgeted = household.get_total_budgeted()
-        missing_money = total_incomes - total_budgeted
+        
         missing_money_by_member = {
-            name: household.get_missing_money_by_member(name) for name in members
+            name: household.get_reserve_contribution_by_member(name) for name in members
         }
+        missing_money = sum(missing_money_by_member.values())
+        
         percentages = household.get_percentages_by_method(household.method)
 
         contributions = household.get_current_contributions()
@@ -69,7 +71,7 @@ class SummaryService:
     def get_member_status(household: Household, member_name: str) -> dict:
         """Retorna dict: {income, owed, paid, balance, contributions_by_category}"""
         member_name = normalize_name(member_name)
-        household._validate_member_exist(member_name)
+        household.validate_member_exist(member_name)
         # Totales
         member_income = household.members[member_name].monthly_income
 
@@ -141,10 +143,10 @@ class SummaryService:
                 }
             },
             "missing_money": {
-                "total": 0,
+                "total": 100000,   # parte de reserva sin asignar a categoría/ahorro/deuda
                 "by_member": {
-                    "amanda": 0,
-                    "heri":   0
+                    "amanda": 60000,
+                    "heri":   40000
                 }
             }
         }
@@ -154,10 +156,12 @@ class SummaryService:
         members = household.members.keys()
         total_budgeted = household.get_total_budgeted()
 
-        missing_money_total = household.get_missing_money()
         missing_money_by_member = {
-            member: household.get_missing_money_by_member(member) for member in members
+            member: household.get_reserve_contribution_by_member(member)
+            for member in members
         }
+        missing_money = sum(missing_money_by_member.values())
+
         total_spent = household.get_total_spent()
         total_remaining = household.get_total_remaining()
 
@@ -188,7 +192,7 @@ class SummaryService:
             "by_category": by_category,
             "by_member": by_member,
             "missing_money": {
-                "total": missing_money_total,
+                "total": missing_money,
                 "by_member": missing_money_by_member,
             },
         }

@@ -303,7 +303,7 @@ def test_get_planning_summary_in_planning_phase(wm):
     assert summary["members"] == ["amanda"]
     assert summary["total_household_income"] == 1000000
     assert summary["total_budgeted"] == 1000000
-    assert summary["missing_money"]["total"] == 0
+    assert summary["missing_money"]["total"] == 200000
     assert "distribution_percentages" in summary
     assert "contributions_preview" in summary
 

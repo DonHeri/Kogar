@@ -2,8 +2,8 @@ from enum import Enum
 
 
 class SavingScope(Enum):
-    SHARED = "ahorro que contribuye al fondo conjunto del hogar"
-    PERSONAL = "ahorro que solo pertenece al miembro, no se agrega al hogar"
+    SHARED = "shared"
+    PERSONAL = "personal"
 
 
 class MetodoReparto(Enum):
@@ -33,18 +33,3 @@ class Phase(Enum):
     @classmethod
     def get_values(cls):
         return [phase.value for phase in cls]
-
-
-class IncomeDestination(Enum):
-    DISTRIBUTION = "distribution"
-    CATEGORY = "category"
-    SAVING = "saving"
-    DEBT = "debt"
-
-    @classmethod
-    def get_names(cls):
-        return [destination.name for destination in cls]
-
-    @classmethod
-    def get_values(cls):
-        return [destination.value for destination in cls]
