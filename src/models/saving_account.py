@@ -29,7 +29,7 @@ class SavingAccount:
 
     def deposit(
         self,
-        destination: SavingScope,
+        scope: SavingScope,
         amount_cents: int,
         description: str = "",
         date: datetime | None = None,
@@ -38,7 +38,7 @@ class SavingAccount:
         Registra un depósito en la cuenta.
 
         Args:
-            destination: PERSONAL o SHARED
+            scope: PERSONAL o SHARED
             amount_cents: Monto en céntimos, debe ser positivo
             description: Descripción opcional del movimiento
             date: Fecha del depósito. Si no se indica, usa la fecha actual
@@ -48,7 +48,7 @@ class SavingAccount:
         self._entries.append(
             SavingEntry(
                 amount_cents=amount_cents,
-                destination=destination,
+                scope=scope,
                 description=description.lower().strip(),
                 date=date or datetime.now(),
             )
@@ -56,40 +56,40 @@ class SavingAccount:
 
     def withdraw(
         self,
-        destination: SavingScope,
+        scope: SavingScope,
         amount_cents: int,
         description: str = "",
         date: datetime | None = None,
     ) -> None:
         """
-        Registra un retiro de la cuenta si hay saldo suficiente en el destino indicado.
+        Registra un retiro de la cuenta si hay saldo suficiente en el ámbito indicado.
 
         Args:
-            destination: PERSONAL o SHARED — el retiro se hace del fondo indicado
+            scope: PERSONAL o SHARED — el retiro se hace del fondo indicado
             amount_cents: Monto en céntimos, debe ser positivo
             description: Descripción opcional del movimiento
             date: Fecha del retiro. Si no se indica, usa la fecha actual
 
         Raises:
-            ValueError: Si el saldo disponible en el destino es insuficiente
+            ValueError: Si el saldo disponible en el ámbito es insuficiente
         """
         self._validate_valid_amount(amount_cents, "amount_cents")
 
         available = (
             self.balance_personal
-            if destination == SavingScope.PERSONAL
+            if scope == SavingScope.PERSONAL
             else self.balance_shared
         )
         if amount_cents > available:
             raise ValueError(
-                f"Saldo insuficiente en {destination.value}. "
+                f"Saldo insuficiente en {scope.value}. "
                 f"Disponible: {available} céntimos"
             )
 
         self._entries.append(
             SavingEntry(
                 amount_cents=-amount_cents,
-                destination=destination,
+                scope=scope,
                 description=description.lower().strip(),
                 date=date or datetime.now(),
             )
@@ -108,7 +108,7 @@ class SavingAccount:
         return sum(
             entry.amount_cents
             for entry in self._entries
-            if entry.destination == SavingScope.SHARED
+            if entry.scope == SavingScope.SHARED
         )
 
     @property
@@ -117,7 +117,7 @@ class SavingAccount:
         return sum(
             entry.amount_cents
             for entry in self._entries
-            if entry.destination == SavingScope.PERSONAL
+            if entry.scope == SavingScope.PERSONAL
         )
 
     # ====== HISTORIAL ======
@@ -137,12 +137,12 @@ class SavingAccount:
             "personal": sum(
                 e.amount_cents
                 for e in entries
-                if e.destination == SavingScope.PERSONAL
+                if e.scope == SavingScope.PERSONAL
             ),
             "shared": sum(
                 e.amount_cents
                 for e in entries
-                if e.destination == SavingScope.SHARED
+                if e.scope == SavingScope.SHARED
             ),
         }
 

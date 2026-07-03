@@ -386,9 +386,9 @@ history = wm.get_debt_history("Amanda")
 
 ## Fase MONTH — Ahorro en cuenta
 
-### `register_savings_deposit(member, amount_euros, destination, description="", date=None)`
+### `register_savings_deposit(member, amount_euros, scope, description="", date=None)`
 
-Registra un depósito en la cuenta de ahorro. `destination` indica si es `PERSONAL` o `SHARED`.
+Registra un depósito en la cuenta de ahorro. `scope` indica si es `PERSONAL` o `SHARED`.
 
 ```python
 from src.models.constants import SavingScope
@@ -396,7 +396,7 @@ wm.register_savings_deposit("Amanda", 300.0, SavingScope.PERSONAL, "ahorro mensu
 wm.register_savings_deposit("Heri", 150.0, SavingScope.SHARED, "fondo común")
 ```
 
-### `register_savings_withdrawal(member, amount_euros, destination, description="", date=None)`
+### `register_savings_withdrawal(member, amount_euros, scope, description="", date=None)`
 
 Registra un retiro de la cuenta de ahorro. No puede superar el saldo disponible.
 

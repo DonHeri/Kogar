@@ -22,12 +22,12 @@ def account():
 def account_with_funds(account):
     """Cuenta con fondos: 100€ PERSONAL y 50€ SHARED"""
     account.deposit(
-        destination=SavingScope.PERSONAL,
+        scope=SavingScope.PERSONAL,
         amount_cents=to_cents(100.0),
         description="Ahorro inicial personal",
     )
     account.deposit(
-        destination=SavingScope.SHARED,
+        scope=SavingScope.SHARED,
         amount_cents=to_cents(50.0),
         description="Fondo común",
     )
@@ -67,7 +67,7 @@ def test_creation_whitespace_name_raises_error():
 def test_deposit_adds_entry_with_correct_data(account):
     """Test: Realizar un depósito agrega un SavingEntry correcto"""
     account.deposit(
-        destination=SavingScope.PERSONAL,
+        scope=SavingScope.PERSONAL,
         amount_cents=to_cents(150.0),
         description="Regalo cumpleaños",
         date=datetime(2026, 1, 15),
@@ -76,7 +76,7 @@ def test_deposit_adds_entry_with_correct_data(account):
     entries = account.get_history()
     assert len(entries) == 1
     assert entries[0].amount_cents == 15000
-    assert entries[0].destination == SavingScope.PERSONAL
+    assert entries[0].scope == SavingScope.PERSONAL
     assert entries[0].description == "regalo cumpleaños"  # stored stripped and lowered
     assert entries[0].date == datetime(2026, 1, 15)
 
@@ -84,7 +84,7 @@ def test_deposit_adds_entry_with_correct_data(account):
 def test_deposit_normalizes_description(account):
     """Test: El depósito normaliza la descripción (strip y minúsculas)"""
     account.deposit(
-        destination=SavingScope.SHARED,
+        scope=SavingScope.SHARED,
         amount_cents=to_cents(20.0),
         description="   BONUS EXTRA   ",
     )
@@ -130,7 +130,7 @@ def test_withdraw_adds_negative_entry_and_reduces_balance(account_with_funds):
     """Test: Retirar fondos agrega un entry negativo y reduce saldo"""
     # account_with_funds tiene 100€ (10000 céntimos) PERSONAL
     account_with_funds.withdraw(
-        destination=SavingScope.PERSONAL,
+        scope=SavingScope.PERSONAL,
         amount_cents=to_cents(40.0),
         description="Compra capricho",
         date=datetime(2026, 2, 10),
@@ -139,7 +139,7 @@ def test_withdraw_adds_negative_entry_and_reduces_balance(account_with_funds):
     entries = account_with_funds.get_history()
     assert len(entries) == 3  # 2 depósitos iniciales + 1 retiro
     assert entries[-1].amount_cents == -4000
-    assert entries[-1].destination == SavingScope.PERSONAL
+    assert entries[-1].scope == SavingScope.PERSONAL
     assert entries[-1].description == "compra capricho"
     assert account_with_funds.balance_personal == 6000  # 100€ - 40€ = 60€
 
@@ -152,12 +152,12 @@ def test_withdraw_insufficient_funds_raises_error(account_with_funds):
         match=f"Saldo insuficiente en {SavingScope.SHARED.value}. Disponible: 5000 céntimos",
     ):
         account_with_funds.withdraw(
-            destination=SavingScope.SHARED, amount_cents=to_cents(60.0)
+            scope=SavingScope.SHARED, amount_cents=to_cents(60.0)
         )
 
 
-def test_withdraw_does_not_mix_destinations(account_with_funds):
-    """Test: Retiro evalúa solo el saldo del destino correspondiente"""
+def test_withdraw_does_not_mix_scopes(account_with_funds):
+    """Test: Retiro evalúa solo el saldo del ámbito correspondiente"""
     # Tiene 100€ PERSONAL y 50€ SHARED. Total = 150€.
     # Intentar retirar 80€ SHARED debe fallar aunque el balance total lo cubra.
     with pytest.raises(
@@ -165,7 +165,7 @@ def test_withdraw_does_not_mix_destinations(account_with_funds):
         match=f"Saldo insuficiente en {SavingScope.SHARED.value}. Disponible: 5000 céntimos",
     ):
         account_with_funds.withdraw(
-            destination=SavingScope.SHARED, amount_cents=to_cents(80.0)
+            scope=SavingScope.SHARED, amount_cents=to_cents(80.0)
         )
 
 
@@ -180,8 +180,8 @@ def test_withdraw_zero_amount_raises_error(account_with_funds):
 # ====================================================
 
 
-def test_balance_total_sums_all_destinations(account_with_funds):
-    """Test: balance_total suma ahorros de todas las destinaciones"""
+def test_balance_total_sums_all_scopes(account_with_funds):
+    """Test: balance_total suma ahorros de todos los ámbitos"""
     # 100€ + 50€ = 150€ = 15000 céntimos
     assert account_with_funds.balance_total == 15000
 

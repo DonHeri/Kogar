@@ -17,7 +17,7 @@ class SavingEntry:
     """
 
     amount_cents: int
-    destination: SavingScope
+    scope: SavingScope
     description: str = ""
     date: datetime = field(default_factory=datetime.now)
 

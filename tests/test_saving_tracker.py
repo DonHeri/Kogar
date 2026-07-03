@@ -127,7 +127,7 @@ def test_withdraw_raises_error_if_insufficient_funds(tracker_with_funds):
 
 
 def test_get_shared_balance_returns_only_shared_funds(tracker_with_funds):
-    """Test: get_shared_balance retorna suma de destination SHARED"""
+    """Test: get_shared_balance retorna suma de scope SHARED"""
     # Arrange & Act
     balance = tracker_with_funds.get_shared_balance("amanda")
 
@@ -142,7 +142,7 @@ def test_get_history_shared_returns_only_shared_entries(tracker_with_funds):
 
     # Assert
     assert len(history) == 1
-    assert history[0].destination == SavingScope.SHARED
+    assert history[0].scope == SavingScope.SHARED
     assert history[0].amount_cents == 10000
 
 
@@ -234,7 +234,7 @@ def test_get_total_shared_history_returns_dict_of_shared_entries(tracker_with_fu
     assert "amanda" in history
     assert "heri" in history
     assert len(history["amanda"]) == 1
-    assert history["amanda"][0].destination == SavingScope.SHARED
+    assert history["amanda"][0].scope == SavingScope.SHARED
     assert len(history["heri"]) == 1
 
 

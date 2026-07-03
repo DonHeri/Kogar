@@ -178,7 +178,7 @@ class Household:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingScope,
+        scope: SavingScope,
         description="",
         date=None,
     ):
@@ -187,7 +187,7 @@ class Household:
         self.savings_tracker.withdraw(
             member_name=member_name,
             amount_cents=amount_cents,
-            destination=destination,
+            scope=scope,
             description=description,
             date=date,
         )

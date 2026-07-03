@@ -8,7 +8,7 @@ class DebtAccount:
     Cuenta de deuda individual de un miembro.
 
     Gestiona pagos de deuda personal. A diferencia de SavingAccount:
-    - No tiene destination (PERSONAL/SHARED) — la deuda siempre es personal
+    - No tiene scope (PERSONAL/SHARED) — la deuda siempre es personal
     - No tiene retiros — un pago de deuda no se "deshace"
     - El balance representa lo pagado, no lo que queda por pagar
 

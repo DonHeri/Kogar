@@ -46,7 +46,7 @@ class SavingTracker:
     ):
         self._accounts[member_name].deposit(
             amount_cents=amount_cents,
-            destination=scope,
+            scope=scope,
             description=description,
             date=date,
         )
@@ -55,13 +55,13 @@ class SavingTracker:
         self,
         member_name: str,
         amount_cents: int,
-        destination: SavingScope,
+        scope: SavingScope,
         description="",
         date=None,
     ):
         self._accounts[member_name].withdraw(
             amount_cents=amount_cents,
-            destination=destination,
+            scope=scope,
             description=description,
             date=date,
         )
@@ -112,10 +112,10 @@ class SavingTracker:
             member_name: Nombre normalizado del miembro
 
         Returns:
-            list[SavingEntry]: Entries con destination=SHARED del miembro
+            list[SavingEntry]: Entries con scope=SHARED del miembro
         """
         history = self._accounts[member_name].get_history()
-        return [e for e in history if e.destination == SavingScope.SHARED]
+        return [e for e in history if e.scope == SavingScope.SHARED]
 
     def get_member_summary(self, member_name: str) -> dict:
         """Retorna summary de ahorro del usuario"""
@@ -156,7 +156,7 @@ class SavingTracker:
             result[name] = [
                 entry
                 for entry in account.get_history()
-                if entry.destination == SavingScope.SHARED
+                if entry.scope == SavingScope.SHARED
                 and start_date <= entry.date.date() <= end_date
             ]
 
@@ -166,7 +166,7 @@ class SavingTracker:
         """Historial completo de movimientos compartidos de todos los miembros"""
         return {
             name: [
-                e for e in account.get_history() if e.destination == SavingScope.SHARED
+                e for e in account.get_history() if e.scope == SavingScope.SHARED
             ]
             for name, account in self._accounts.items()
         }

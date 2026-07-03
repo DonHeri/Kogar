@@ -7,7 +7,7 @@ class DebtEntry:
     """
     Registro inmutable de un pago de deuda.
 
-    A diferencia de SavingEntry, no tiene destination:
+    A diferencia de SavingEntry, no tiene scope:
     la deuda siempre es personal y el dinero sale del hogar
     hacia un acreedor externo.
 
