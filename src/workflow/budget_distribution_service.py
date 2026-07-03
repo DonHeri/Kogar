@@ -6,22 +6,28 @@ from src.utils.text import normalize_name
 
 class BudgetDistributionService:
     @staticmethod
-    def set_budget_for_category(household: Household, category: str, amount_cents: int) -> None:
+    def set_budget_for_category(
+        household: Household, category: str, amount_cents: int
+    ) -> None:
         """Asigna presupuesto a una categoría en PLANNING. La reserva se ajusta sola."""
-        if isinstance(
-            household.budget.get_category(category), AutoCalculatedCategory
-        ):
+        if isinstance(household.budget.get_category(category), AutoCalculatedCategory):
             raise ValueError("Reserva se autocalcula")
 
         category = normalize_name(category)
 
         if household.budget.categories[category].parent is None:
-            BudgetDistributionService._set_root_budget(household, category, amount_cents)
+            BudgetDistributionService._set_root_budget(
+                household, category, amount_cents
+            )
         else:
-            BudgetDistributionService._set_child_budget(household, category, amount_cents)
+            BudgetDistributionService._set_child_budget(
+                household, category, amount_cents
+            )
 
     @staticmethod
-    def _set_root_budget(household: Household, category: str, amount_cents: int) -> None:
+    def _set_root_budget(
+        household: Household, category: str, amount_cents: int
+    ) -> None:
         """Raíz: cuenta contra los ingresos y recalcula la reserva."""
         reserve_cat = household.budget.get_auto_calculated_category()
         total_incomes = household.get_total_incomes()
@@ -45,7 +51,9 @@ class BudgetDistributionService:
         )
 
     @staticmethod
-    def _set_child_budget(household: Household, category: str, amount_cents: int) -> None:
+    def _set_child_budget(
+        household: Household, category: str, amount_cents: int
+    ) -> None:
         """Hija: se mueve dentro del techo de su raíz, sin tocar la reserva."""
         parent_name = household.budget.categories[category].parent
         ceiling = household.get_category_budget(parent_name)

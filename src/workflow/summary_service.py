@@ -32,12 +32,12 @@ class SummaryService:
         debts = household.get_member_debts()
         saving_goals = household.get_saving_goals()
         total_budgeted = household.get_total_budgeted()
-        
+
         missing_money_by_member = {
             name: household.get_reserve_contribution_by_member(name) for name in members
         }
         missing_money = sum(missing_money_by_member.values())
-        
+
         percentages = household.get_percentages_by_method(household.method)
 
         contributions = household.get_current_contributions()

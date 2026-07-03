@@ -6,6 +6,7 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
 from src.storage.debt_repository import DebtRepository
+from src.storage.saving_repository import SavingRepository
 from src.storage.income_entry_repo import IncomeEntryRepository
 from src.models.period import Period
 
@@ -33,6 +34,7 @@ class WorkflowManager:
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
         debt_repo: DebtRepository | None = None,
+        saving_repo: SavingRepository | None = None,
         income_entry_repo: IncomeEntryRepository | None = None,
     ) -> None:
         self.household = household
@@ -43,6 +45,7 @@ class WorkflowManager:
         self.period_repo = period_repo
         self.expense_repo = expense_repo
         self.debt_repo = debt_repo
+        self.saving_repo = saving_repo
         self.income_entry_repo = income_entry_repo
         self.period_id: int | None = None
         self.period: Period | None = None
@@ -390,7 +393,7 @@ class WorkflowManager:
         self,
         member: str,
         amount_euros: float,
-        destination: SavingScope,
+        scope: SavingScope,
         description: str = "",
         date=None,
     ) -> None:
@@ -399,14 +402,23 @@ class WorkflowManager:
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.register_savings_deposit(
-            member, amount_cents, destination, description, date
+            member, amount_cents, scope, description, date
         )
+        if self.saving_repo and self.period_id and member in self.member_ids:
+            self.saving_repo.save(
+                period_id=self.period_id,
+                member_id=self.member_ids[member],
+                amount_cents=amount_cents,
+                scope=scope,
+                description=description,
+                saving_date=date or datetime.now(),
+            )
 
     def register_savings_withdrawal(
         self,
         member: str,
         amount_euros: float,
-        destination: SavingScope,
+        scope: SavingScope,
         description: str = "",
         date=None,
     ) -> None:
@@ -415,8 +427,17 @@ class WorkflowManager:
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.register_savings_withdrawal(
-            member, amount_cents, destination, description, date
+            member, amount_cents, scope, description, date
         )
+        if self.saving_repo and self.period_id and member in self.member_ids:
+            self.saving_repo.save(
+                period_id=self.period_id,
+                member_id=self.member_ids[member],
+                amount_cents=-amount_cents,
+                scope=scope,
+                description=description,
+                saving_date=date or datetime.now(),
+            )
 
     def get_member_savings_summary(self, member: str) -> dict:
         """Retorna resumen de ahorro de un miembro (PLANNING+)"""
