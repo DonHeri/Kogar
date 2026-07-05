@@ -5,9 +5,12 @@ from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
-from src.storage.debt_repository import DebtRepository
-from src.storage.saving_repository import SavingRepository
-from src.storage.income_entry_repo import IncomeEntryRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
+from src.storage.saving_entry_repository import SavingEntryRepository
+from src.storage.income_entry_repository import IncomeEntryRepository
+from src.storage.saving_buckets_repository import SavingBucketRepository
+from src.storage.bucket_entry_repository import BucketEntryRepository
+
 from src.models.period import Period
 
 from src.models.category import Category
@@ -33,9 +36,11 @@ class WorkflowManager:
         member_repo: MemberRepository | None = None,
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
-        debt_repo: DebtRepository | None = None,
-        saving_repo: SavingRepository | None = None,
+        debt_repo: DebtEntryRepository | None = None,
+        saving_repo: SavingEntryRepository | None = None,
         income_entry_repo: IncomeEntryRepository | None = None,
+        bucket_entry_repo: BucketEntryRepository | None = None,
+        saving_buckets_repo: SavingBucketRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
@@ -47,6 +52,8 @@ class WorkflowManager:
         self.debt_repo = debt_repo
         self.saving_repo = saving_repo
         self.income_entry_repo = income_entry_repo
+        self.bucket_entry_repo = bucket_entry_repo
+        self.saving_buckets_repo = saving_buckets_repo
         self.period_id: int | None = None
         self.period: Period | None = None
         self.household_id: int | None = None
@@ -478,6 +485,13 @@ class WorkflowManager:
 
         bucket_id = self.household.add_saving_bucket(bucket)
 
+        if self.saving_buckets_repo and self.household_id:
+            self.saving_buckets_repo.save(
+                saving_bucket=bucket,
+                household_id=self.household_id,
+                member_ids=self.member_ids,
+            )
+
         return bucket_id
 
     def deposit_to_bucket(
@@ -489,6 +503,15 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.deposit_to_bucket(bucket_id, member, amount_cents, date)
 
+        if self.bucket_entry_repo and self.period_id and member in self.member_ids:
+            self.bucket_entry_repo.save(
+                period_id=self.period_id,
+                bucket_id=bucket_id,
+                member_id=self.member_ids[member],
+                amount_cents=amount_cents,
+                entry_date=date or datetime.now(),
+            )
+
     def withdraw_from_bucket(
         self, bucket_id: UUID, member: str, amount_euros: float, date=None
     ) -> None:
@@ -497,6 +520,15 @@ class WorkflowManager:
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.withdraw_from_bucket(bucket_id, member, amount_cents, date)
+
+        if self.bucket_entry_repo and self.period_id and member in self.member_ids:
+            self.bucket_entry_repo.save(
+                period_id=self.period_id,
+                bucket_id=bucket_id,
+                member_id=self.member_ids[member],
+                amount_cents=-amount_cents,
+                entry_date=date or datetime.now(),
+            )
 
     def get_bucket_by_id(self, bucket_id: UUID):
         """Obtiene un bucket por su UUID (PLANNING+)"""
