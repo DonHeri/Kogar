@@ -29,7 +29,7 @@ from src.storage.connection import DatabaseConnection
 from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
-from src.storage.debt_repository import DebtRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 with DatabaseConnection(
@@ -42,7 +42,7 @@ with DatabaseConnection(
     household_repo = HouseholdRepository(conn)
     member_repo = MemberRepository(conn)
     period_repo = PeriodRepository(conn)
-    debt_repo = DebtRepository(conn)
+    debt_repo = DebtEntryRepository(conn)
     # =============================================
     # SETUP — Instanciar todo
     # =============================================

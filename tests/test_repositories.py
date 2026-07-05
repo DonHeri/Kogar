@@ -8,7 +8,7 @@ from src.models.constants import Phase
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
-from src.storage.debt_repository import DebtRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
 from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 # ===============================================
@@ -184,7 +184,7 @@ def period_id(period_repo, household_id):
 @pytest.fixture
 def debt_repo(conn):
     """Repositorio de deuda con conexión de test"""
-    return DebtRepository(conn)
+    return DebtEntryRepository(conn)
 
 
 # ===============================================

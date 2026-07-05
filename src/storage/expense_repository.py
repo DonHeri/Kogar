@@ -8,9 +8,7 @@ class ExpenseRepository:
         self.db = db
         self.cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def save(
-        self, expense: Expense, period_id: int, member_ids: dict[str, int]
-    ) -> int:
+    def save(self, expense: Expense, period_id: int, member_ids: dict[str, int]) -> int:
         """Inserta en expenses y luego por cada nombre en expense.participants busca su member_id e inserta en expense_participants. Devuelve el expense_id."""
         amount_cents = expense.amount
         payer_id = member_ids[expense.member]
@@ -27,7 +25,7 @@ class ExpenseRepository:
         )
         expense_id = self.cursor.fetchone()["id"]
 
-        for member in expense.participants:  # TODO
+        for member in expense.participants:  
             self.cursor.execute(
                 """ 
                 INSERT INTO expense_participants (expense_id,member_id)
@@ -64,4 +62,3 @@ class ExpenseRepository:
             (period_id,),
         )
         return self.cursor.fetchall()
-
