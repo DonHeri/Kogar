@@ -6,6 +6,14 @@ from src.models.constants import SavingScope
 
 
 class SavingBucket:
+    """
+    Representa un Bucket de ahorro, que puede ser personal o compartido.
+    Un Bucket tiene un objetivo de ahorro, un conjunto de miembros (owners) y un historial de movimientos (entries).
+    Cada bucket tiene un identificador único (UUID) que lo distingue de otros buckets.
+
+    deadline: fecha límite opcional; None = sin plazo fijo
+    """
+
     def __init__(
         self,
         bucket_name: str,
@@ -17,6 +25,7 @@ class SavingBucket:
     ) -> None:
 
         self._validate_valid_amount(goal_cents, "goal_cents")
+        self._validate_non_empty_string(bucket_name, "bucket_name")
 
         self._id = uuid4()
         self.bucket_name = bucket_name
@@ -79,7 +88,7 @@ class SavingBucket:
                 amount_cents=amount_cents,
                 member_name=member_name,
                 date=date or datetime.now(),
-            ) 
+            )
         )
 
     def withdraw(
@@ -158,4 +167,3 @@ class SavingBucket:
             raise TypeError(f"{field_name} debe ser entero")
         if value <= 0:
             raise ValueError(f"{field_name} debe ser distinto a 0")
-    
