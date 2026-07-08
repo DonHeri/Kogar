@@ -27,7 +27,7 @@ class PeriodRepository:
         )
         return self.cursor.fetchone()["id"]
 
-    def get_by_id(self, period_id: int) -> Period | None:
+    def find_by_id(self, period_id: int) -> Period | None:
         self.cursor.execute(
             "SELECT * FROM household_periods WHERE id = %s", (period_id,)
         )

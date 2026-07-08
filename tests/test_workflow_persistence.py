@@ -180,7 +180,7 @@ def test_period_status_is_month_after_planning(wm_pre_planning):
     """finish_planning actualiza el período a status=MONTH en BD"""
     wm_pre_planning.finish_planning()
 
-    status = wm_pre_planning.period_repo.get_by_id(wm_pre_planning.period_id).status
+    status = wm_pre_planning.period_repo.find_by_id(wm_pre_planning.period_id).status
 
     assert status == Phase.MONTH
 
@@ -189,7 +189,7 @@ def test_period_status_is_closing_after_month(wm_pre_month):
     """finish_month actualiza el período a status=CLOSING en BD"""
     wm_pre_month.finish_month()
 
-    status = wm_pre_month.period_repo.get_by_id(wm_pre_month.period_id).status
+    status = wm_pre_month.period_repo.find_by_id(wm_pre_month.period_id).status
 
     assert status == Phase.CLOSING
 

@@ -25,7 +25,7 @@ class HouseholdRepository:
         self.cursor.execute("SELECT * FROM households;")
         return self.cursor.fetchall()
 
-    def get_household(self, household_id: int):
+    def find_by_id(self, household_id: int):
 
         self.cursor.execute(
             "SELECT * FROM households WHERE id = (%s);", (household_id,)
