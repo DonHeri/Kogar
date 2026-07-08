@@ -2,7 +2,7 @@
 
 Gestión financiera para hogares compartidos. Resuelve _cuánto debe pagar cada miembro del núcleo familiar, acorde a como quieran hacer el reparto_, registra gastos del mes y calcula transferencias mínimas para saldar las cuentas.
 
-> _Estado_: core de dominio funcional y testeado. Persistencia parcial en PostgreSQL (miembros, períodos, gastos, deuda); budget, categorías y ahorro aún viven en memoria. Sin UI.
+> _Estado_: core de dominio funcional y testeado. Persistencia en PostgreSQL de miembros, períodos, gastos, deuda, categorías de presupuesto y ahorro (entradas y buckets); falta reconstruir el `Household` completo desde BD entre requests. Sin UI.
 
 ---
 
@@ -40,7 +40,7 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - No hay interfaz de usuario (solo API de Python).
 
-- Persistencia parcial: se guardan miembros, períodos, gastos y deuda; faltan budget, categorías y ahorro, y reconstruir el estado del hogar desde BD entre requests.
+- Persistencia por escritura: se guardan miembros, períodos, gastos, deuda, categorías de presupuesto y ahorro. Falta el lado de lectura — reconstruir el `Household` en memoria desde BD entre requests (necesario para una API stateless).
 
 - No hay histórico multi-mes ni comparativas.
 
@@ -108,7 +108,12 @@ docs/workflow_manager_api.md
 
 Arquitectura en 3 capas:
 
-- **`WorkflowManager`** — fachada pública. Valida la fase, convierte euros↔céntimos, normaliza nombres, crea objetos de dominio. Único punto de entrada desde el exterior.
+- **`WorkflowManager`** — fachada pública. Valida la fase, convierte euros↔céntimos, normaliza nombres, crea objetos de dominio. Único punto de entrada desde el exterior. Delega la lógica que no es puro estado en servicios stateless (`src/workflow/`):
+  - `BudgetDistributionService` — asigna presupuesto a categorías (por monto o repartido).
+  - `SettlementCalculator` — calcula las transferencias mínimas para saldar gastos compartidos.
+  - `SummaryService` — arma los resúmenes de cada fase (registration, planning, month, closing).
+  - `IncomeEntryService` — registra ingresos extra y dispara el recálculo de reserva.
+  - `HouseholdLoader` — reconstruye un `Household` desde BD dado un `household_id`/`period_id` (en progreso, ver TODO).
 
 - **`Household`** — núcleo de dominio. Orquesta reglas de negocio, trackers y cálculos.
 
@@ -149,7 +154,12 @@ src/
 ├── cli/                       ← En desarrollo (esqueleto)
 ├── exceptions/                ← En desarrollo (esqueleto)
 ├── workflow/
-│   └── workflow_manager.py    ← FACHADA. Único punto de entrada desde UI.
+│   ├── workflow_manager.py            ← FACHADA. Único punto de entrada desde UI.
+│   ├── budget_distribution_service.py ← Asignación de presupuesto a categorías
+│   ├── setllement_calculator.py       ← Transferencias mínimas para saldar gastos
+│   ├── summary_service.py             ← Resúmenes por fase
+│   ├── incomes_entries_service.py     ← Ingresos extra + recálculo de reserva
+│   └── household_loader.py            ← Reconstruye Household desde BD (en progreso)
 ├── models/
 │   ├── household.py           ← Núcleo de dominio. Orquesta todo.
 │   ├── finance_calculator.py  ← Matemática pura (sin estado). Reparto de céntimos.
@@ -176,7 +186,18 @@ src/
 │   ├── debt_tracker.py        ← Gestor de cuentas de deuda
 │   └── constants.py           ← Enums: Phase, MetodoReparto, SavingScope
 │
-├── storage/                   ← Futuro (persistencia)
+├── storage/                    ← Persistencia (repositorios, capa BD)
+│   ├── connection.py           ← Conexión psycopg2 (RealDictCursor)
+│   ├── household_repository.py
+│   ├── member_repository.py
+│   ├── period_repository.py
+│   ├── budget_categories_repository.py
+│   ├── expense_repository.py
+│   ├── income_entry_repository.py
+│   ├── saving_entry_repository.py
+│   ├── saving_buckets_repository.py
+│   ├── bucket_entry_repository.py
+│   └── debt_entry_repository.py
 └── utils/
     ├── currency.py            ← to_cents, to_euros, to_percentage_basis
     ├── printer.py             ← Helper de visualización (no crítico)
