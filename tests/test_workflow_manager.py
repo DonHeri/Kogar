@@ -952,9 +952,9 @@ def test_set_budget_by_percentages_basic(wm):
     wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
     # Ingresos: 300000 céntimos
-    assert wm.household.budget.get_category_budget("fijos") == 150000  # 50%
-    assert wm.household.budget.get_category_budget("variables") == 90000  # 30%
-    assert wm.household.budget.get_category_budget("reserva") == 60000  # 20%
+    assert wm.household.budget.get_planned_amount("fijos") == 150000  # 50%
+    assert wm.household.budget.get_planned_amount("variables") == 90000  # 30%
+    assert wm.household.budget.get_planned_amount("reserva") == 60000  # 20%
 
 
 def test_set_budget_by_percentages_sum_exceeds_100(wm):
@@ -1024,9 +1024,9 @@ def test_set_budget_by_percentages_fractional_percentages(wm):
     wm.set_budget_by_percentages({"fijos": 33.33, "variables": 33.33, "reserva": 33.34})
 
     # Ingresos: 300000 céntimos (3000€)
-    assert wm.household.budget.get_category_budget("fijos") == 99990
-    assert wm.household.budget.get_category_budget("variables") == 99990
-    assert wm.household.budget.get_category_budget("reserva") == 100020
+    assert wm.household.budget.get_planned_amount("fijos") == 99990
+    assert wm.household.budget.get_planned_amount("variables") == 99990
+    assert wm.household.budget.get_planned_amount("reserva") == 100020
 
 
 # ====================================================

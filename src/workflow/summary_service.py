@@ -176,7 +176,7 @@ class SummaryService:
         by_category = {}
         for cat in categories:
             by_category[cat] = {
-                "budget": household.budget.get_category_budget(cat),
+                "budget": household.budget.get_planned_amount(cat),
                 "spent": household.get_category_spent(cat),
                 "remaining": household.get_category_remaining(cat),
             }

@@ -49,11 +49,22 @@ class Budget:
         del self.categories[normalized]
 
     # ====== QUERIES ======
-    def get_categories_list(self) -> list[str]:
+    def get_budget_categories(self) -> dict[str, BudgetCategory]:
+        """Retorna todas las categoría con presupuesto activas"""
+        return self.categories.copy()
+
+    def get_budget_category(self, name: str) -> BudgetCategory:
+        """Retorna la categoría con su presupuesto"""
+        normalized = CategoryLibrary.normalize(name)
+        self._validate_category_exists(normalized)
+        budget_category = self.categories[normalized]
+        return budget_category
+
+    def get_category_names(self) -> list[str]:
         """Retorna lista de todas las categorías activas"""
         return list(self.categories.keys())
 
-    def get_category_budget(self, name: str) -> int:
+    def get_planned_amount(self, name: str) -> int:
         """Obtiene presupuesto asignado a una categoría"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_category_exists(normalized)
@@ -79,12 +90,13 @@ class Budget:
         raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
     def category_is_child(self, name: str) -> bool:
-        return self.categories[name].parent is not None
+        normalized = CategoryLibrary.normalize(name)
+        return self.categories[normalized].parent is not None
 
     def get_child_total_planned(self, category: str) -> int:
         """Calcula el total planificado entre categorías hijas"""
         normalized = CategoryLibrary.normalize(category)
-        self._validate_category_exists(category)
+        self._validate_category_exists(normalized)
 
         if self.category_is_child(normalized):
             parent = self.categories[normalized].parent
