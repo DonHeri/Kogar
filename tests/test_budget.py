@@ -91,14 +91,14 @@ def test_add_unknown_category_defaults_to_shared(budget):
 def test_add_category_creates_new_category(budget):
     budget.add_category("educacion")
 
-    assert "educacion" in budget.get_categories_list()
+    assert "educacion" in budget.get_category_names()
     assert budget.categories["educacion"].planned_amount == 0
 
 
 def test_add_category_normalizes_name(budget):
     budget.add_category("  EDUCACIÓN  ")
 
-    assert "educación" in budget.get_categories_list()
+    assert "educación" in budget.get_category_names()
 
 
 def test_add_category_already_exists_raises_error(budget):
@@ -145,7 +145,7 @@ def test_get_child_total_planned_sums_children(budget):
 def test_delete_budget_category_removes_category(budget):
     budget.delete_budget_category("fijos")
 
-    assert "fijos" not in budget.get_categories_list()
+    assert "fijos" not in budget.get_category_names()
 
 
 def test_delete_budget_category_not_exists_raises_error(budget):
@@ -158,7 +158,7 @@ def test_delete_budget_category_succeeds(budget):
     budget.set_budget("fijos", 100000)
     budget.delete_budget_category("fijos")
 
-    assert "fijos" not in budget.get_categories_list()
+    assert "fijos" not in budget.get_category_names()
 
 
 # ====================================================
@@ -169,7 +169,7 @@ def test_delete_budget_category_succeeds(budget):
 def test_get_category_budget_is_correct(budget):
     budget.set_budget("fijos", 10000)
 
-    result = budget.get_category_budget("fijos")
+    result = budget.get_planned_amount("fijos")
 
     assert result == 10000
 
@@ -177,11 +177,11 @@ def test_get_category_budget_is_correct(budget):
 def test_get_category_budget_normalizes_name(budget):
     budget.set_budget("fijos", 50000)
 
-    result = budget.get_category_budget("  FIJOS  ")
+    result = budget.get_planned_amount("  FIJOS  ")
 
     assert result == 50000
 
 def test_get_category_budget_invalid_category_raises_error(budget):
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
-        budget.get_category_budget("inexistente")
+        budget.get_planned_amount("inexistente")
 

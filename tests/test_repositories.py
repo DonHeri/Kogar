@@ -85,7 +85,7 @@ def test_del_household_removes_household(household_repo):
     household_id = household_repo.save()
     household_repo.del_household(household_id=household_id)
 
-    assert household_repo.get_household(household_id) is None
+    assert household_repo.find_by_id(household_id) is None
 
 
 def test_list_households_returns_all_households(household_repo):
@@ -97,7 +97,7 @@ def test_list_households_returns_all_households(household_repo):
 
 
 def test_get_household_returns_correct_data(household_repo, household_id):
-    household = household_repo.get_household(household_id)
+    household = household_repo.find_by_id(household_id)
     assert household["status"] is True
     assert household["id"] == household_id
 

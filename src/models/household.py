@@ -271,11 +271,11 @@ class Household:
 
     def get_active_categories(self) -> list[str]:
         """Lista categorías activas"""
-        return self.budget.get_categories_list()
+        return self.budget.get_category_names()
 
     def get_category_budget(self, category: str) -> int:
         """Obtiene presupuesto asignado a una categoría"""
-        return self.budget.get_category_budget(category)
+        return self.budget.get_planned_amount(category)
 
     def get_total_incomes(self):
         """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
@@ -490,7 +490,7 @@ class Household:
 
     def get_category_remaining(self, category: str) -> int:
         """Calcula presupuesto restante de una categoría: planificado - gastado"""
-        budgeted = self.budget.get_category_budget(category)
+        budgeted = self.budget.get_planned_amount(category)
         spent = self.get_category_spent(category)
         return budgeted - spent
 
