@@ -30,6 +30,12 @@ from src.storage.member_repository import MemberRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
+from src.storage.budget_categories_repository import BudgetCategoryRepository
+from src.storage.expense_repository import ExpenseRepository
+from src.storage.saving_entry_repository import SavingEntryRepository
+from src.storage.income_entry_repository import IncomeEntryRepository
+from src.storage.saving_buckets_repository import SavingBucketRepository
+from src.storage.bucket_entry_repository import BucketEntryRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 with DatabaseConnection(
@@ -43,6 +49,12 @@ with DatabaseConnection(
     member_repo = MemberRepository(conn)
     period_repo = PeriodRepository(conn)
     debt_repo = DebtEntryRepository(conn)
+    budget_categories_repo = BudgetCategoryRepository(conn)
+    expense_repo = ExpenseRepository(conn)
+    saving_repo = SavingEntryRepository(conn)
+    income_entry_repo = IncomeEntryRepository(conn)
+    saving_buckets_repo = SavingBucketRepository(conn)
+    bucket_entry_repo = BucketEntryRepository(conn)
     # =============================================
     # SETUP — Instanciar todo
     # =============================================
@@ -60,6 +72,12 @@ with DatabaseConnection(
         member_repo=member_repo,
         period_repo=period_repo,
         debt_repo=debt_repo,
+        budget_categories_repository=budget_categories_repo,
+        expense_repo=expense_repo,
+        saving_repo=saving_repo,
+        income_entry_repo=income_entry_repo,
+        saving_buckets_repo=saving_buckets_repo,
+        bucket_entry_repo=bucket_entry_repo,
     )
 
     # =============================================

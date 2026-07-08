@@ -10,6 +10,7 @@ from src.storage.saving_entry_repository import SavingEntryRepository
 from src.storage.income_entry_repository import IncomeEntryRepository
 from src.storage.saving_buckets_repository import SavingBucketRepository
 from src.storage.bucket_entry_repository import BucketEntryRepository
+from src.storage.budget_categories_repository import BudgetCategoryRepository
 
 from src.models.period import Period
 
@@ -41,6 +42,7 @@ class WorkflowManager:
         income_entry_repo: IncomeEntryRepository | None = None,
         bucket_entry_repo: BucketEntryRepository | None = None,
         saving_buckets_repo: SavingBucketRepository | None = None,
+        budget_categories_repository: BudgetCategoryRepository | None = None,
     ) -> None:
         self.household = household
         self.current_phase = Phase.REGISTRATION
@@ -54,6 +56,7 @@ class WorkflowManager:
         self.income_entry_repo = income_entry_repo
         self.bucket_entry_repo = bucket_entry_repo
         self.saving_buckets_repo = saving_buckets_repo
+        self.budget_categories_repository = budget_categories_repository
         self.period_id: int | None = None
         self.period: Period | None = None
         self.household_id: int | None = None
@@ -273,6 +276,7 @@ class WorkflowManager:
         return self.household.get_debt_history(member)
 
     # ====== PLANNING PHASE - Contribution Queries ======
+
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
         self.validate_phase_accessible(Phase.PLANNING)
@@ -336,6 +340,13 @@ class WorkflowManager:
                 period_id=self.period_id,
                 contributions=self.get_total_contributions_by_member(),
             )
+
+        if self.budget_categories_repository and self.period_id:
+            budget_categories = self.household.budget.get_budget_categories()
+            for _, budget_category in budget_categories.items():
+                self.budget_categories_repository.save(
+                    budget_category=budget_category, household_period_id=self.period_id
+                )
 
     # ====== MONTH PHASE - Expense Registration ======
 
