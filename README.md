@@ -86,7 +86,7 @@ wm.register_expense("Heri", "variables", 120.0, "Supermercado")
 
 # Quién le debe a quién al cerrar
 print(wm.get_settlement())
-# [{"from": "heri", "to": "amanda", "amount": 45714}]  (en céntimos)
+# [{"from": "heri", "to": "amanda", "amount": 34286}]  (en céntimos)
 
 ```
 
