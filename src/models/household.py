@@ -453,7 +453,7 @@ class Household:
         new_reserve_amount = reserve_cat.calculate_own_budget(
             total_incomes, other_budgeted
         )
-        self.budget.set_budget(reserve_cat.name, new_reserve_amount)
+        self.budget.set_planned_amount(reserve_cat.name, new_reserve_amount)
 
     def get_member_owed_total(self, member_name: str) -> int:
         """Cuánto acordó pagar el miembro"""

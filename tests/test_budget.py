@@ -40,13 +40,13 @@ def test_negative_budget_must_raise_error():
 # TESTS: Budget: `set_budget`(self, category: str, amount: float)
 # ====================================================
 def test_set_budget_updates_category_amount(budget):
-    budget.set_budget("fijos", 100000)
+    budget.set_planned_amount("fijos", 100000)
     assert budget.categories["fijos"].planned_amount == 100000
 
 
 def test_set_budget_updates_multiple_categories(budget):
-    budget.set_budget("fijos", 100000)
-    budget.set_budget("variables", 50000)
+    budget.set_planned_amount("fijos", 100000)
+    budget.set_planned_amount("variables", 50000)
 
     assert budget.categories["fijos"].planned_amount == 100000
     assert budget.categories["variables"].planned_amount == 50000
@@ -54,12 +54,12 @@ def test_set_budget_updates_multiple_categories(budget):
 
 def test_set_budget_invalid_category_raises_error(budget):
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
-        budget.set_budget("invalida", 100)
+        budget.set_planned_amount("invalida", 100)
 
 
 def test_set_budget_negative_amount_raises_error(budget):
     with pytest.raises(ValueError, match="Monto del presupuesto debe ser superior a 0"):
-        budget.set_budget("fijos", -100)
+        budget.set_planned_amount("fijos", -100)
 
 
 # ====================================================
@@ -131,8 +131,8 @@ def test_add_category_with_nonexistent_parent_raises_error(budget):
 def test_get_child_total_planned_sums_children(budget):
     budget.add_category("vivienda", parent="fijos")
     budget.add_category("suministros", parent="fijos")
-    budget.set_budget("vivienda", 30000)
-    budget.set_budget("suministros", 20000)
+    budget.set_planned_amount("vivienda", 30000)
+    budget.set_planned_amount("suministros", 20000)
 
     assert budget.get_child_total_planned("fijos") == 50000
 
@@ -155,7 +155,7 @@ def test_delete_budget_category_not_exists_raises_error(budget):
 
 def test_delete_budget_category_succeeds(budget):
     # Cualquier categoría se puede eliminar (Budget no conoce gastos)
-    budget.set_budget("fijos", 100000)
+    budget.set_planned_amount("fijos", 100000)
     budget.delete_budget_category("fijos")
 
     assert "fijos" not in budget.get_category_names()
@@ -167,7 +167,7 @@ def test_delete_budget_category_succeeds(budget):
 
 
 def test_get_category_budget_is_correct(budget):
-    budget.set_budget("fijos", 10000)
+    budget.set_planned_amount("fijos", 10000)
 
     result = budget.get_planned_amount("fijos")
 
@@ -175,7 +175,7 @@ def test_get_category_budget_is_correct(budget):
 
 
 def test_get_category_budget_normalizes_name(budget):
-    budget.set_budget("fijos", 50000)
+    budget.set_planned_amount("fijos", 50000)
 
     result = budget.get_planned_amount("  FIJOS  ")
 
