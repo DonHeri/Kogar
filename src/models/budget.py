@@ -35,7 +35,7 @@ class Budget:
         self.categories[normalized] = BudgetCategory(category, 0, parent=parent)
 
     # ====== BUDGET ASSIGNMENT ======
-    def set_budget(self, category: str, amount_cents: int) -> None:
+    def set_planned_amount(self, category: str, amount_cents: int) -> None:
         """Establece el monto presupuestado para una categoría (céntimos)"""
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)

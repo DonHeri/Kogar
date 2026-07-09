@@ -308,9 +308,9 @@ def test_preview_budget_contribution_summary_returns_all_categories(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 90000)
-    base_household.budget.set_budget("variables", 30000)
-    base_household.budget.set_budget("reserva", 30000)
+    base_household.budget.set_planned_amount("fijos", 90000)
+    base_household.budget.set_planned_amount("variables", 30000)
+    base_household.budget.set_planned_amount("reserva", 30000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
@@ -329,7 +329,7 @@ def test_preview_budget_contribution_summary_structure(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 90000)
+    base_household.budget.set_planned_amount("fijos", 90000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
@@ -348,8 +348,8 @@ def test_preview_budget_contribution_summary_totals_match_budgets(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 90000)
-    base_household.budget.set_budget("variables", 30000)
+    base_household.budget.set_planned_amount("fijos", 90000)
+    base_household.budget.set_planned_amount("variables", 30000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
@@ -367,8 +367,8 @@ def test_preview_budget_contribution_summary_is_iterable(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 90000)
-    base_household.budget.set_budget("variables", 30000)
+    base_household.budget.set_planned_amount("fijos", 90000)
+    base_household.budget.set_planned_amount("variables", 30000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL
@@ -392,7 +392,7 @@ def test_preview_budget_contribution_summary_with_zero_budgets(
     for member in members_with_incomes.values():
         base_household.register_member(member)
 
-    base_household.budget.set_budget("fijos", 90000)
+    base_household.budget.set_planned_amount("fijos", 90000)
 
     summary = base_household.preview_budget_contribution_summary(
         method=MetodoReparto.PROPORTIONAL

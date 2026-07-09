@@ -44,8 +44,8 @@ class BudgetDistributionService:
                 "No se puede superar el total de ingresos en los presupuestos"
             )
 
-        household.budget.set_budget(category, amount_cents)
-        household.budget.set_budget(
+        household.budget.set_planned_amount(category, amount_cents)
+        household.budget.set_planned_amount(
             reserve_cat.name,
             reserve_cat.calculate_own_budget(total_incomes, new_budgeted),
         )
@@ -68,7 +68,7 @@ class BudgetDistributionService:
                 f"No se puede superar el techo de la categoría raíz: {parent_name.title()}"
             )
 
-        household.budget.set_budget(category, amount_cents)
+        household.budget.set_planned_amount(category, amount_cents)
 
     @staticmethod
     def set_budget_by_percentages(household: Household, percentages: dict[str, int]):
