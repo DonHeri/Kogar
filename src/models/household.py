@@ -152,6 +152,12 @@ class Household:
         """Registra un gasto (almacena solo en ExpenseTracker)"""
         self.validate_member_exist(expense.member)
         self.validate_category_exist(expense.category.name)
+
+        # Validar participantes
+        for participant in expense.participants:
+            self.validate_member_exist(participant)
+
+        # Agregar expense
         self.expense_tracker.add_expense(expense)
 
     # ====== MONTH — SAVINGS ======
@@ -256,8 +262,9 @@ class Household:
 
     # ====== QUERIES — REGISTRATION ======
 
-    def get_member_names(self):
-        return self.members.keys()
+    def get_member_names(self) -> list[str]:
+        """Devuelve los nombres de miembros registrados en el núcleo familiar"""
+        return list(self.members.keys())
 
     def get_registered_incomes(self) -> dict[str, int]:
         """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
