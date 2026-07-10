@@ -355,7 +355,7 @@ class WorkflowManager:
         member: str,
         category: str,
         amount_euros: float,
-        desc: str = "",
+        description: str = "",
         participants: list[str] | None = None,
     ):
         """Registrar un gasto en fase MONTH.
@@ -369,7 +369,7 @@ class WorkflowManager:
         self.validate_phase(Phase.MONTH)
         member_normalized = normalize_name(member)
         category = category.strip()
-        desc = desc.strip()
+        description = description.strip()
         amount_cents = to_cents(amount_euros)
         cat = self._resolve_category(category)
 
@@ -385,7 +385,7 @@ class WorkflowManager:
             member=member_normalized,
             category=cat,
             amount_cents=amount_cents,
-            description=desc,
+            description=description,
             participants=participants,
         )
         self.household.register_expense(expense=expense)
