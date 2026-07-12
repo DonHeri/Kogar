@@ -14,6 +14,7 @@ from src.models.saving_tracker import SavingTracker
 from src.models.debt_tracker import DebtTracker
 from src.models.period import Period
 from src.models.category import Category
+from src.models.constants import MetodoReparto, Phase
 
 
 class HouseholdLoader:
@@ -35,8 +36,37 @@ class HouseholdLoader:
     # # recetas públicas (composiciones por PROFUNDIDAD, no por servicio)
     # ============================================================
 
-    def load_base(self, household_id: int, period_id: int):
-        """ """
+    def load_members_only(self, household_id: int) -> tuple[Household, dict[str, int]]:
+        """
+
+        Args:
+            param: descripcion
+
+        Returns:
+            descripcion
+        """
+
+        # crear household
+        household = self._build_base(period=None)
+
+        # Hidratar miembros
+        member_rows = self._member_repo.list_members(household_id)
+
+        member_ids = self._hydrate_members(household=household, members=member_rows)
+
+        return (household, member_ids)
+
+    def load_base(
+        self, household_id: int, period_id: int
+    ) -> tuple[Household, dict[str, int], Phase]:
+        """
+
+        Args:
+            param: descripcion
+
+        Returns:
+            descripcion
+        """
 
         # 1. Leer filas
         member_rows = self._member_repo.list_members(household_id)
@@ -84,7 +114,7 @@ class HouseholdLoader:
         debt_tracker = DebtTracker()
         saving_tracker = SavingTracker()
         expense_tracker = ExpenseTracker()
-        method = period.method if period else None
+        method = period.method if period else MetodoReparto.PROPORTIONAL
 
         household = Household(
             budget=budget,
@@ -156,4 +186,7 @@ class HouseholdLoader:
         pass
 
     def _hydrate_buckets():
+        pass
+
+    def _hydrate_custom_splits(self):
         pass
