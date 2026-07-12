@@ -22,7 +22,7 @@ class PeriodRepository:
                 period.household_id,
                 period.start_date,
                 period.status.value,
-                period.method.value if period.method else None,
+                period.method.value,
             ),
         )
         return self.cursor.fetchone()["id"]
@@ -72,7 +72,7 @@ class PeriodRepository:
             start_date=row["start_date"],
             end_date=row["end_date"],
             status=Phase(row["status"]),
-            method=MetodoReparto(row["method"]) if row["method"] else None,
+            method=MetodoReparto(row["method"]),
         )
 
     def save_agreed_contributions(

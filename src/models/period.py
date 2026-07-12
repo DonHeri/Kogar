@@ -11,4 +11,4 @@ class Period:
     status: Phase
     id: int | None = None
     end_date: date | None = None
-    method: MetodoReparto | None = None
+    method: MetodoReparto = MetodoReparto.PROPORTIONAL
