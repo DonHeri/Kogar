@@ -69,11 +69,11 @@ class WorkflowManager:
         member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
 
-    def set_member_incomes(self, name: str, amount_eur: float):
+    def set_member_incomes(self, name: str, amount_euros: float):
         """Registra ingresos"""
         self.validate_phase(Phase.REGISTRATION)
         name = normalize_name(name)  # Normalizar para lookup
-        amount_cents = to_cents(amount_eur)
+        amount_cents = to_cents(amount_euros)
         self.household.set_member_income(name, amount_cents)
 
     def finish_registration(self, start_date: date | None = None) -> int | None:

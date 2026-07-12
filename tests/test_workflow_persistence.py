@@ -76,8 +76,8 @@ def wm_pre_registration(wm_with_repos):
     """WM con dos miembros e ingresos registrados, listo para finish_registration"""
     wm_with_repos.register_member("Heri")
     wm_with_repos.register_member("amanda")
-    wm_with_repos.set_member_incomes(name="heri", amount_eur=1652)
-    wm_with_repos.set_member_incomes(name="amanda", amount_eur=1456)
+    wm_with_repos.set_member_incomes(name="heri", amount_euros=1652)
+    wm_with_repos.set_member_incomes(name="amanda", amount_euros=1456)
 
     return wm_with_repos
 
@@ -274,8 +274,8 @@ def test_assign_distribution_method_persists_method(wm_pre_registration):
 def test_start_new_month_permite_avanzar_a_planning(wm_finish_month):
     wm_finish_month.start_new_month()
 
-    wm_finish_month.set_member_incomes(name="heri", amount_eur=1652)
-    wm_finish_month.set_member_incomes(name="amanda", amount_eur=1456)
+    wm_finish_month.set_member_incomes(name="heri", amount_euros=1652)
+    wm_finish_month.set_member_incomes(name="amanda", amount_euros=1456)
 
     household_id = wm_finish_month.finish_registration(start_date=date(2026, 2, 6))
 
