@@ -5,7 +5,7 @@ from src.models.constants import SavingScope
 from src.models.saving_bucket import SavingBucket
 
 
-class BucketTracker:
+class SavingBucketTracker:
     """
     Gestiona los Buckets de ahorro de todos los miembros del hogar.
 

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from src.models.bucket_tracker import BucketTracker
+from src.models.bucket_tracker import SavingBucketTracker
 from src.models.constants import SavingScope
 from src.models.saving_account import SavingAccount
 from src.models.saving_bucket import SavingBucket
@@ -21,7 +21,7 @@ class SavingTracker:
 
     def __init__(self) -> None:
         self._accounts: dict[str, SavingAccount] = {}
-        self._bucket_tracker = BucketTracker()
+        self._bucket_tracker = SavingBucketTracker()
 
     # ====== GESTIÓN DE CUENTAS ======
 
@@ -165,9 +165,7 @@ class SavingTracker:
     def get_total_shared_history(self) -> dict[str, list]:
         """Historial completo de movimientos compartidos de todos los miembros"""
         return {
-            name: [
-                e for e in account.get_history() if e.scope == SavingScope.SHARED
-            ]
+            name: [e for e in account.get_history() if e.scope == SavingScope.SHARED]
             for name, account in self._accounts.items()
         }
 

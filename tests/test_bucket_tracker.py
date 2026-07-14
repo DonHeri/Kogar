@@ -3,7 +3,7 @@ from uuid import UUID
 
 import pytest
 
-from src.models.bucket_tracker import BucketTracker
+from src.models.bucket_tracker import SavingBucketTracker
 from src.models.constants import SavingScope
 from src.models.saving_bucket import SavingBucket
 
@@ -13,7 +13,7 @@ from src.models.saving_bucket import SavingBucket
 # ====================================================
 @pytest.fixture
 def tracker():
-    return BucketTracker()
+    return SavingBucketTracker()
 
 
 @pytest.fixture
@@ -87,7 +87,7 @@ def tracker_with_buckets(
 
 def tests_bucket_tracker_creation_valid():
     """Test: Crear un Bucket Tracker válido"""
-    tracker = BucketTracker()
+    tracker = SavingBucketTracker()
 
     assert isinstance(tracker.buckets, dict)
     assert len(tracker.buckets) == 0
