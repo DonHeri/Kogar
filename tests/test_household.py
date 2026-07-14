@@ -4,7 +4,8 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto, SavingScope
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket_tracker import DebtBucketTracker
+from src.models.debt_bucket import DebtBucket
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
@@ -16,12 +17,32 @@ from src.workflow.summary_service import SummaryService
 from tests.helpers import make_category
 
 
+# Rango de período amplio para queries de deuda por fechas en tests.
+_WIDE_START = date(2000, 1, 1)
+_WIDE_END = date(2100, 1, 1)
+
+
 def _set_budget(hh, category, amount):
     BudgetDistributionService.set_budget_for_category(hh, category, amount)
 
 
 def _set_budget_by_percentages(hh, percentages):
     BudgetDistributionService.set_budget_by_percentages(hh, percentages)
+
+
+def _add_debt(hh, owner, installment_cents, principal_cents=None):
+    """Declara una deuda con la cuota indicada. principal grande por defecto para que
+    next_installment == cuota mientras quede saldo. Retorna el bucket_id."""
+    if principal_cents is None:
+        principal_cents = installment_cents * 100
+    return hh.add_debt_bucket(
+        DebtBucket(
+            name=f"deuda-{owner}",
+            principal_cents=principal_cents,
+            owner=owner,
+            installment_cents=installment_cents,
+        )
+    )
 
 
 def _get_settlement(hh):
@@ -54,13 +75,13 @@ def base_household():
     b = Budget()
     e = ExpenseTracker()
     s = SavingTracker()
-    d = DebtTracker()
+    d = DebtBucketTracker()
     b.set_standard_categories()
     return Household(
         budget=b,
         expense_tracker=e,
         saving_tracker=s,
-        debt_tracker=d,
+        debt_bucket_tracker=d,
         method=MetodoReparto.EQUAL,
     )
 
@@ -456,7 +477,7 @@ def test_set_budget_for_category(household_with_members):
     """set_budget_for_category asigna presupuesto correctamente"""
     _set_budget(household_with_members, "fijos", 200000)
 
-    assert household_with_members.get_category_budget("fijos") == 200000
+    assert household_with_members.get_category_planned_amount("fijos") == 200000
 
 
 def test_set_budget_for_child_category(household_with_members):
@@ -466,14 +487,14 @@ def test_set_budget_for_child_category(household_with_members):
 
     _set_budget(household_with_members, "vivienda", 30000)
 
-    assert household_with_members.get_category_budget("vivienda") == 30000
+    assert household_with_members.get_category_planned_amount("vivienda") == 30000
 
 
 def test_set_budget_for_category_normalizes_input(household_with_members):
     """set_budget_for_category normaliza la entrada (mayúsculas)"""
     _set_budget(household_with_members, "FIJOS", 200000)
 
-    assert household_with_members.get_category_budget("fijos") == 200000
+    assert household_with_members.get_category_planned_amount("fijos") == 200000
 
 
 def test_set_budget_for_category_raises_if_nonexistent(household_with_members):
@@ -487,14 +508,14 @@ def test_set_budget_for_category_multiple(household_with_members):
     _set_budget(household_with_members, "fijos", 200000)
     _set_budget(household_with_members, "variables", 100000)
 
-    assert household_with_members.get_category_budget("fijos") == 200000
-    assert household_with_members.get_category_budget("variables") == 100000
+    assert household_with_members.get_category_planned_amount("fijos") == 200000
+    assert household_with_members.get_category_planned_amount("variables") == 100000
 
 
 def test_set_budget_for_category_reassign_doesnt_double_count(household_with_members):
     _set_budget(household_with_members, "fijos", 40000)
     _set_budget(household_with_members, "fijos", 50000)
-    reserva = household_with_members.get_category_budget("reserva")
+    reserva = household_with_members.get_category_planned_amount("reserva")
 
     assert reserva == (household_with_members.get_total_incomes() - 50000)
 
@@ -624,7 +645,7 @@ def test_remove_category_deletes_from_budget(base_household):
 
 def test_set_standard_categories_populates_budget(base_household):
     """set_standard_categories() establece categorías en budget"""
-    household = Household(Budget(), ExpenseTracker(), SavingTracker(), DebtTracker())
+    household = Household(Budget(), ExpenseTracker(), SavingTracker(), DebtBucketTracker())
     household.set_standard_categories()
 
     categories = household.get_active_categories()
@@ -645,7 +666,7 @@ def test_get_category_budget_returns_amount(household_with_members):
     """get_category_budget() retorna monto asignado"""
     _set_budget(household_with_members, "fijos", 100000)
 
-    amount = household_with_members.get_category_budget("fijos")
+    amount = household_with_members.get_category_planned_amount("fijos")
     assert amount == 100000
 
 
@@ -1157,7 +1178,7 @@ def test_get_member_status_includes_debt_and_saving_goal(household_with_members)
     household_with_members.freeze_registration_state()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva autocalcula a 200000 → capacity per member = 100000
-    household_with_members.set_member_debt("member1", 20000)
+    _add_debt(household_with_members, "member1", 20000)
     household_with_members.set_member_saving_goal("member1", 30000)
     household_with_members.freeze_planning_state()
 
@@ -1393,9 +1414,9 @@ def test_set_budget_by_percentages_sum_matches_incomes(base_household):
         base_household, {"fijos": 5000, "variables": 3000, "reserva": 2000}
     )
 
-    fijos = base_household.get_category_budget("fijos")
-    variables = base_household.get_category_budget("variables")
-    reserva = base_household.get_category_budget("reserva")
+    fijos = base_household.get_category_planned_amount("fijos")
+    variables = base_household.get_category_planned_amount("variables")
+    reserva = base_household.get_category_planned_amount("reserva")
 
     assert fijos + variables + reserva == 100001
     # Largest remainder asigna el céntimo extra a fijos (mayor resto: 0.5)
@@ -1472,7 +1493,7 @@ def test_validate_debt_and_saving_passes_within_reserva(household_with_members):
     # EQUAL: 120000 / 2 = 60000 por miembro
     _set_budget(household_with_members, "fijos", 180000)
     household_with_members.set_member_saving_goal("member1", 40000)
-    household_with_members.set_member_debt("member1", 10000)
+    _add_debt(household_with_members, "member1", 10000)
 
     # 40000 + 10000 = 50000 <= 60000 → OK
     household_with_members.validate_debt_and_saving_dont_exceed_capacity()
@@ -1484,7 +1505,7 @@ def test_validate_debt_and_saving_raises_when_exceeds_reserva(household_with_mem
     # EQUAL: 120000 / 2 = 60000 por miembro
     _set_budget(household_with_members, "fijos", 180000)
     household_with_members.set_member_saving_goal("member1", 50000)
-    household_with_members.set_member_debt("member1", 20000)
+    _add_debt(household_with_members, "member1", 20000)
 
     # 50000 + 20000 = 70000 > 60000 → lanza
     with pytest.raises(ValueError, match="member1"):
@@ -1686,46 +1707,48 @@ def household_month_ready(household_with_members):
 def test_register_debt_payment_basic(household_month_ready):
     """Pago de deuda se registra y get_debt_status refleja paid correcto"""
     hh = household_month_ready
-    hh.set_member_debt("member1", 50000)
+    bid = _add_debt(hh, "member1", 50000)
 
-    hh.register_debt_payment("member1", 20000)
+    hh.register_debt_payment("member1", 20000, bid)
 
-    status = hh.get_debt_status("member1")
-    assert status["committed"] == 50000
-    assert status["paid"] == 20000
-    assert status["remaining"] == 30000
+    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    assert totals["committed"] == 50000
+    assert totals["paid"] == 20000
+    assert totals["remaining"] == 30000
 
 
-def test_register_debt_payment_exceeds_commitment_raises(household_month_ready):
-    """Pago que supera el compromiso declarado lanza ValueError"""
+def test_register_debt_payment_overpayment_allowed(household_month_ready):
+    """Sobrepago permitido (decisión T1): el backend no bloquea pagos > cuota."""
     hh = household_month_ready
-    hh.set_member_debt("member1", 50000)
+    bid = _add_debt(hh, "member1", 50000)
 
-    with pytest.raises(ValueError):
-        hh.register_debt_payment("member1", 60000)
+    hh.register_debt_payment("member1", 60000, bid)
+
+    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    assert totals["paid"] == 60000
 
 
 def test_get_debt_status_after_partial_payment(household_month_ready):
     """Pago parcial: remaining = committed - paid"""
     hh = household_month_ready
-    hh.set_member_debt("member1", 50000)
+    bid = _add_debt(hh, "member1", 50000)
 
-    hh.register_debt_payment("member1", 20000)
+    hh.register_debt_payment("member1", 20000, bid)
 
-    status = hh.get_debt_status("member1")
-    assert status == {"committed": 50000, "paid": 20000, "remaining": 30000}
+    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    assert totals == {"committed": 50000, "paid": 20000, "remaining": 30000}
 
 
 def test_get_debt_status_after_full_payment(household_month_ready):
-    """Pago completo: remaining == 0"""
+    """Pago completo de la cuota del período: remaining == 0"""
     hh = household_month_ready
-    hh.set_member_debt("member1", 50000)
+    bid = _add_debt(hh, "member1", 50000)
 
-    hh.register_debt_payment("member1", 50000)
+    hh.register_debt_payment("member1", 50000, bid)
 
-    status = hh.get_debt_status("member1")
-    assert status["paid"] == 50000
-    assert status["remaining"] == 0
+    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    assert totals["paid"] == 50000
+    assert totals["remaining"] == 0
 
 
 # ====================================================
@@ -1737,8 +1760,8 @@ def test_auto_assign_saving_goals_basic(household_month_ready):
     """saving_goal[m] = reserva_contribution[m] - debt[m] para cada miembro"""
     hh = household_month_ready
     # EQUAL, reserva=120000 → 60000 por miembro
-    hh.set_member_debt("member1", 10000)
-    hh.set_member_debt("member2", 20000)
+    _add_debt(hh, "member1", 10000)
+    _add_debt(hh, "member2", 20000)
 
     hh.auto_assign_saving_goals()
 
@@ -1763,8 +1786,8 @@ def test_auto_assign_saving_goals_no_debt(household_month_ready):
 def test_auto_assign_saving_goals_proportional_vs_equal(household_month_ready):
     """PROPORTIONAL y EQUAL generan cuotas distintas → saving goals distintos"""
     hh = household_month_ready
-    hh.set_member_debt("member1", 10000)
-    hh.set_member_debt("member2", 10000)
+    _add_debt(hh, "member1", 10000)
+    _add_debt(hh, "member2", 10000)
 
     # EQUAL (fixture ya usa EQUAL): cada miembro 60000 de reserva
     hh.auto_assign_saving_goals()

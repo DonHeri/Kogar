@@ -2,7 +2,7 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
@@ -13,6 +13,7 @@ from src.workflow.budget_distribution_service import BudgetDistributionService
 
 def _set_budget(hh, category, amount):
     BudgetDistributionService.set_budget_for_category(hh, category, amount)
+
 
 # ====================================================
 # FIXTURES
@@ -50,7 +51,9 @@ def household_base():
     e = ExpenseTracker()
     s = SavingTracker()
     b.set_standard_categories()
-    return Household(budget=b, expense_tracker=e, saving_tracker=s, debt_tracker=DebtTracker())
+    return Household(
+        budget=b, expense_tracker=e, saving_tracker=s, debt_bucket_tracker=DebtBucketTracker()
+    )
 
 
 # ====================================================
@@ -276,8 +279,8 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
     household_base.register_member(m2)
     household_base.freeze_registration_state()
 
-    _set_budget(household_base,"fijos", 150000)
-    _set_budget(household_base,"variables", 90000)
+    _set_budget(household_base, "fijos", 150000)
+    _set_budget(household_base, "variables", 90000)
     # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
@@ -293,7 +296,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
     assert heri_total <= 100000, f"Heri excede: {heri_total - 100000}¢"
 
     for cat_name, cat_data in contributions.items():
-        expected = household_base.get_category_budget(cat_name)
+        expected = household_base.get_category_planned_amount(cat_name)
         actual = sum(cat_data["contributions"].values())
         assert actual == expected, f"{cat_name}: expected {expected}¢, got {actual}¢"
 
@@ -312,7 +315,7 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base):
 
     for i in range(1, 6):
         household_base.add_category(f"categoria{i}")
-        _set_budget(household_base,f"categoria{i}", 60000)
+        _set_budget(household_base, f"categoria{i}", 60000)
 
     contributions = household_base.get_current_contributions()
     amanda_total = sum(
@@ -332,8 +335,8 @@ def test_edge_case_five_members_equal_split(household_base):
     household_base.freeze_registration_state()
     household_base.assign_distribution_method(MetodoReparto.EQUAL)
 
-    _set_budget(household_base,"fijos", 150000)
-    _set_budget(household_base,"variables", 90000)
+    _set_budget(household_base, "fijos", 150000)
+    _set_budget(household_base, "variables", 90000)
     # reserva autocalcula = 300000 - 150000 - 90000 = 60000
 
     contributions = household_base.get_current_contributions()
@@ -344,7 +347,7 @@ def test_edge_case_five_members_equal_split(household_base):
         assert total <= 60000, f"{name} excede: {total}¢ > 60000¢"
 
     for cat_name, cat_data in contributions.items():
-        expected = household_base.get_category_budget(cat_name)
+        expected = household_base.get_category_planned_amount(cat_name)
         actual = sum(cat_data["contributions"].values())
         assert actual == expected, f"{cat_name}: {actual}¢ != {expected}¢"
 
@@ -359,14 +362,14 @@ def test_edge_case_one_cent_per_category(household_base):
     household_base.register_member(m2)
     household_base.freeze_registration_state()
 
-    _set_budget(household_base,"fijos", 1)
-    _set_budget(household_base,"variables", 1)
+    _set_budget(household_base, "fijos", 1)
+    _set_budget(household_base, "variables", 1)
     # reserva autocalcula = 300000 - 1 - 1 = 299998
 
     contributions = household_base.get_current_contributions()
 
     for cat_name, cat_data in contributions.items():
-        expected = household_base.get_category_budget(cat_name)
+        expected = household_base.get_category_planned_amount(cat_name)
         actual = sum(cat_data["contributions"].values())
         assert actual == expected, f"{cat_name}: expected {expected}¢, got {actual}¢"
 
@@ -383,7 +386,7 @@ def test_edge_case_ten_categories_accumulate_remainders(household_base):
 
     for i in range(1, 11):
         household_base.add_category(f"categoria{i}")
-        _set_budget(household_base,f"categoria{i}", 30000)
+        _set_budget(household_base, f"categoria{i}", 30000)
 
     contributions = household_base.get_current_contributions()
     amanda_total = sum(
@@ -408,7 +411,7 @@ def test_calculate_budget_from_percentages_largest_remainder():
         percentages={"fijos": 5000, "variables": 3000, "reserva": 2000},
     )
 
-    assert budgets["fijos"] == 50001    # mayor resto: 100001*0.5 = 50000.5
+    assert budgets["fijos"] == 50001  # mayor resto: 100001*0.5 = 50000.5
     assert budgets["variables"] == 30000
     assert budgets["reserva"] == 20000
     assert sum(budgets.values()) == 100001
@@ -421,5 +424,3 @@ def test_calculate_budget_from_percentages_validates_sum_10000():
             total_incomes=100000,
             percentages={"fijos": 5000, "variables": 3000},  # suma 8000
         )
-
-

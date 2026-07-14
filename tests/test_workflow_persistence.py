@@ -6,7 +6,7 @@ import psycopg2
 from src.models.budget import Budget
 from src.models.constants import Phase
 from src.models.constants import MetodoReparto
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
 from src.models.period import Period
@@ -57,7 +57,7 @@ def wm_with_repos(member_repo, household_repo, period_repo):
     """WorkflowManager vacío con los tres repositorios inyectados"""
     household = Household(
         budget=Budget(),
-        debt_tracker=DebtTracker(),
+        debt_bucket_tracker=DebtBucketTracker(),
         expense_tracker=ExpenseTracker(),
         saving_tracker=SavingTracker(),
     )

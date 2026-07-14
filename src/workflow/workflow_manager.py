@@ -20,6 +20,7 @@ from src.models.expense import Expense
 from src.models.household import Household
 from src.models.member import Member
 from src.models.saving_bucket import SavingBucket
+from src.models.debt_bucket import DebtBucket
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
@@ -212,12 +213,30 @@ class WorkflowManager:
         member = normalize_name(member_name)
         return self.household.get_saving_goal_status(member)
 
-    def set_member_debt(self, member: str, amount_euros: float) -> None:
-        """Declara la deuda personal mensual de un miembro (PLANNING)"""
-        self.validate_phase(Phase.PLANNING)
-        member = normalize_name(member)
-        amount_cents = to_cents(amount_euros)
-        self.household.set_member_debt(member, amount_cents)
+    def add_debt_bucket(
+        self,
+        name: str,
+        principal_euros: float,
+        owner: str,
+        installment_euros: float,
+        start_date=None,
+    ) -> UUID:
+        """Declara una deuda personal (PLANNING+). Convierte euros→céntimos en el borde."""
+        self.validate_phase_accessible(Phase.PLANNING)
+        owner = normalize_name(owner)
+        bucket = DebtBucket(
+            name=name.strip(),
+            principal_cents=to_cents(principal_euros),
+            owner=owner,
+            installment_cents=to_cents(installment_euros),
+            start_date=start_date,
+        )
+        return self.household.add_debt_bucket(bucket)
+
+    def set_debt_bucket_installment(self, bucket_id: UUID, amount_euros: float) -> None:
+        """Fija la cuota mensual real de una deuda (la del usuario)."""
+        self.validate_phase_accessible(Phase.PLANNING)
+        self.household.set_debt_bucket_installment(bucket_id, to_cents(amount_euros))
 
     def auto_assign_saving_goals(self):
         """Asigna metas de ahorro automáticamente: parte de reserva de cada miembro menos su deuda."""
@@ -227,11 +246,11 @@ class WorkflowManager:
     def register_debt_payment(
         self,
         member: str,
+        bucket_id: UUID,
         amount_euros: float,
-        description="",
         payment_date=None,
-    ):
-        """Registra un pago de deuda en el período activo."""
+    ) -> None:
+        """Registra un pago contra un bucket de deuda en el período activo (MONTH)."""
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
@@ -241,28 +260,23 @@ class WorkflowManager:
         self.household.register_debt_payment(
             member_name=member,
             amount_cents=amount_cents,
+            bucket_id=bucket_id,
             payment_date=payment_date,
-            description=description,
         )
+        # Persistencia de pagos de deuda: T7 (diferida).
 
-        if self.debt_repo and self.period_id and member in self.member_ids:
-            self.debt_repo.save(
-                period_id=self.period_id,
-                member_id=self.member_ids[member],
-                amount_cents=amount_cents,
-                payment_date=payment_date,
-                description=description,
-            )
-
-    def get_debt_status(self, member_name):
+    def get_debt_status(self, member: str) -> dict:
+        """Resumen de deuda de un miembro en el período: buckets + totales (PLANNING+)."""
         self.validate_phase_accessible(Phase.PLANNING)
-        member = normalize_name(member_name)
-        return self.household.get_debt_status(member_name=member)
+        member = normalize_name(member)
+        start_date, end_date = self._current_period_range()
+        return self.household.get_debt_status(member, start_date, end_date)
 
-    def get_all_debts(self) -> dict[str, int]:
-        """Retorna {member: deuda_comprometida_céntimos} (PLANNING+)"""
+    def get_all_debts_summary(self) -> dict:
+        """Resumen de deuda de todos los miembros del hogar (PLANNING+)."""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_member_debts()
+        start_date, end_date = self._current_period_range()
+        return self.household.get_all_debts_summary(start_date, end_date)
 
     def get_all_saving_goals(self) -> dict[str, int]:
         """Retorna {member: ahorro_comprometido_céntimos} (PLANNING+)"""
@@ -275,12 +289,21 @@ class WorkflowManager:
         member = normalize_name(member)
         return self.household.get_debt_history(member)
 
+    def _current_period_range(self) -> tuple[date, date]:
+        """Rango del período activo: inicio del período → fin (o hoy si sigue abierto)."""
+        start_date = self.period.start_date if self.period else date.today()
+        if self.period and self.period.end_date:
+            end_date = self.period.end_date
+        else:
+            end_date = date.today()
+        return start_date, end_date
+
     # ====== PLANNING PHASE - Contribution Queries ======
 
     def get_category_budget(self, category_name: str) -> int:
         """Consultar presupuesto asignado a una categoría específica"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_category_budget(category=category_name)
+        return self.household.get_category_planned_amount(category=category_name)
 
     def get_total_budgeted(self) -> int:
         """Total presupuestado (suma de todas las categorías)"""
@@ -512,7 +535,7 @@ class WorkflowManager:
         self.validate_phase(Phase.MONTH)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
-        self.household.deposit_to_bucket(bucket_id, member, amount_cents, date)
+        self.household.deposit_to_saving_bucket(bucket_id, member, amount_cents, date)
 
         if self.bucket_entry_repo and self.period_id and member in self.member_ids:
             self.bucket_entry_repo.save(

@@ -3,6 +3,7 @@ from typing import Dict
 from uuid import UUID
 
 from src.models.budget import Budget
+from src.models.budget_category import BudgetCategory
 from src.models.category import AutoCalculatedCategory
 from src.models.constants import MetodoReparto, SavingScope
 from src.models.expense import Expense
@@ -12,7 +13,9 @@ from src.models.member import Member
 from src.models.income_entry import IncomeEntry
 from src.models.saving_bucket import SavingBucket
 from src.models.saving_tracker import SavingTracker
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket import DebtBucket
+
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
@@ -23,7 +26,7 @@ class Household:
         budget: Budget,
         expense_tracker: ExpenseTracker,
         saving_tracker: SavingTracker,
-        debt_tracker: DebtTracker,
+        debt_bucket_tracker: DebtBucketTracker,
         method: MetodoReparto = MetodoReparto.PROPORTIONAL,
     ) -> None:
 
@@ -31,11 +34,10 @@ class Household:
         self.budget = budget
         self.expense_tracker: ExpenseTracker = expense_tracker
         self.savings_tracker: SavingTracker = saving_tracker
-        self.debt_tracker: DebtTracker = debt_tracker
+        self.debt_bucket_tracker: DebtBucketTracker = debt_bucket_tracker
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._member_debts: dict[str, int] = {}
         self._saving_goals: dict[str, int] = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
@@ -50,7 +52,6 @@ class Household:
 
         self.members[member.name] = member
         self._saving_goals[member.name] = 0
-        self._member_debts[member.name] = 0
 
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
@@ -67,7 +68,6 @@ class Household:
         }
         for name in self.members:
             self.savings_tracker.create_account(name)
-            self.debt_tracker.create_account(name)
 
         # Crear categorías estándar
         if not self.budget.categories:
@@ -88,15 +88,23 @@ class Household:
 
     # ====== PLANNING — BUDGET ======
 
-    def set_member_debt(self, member_name: str, amount_cents: int) -> None:
-        """Declara la deuda personal mensual de un miembro (PLANNING)"""
-        self.validate_member_exist(member_name)
-        self._member_debts[member_name] = amount_cents
-
     def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
         """Declara el ahorro personal mensual de un miembro (PLANNING)"""
         self.validate_member_exist(member_name)
         self._saving_goals[member_name] = amount_cents
+
+    def add_debt_bucket(self, debt_bucket: DebtBucket) -> UUID:
+        """Registra un bucket de deuda personal (un único owner)."""
+        self.validate_member_exist(member_name=debt_bucket.owner)
+        bucket_id = self.debt_bucket_tracker.add_bucket(debt_bucket)
+
+        return bucket_id
+
+    def set_debt_bucket_installment(self, bucket_id: UUID, amount_cents: int):
+        """Fija la cuota mensual de un bucket (la settea el usuario)"""
+        self.debt_bucket_tracker.set_bucket_installment(
+            bucket_id=bucket_id, amount_cents=amount_cents
+        )
 
     # ====== PLANNING — DISTRIBUTION ======
 
@@ -116,14 +124,19 @@ class Household:
     def get_custom_splits(self):
         return self._custom_splits
 
-    def validate_debt_and_saving_dont_exceed_capacity(self):
+    def validate_debt_and_saving_dont_exceed_capacity(
+        self,
+    ):
         """
         Valida que los compromisos personales (deuda + ahorro) no superen
         la parte de 'reserva' que le corresponde a cada miembro.
         """
+
         for member in self.members:
             reserve_capacity = self.get_reserve_contribution_by_member(member)
-            debt = self._member_debts.get(member, 0)
+            debt = self.debt_bucket_tracker.total_expected_installment_by_member(
+                member_name=member
+            )
             saving = self._saving_goals.get(member, 0)
 
             if (debt + saving) > reserve_capacity:
@@ -142,7 +155,9 @@ class Household:
 
         for member in self.members:
             reserve_contribution = self.get_reserve_contribution_by_member(member)
-            debt = self._member_debts.get(member, 0)
+            debt = self.debt_bucket_tracker.total_expected_installment_by_member(
+                member_name=member
+            )
 
             self._saving_goals[member] = reserve_contribution - debt
 
@@ -198,38 +213,60 @@ class Household:
             date=date,
         )
 
-    # ====== MONTH — DEBT ======
+    # ====== MONTH — DEBT BUCKETS ======
 
     def register_debt_payment(
         self,
         member_name: str,
         amount_cents: int,
+        bucket_id: UUID,
         payment_date: datetime | None = None,
-        description="",
-        allow_overpayment: bool = False,
     ):
         """Registra un pago de deuda validando que no supera el compromiso del mes.
 
-        El DebtTracker se reinstancia cada mes en reset_for_new_month, así que
-        get_total_paid ya devuelve solo lo pagado en el período activo — sin filtrar
-        por fechas. El histórico entre meses vive en BD (DebtRepository).
+        El histórico entre meses vive en BD (DebtRepository).
         """
         self.validate_member_exist(member_name)
-        committed = self._member_debts.get(member_name, 0)
-        paid = self.debt_tracker.get_total_paid(member_name)
 
-        if not allow_overpayment and ((paid + amount_cents) > committed):
-            raise ValueError(f"El pago supera el compromiso de deuda ({committed}¢)")
+        self.debt_bucket_tracker.pay(
+            amount_cents=amount_cents,
+            bucket_id=bucket_id,
+            date=payment_date,
+            member_name=member_name,
+        )
 
-        self.debt_tracker.pay(member_name, amount_cents, description, date=payment_date)
+    def get_debt_status(self, member_name: str, start_date: date, end_date: date):
+        """Resumen de deuda de un miembro en el período: detalle por bucket + totales."""
+        self.validate_member_exist(member_name)
+        return self.debt_bucket_tracker.member_debt_summary(
+            member_name, start_date, end_date
+        )
 
-    # ====== MONTH — BUCKETS ======
+    def get_debt_history(self, member_name: str) -> list:
+        """Todos los pagos de deuda de un miembro, en todos sus buckets."""
+        self.validate_member_exist(member_name)
+        history: list = []
+        for bucket in self.debt_bucket_tracker.get_bucket_by_member(
+            member_name
+        ).values():
+            history.extend(bucket.entries)
+        return history
+
+    def get_all_debts_summary(self, start_date: date, end_date: date) -> dict:
+        """Resumen de deuda de todos los miembros del hogar."""
+        return {
+            member: self.debt_bucket_tracker.member_debt_summary(
+                member, start_date, end_date
+            )
+            for member in self.members
+        }
+    # ====== MONTH — SAVING BUCKETS ======
 
     def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
         bucket_id = self.savings_tracker.add_saving_bucket(bucket)
         return bucket_id
 
-    def deposit_to_bucket(
+    def deposit_to_saving_bucket(
         self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
     ) -> None:
         self.validate_member_exist(member_name)
@@ -249,14 +286,15 @@ class Household:
 
     def reset_for_new_month(self):
         """Reinicia el estado mutable del período. Miembros, categorías.
-        También se reinicia el estado de ExpenseTracker, DebtTracker y SavingTracker para evitar acumulación de movimientos pasados."""
+        También se reinicia el estado de ExpenseTracker y SavingTracker para evitar
+        acumulación de movimientos pasados. DebtBucketTracker NO se reinicia: la deuda
+        es household-scoped y cruza meses."""
         self.expense_tracker = ExpenseTracker()
-        self.debt_tracker = DebtTracker()
         self.savings_tracker = SavingTracker()
         self._registered_incomes = {}
         self._agreed_contributions = {}
         self._agreed_percentages = {}
-        self._member_debts = {name: 0 for name in self.members}
+
         self._saving_goals = {name: 0 for name in self.members}
         self._income_entries = list()
 
@@ -275,12 +313,15 @@ class Household:
         return self._registered_incomes.copy()
 
     # ====== QUERIES — PLANNING ======
+    def get_budget_categories(self) -> dict[str, BudgetCategory]:
+        """Retorna todas las categoría con presupuesto activas"""
+        return self.budget.get_budget_categories()
 
     def get_active_categories(self) -> list[str]:
         """Lista categorías activas"""
         return self.budget.get_category_names()
 
-    def get_category_budget(self, category: str) -> int:
+    def get_category_planned_amount(self, category: str) -> int:
         """Obtiene presupuesto asignado a una categoría"""
         return self.budget.get_planned_amount(category)
 
@@ -326,7 +367,7 @@ class Household:
         Returns:
             int: Porcentaje en basis points (5000 = 50% de ingresos)
         """
-        category_budget = self.get_category_budget(category)
+        category_budget = self.get_category_planned_amount(category)
         total = self.get_total_incomes()
         pct_basis = (category_budget * 10000) // total
         return pct_basis
@@ -439,9 +480,6 @@ class Household:
             )
         return self._agreed_contributions.copy()
 
-    def get_member_debts(self):
-        return self._member_debts
-
     def get_saving_goals(self):
         return self._saving_goals
 
@@ -454,7 +492,7 @@ class Household:
         """Recalcula la categoría auto-calculada (reserva) según ingresos y presupuestos actuales"""
         reserve_cat = self.budget.get_auto_calculated_category()
         total_incomes = self.get_total_incomes()
-        current_reserve = self.get_category_budget(reserve_cat.name)
+        current_reserve = self.get_category_planned_amount(reserve_cat.name)
         other_budgeted = self.get_total_budgeted() - current_reserve
 
         new_reserve_amount = reserve_cat.calculate_own_budget(
@@ -506,16 +544,6 @@ class Household:
         budgeted = self.get_total_budgeted()
         spent = self.get_total_spent()
         return budgeted - spent
-
-    def get_debt_status(self, member_name):
-        self.validate_member_exist(member_name)
-        committed = self._member_debts.get(member_name, 0)
-        paid = self.debt_tracker.get_total_paid(member_name)
-        return {"committed": committed, "paid": paid, "remaining": committed - paid}
-
-    def get_debt_history(self, member_name: str) -> list:
-        self.validate_member_exist(member_name)
-        return self.debt_tracker.get_history(member_name)
 
     def get_member_savings_summary(self, member_name: str):
         """Retorna dict resumen:

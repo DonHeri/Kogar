@@ -29,7 +29,12 @@ class SummaryService:
         members = list(household.members.keys())
         total_incomes = household.get_total_incomes()
         categories = household.get_active_categories()
-        debts = household.get_member_debts()
+        debts = {
+            name: household.debt_bucket_tracker.total_expected_installment_by_member(
+                name
+            )
+            for name in members
+        }
         saving_goals = household.get_saving_goals()
         total_budgeted = household.get_total_budgeted()
 
@@ -102,7 +107,9 @@ class SummaryService:
             "owed": owed,
             "paid": paid,
             "balance": balance,
-            "debt": household._member_debts.get(member_name, 0),
+            "debt": household.debt_bucket_tracker.total_expected_installment_by_member(
+                member_name
+            ),
             "saving_goal": household._saving_goals.get(member_name, 0),
             "by_category": by_category,
         }

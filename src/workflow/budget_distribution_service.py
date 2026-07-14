@@ -31,8 +31,8 @@ class BudgetDistributionService:
         """Raíz: cuenta contra los ingresos y recalcula la reserva."""
         reserve_cat = household.budget.get_auto_calculated_category()
         total_incomes = household.get_total_incomes()
-        current_amount = household.get_category_budget(category)
-        current_reserve = household.get_category_budget(reserve_cat.name)
+        current_amount = household.get_category_planned_amount(category)
+        current_reserve = household.get_category_planned_amount(reserve_cat.name)
 
         other_budgeted = (
             household.get_total_budgeted() - current_amount - current_reserve
@@ -56,8 +56,8 @@ class BudgetDistributionService:
     ) -> None:
         """Hija: se mueve dentro del techo de su raíz, sin tocar la reserva."""
         parent_name = household.budget.categories[category].parent
-        ceiling = household.get_category_budget(parent_name)
-        current_amount = household.get_category_budget(category)
+        ceiling = household.get_category_planned_amount(parent_name)
+        current_amount = household.get_category_planned_amount(category)
 
         siblings_total = (
             household.budget.get_child_total_planned(parent_name) - current_amount

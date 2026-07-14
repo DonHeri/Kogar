@@ -82,7 +82,7 @@ class Budget:
         self._validate_category_exists(normalized)
         return self.categories[normalized].category
 
-    def get_auto_calculated_category(self) -> Category:
+    def get_auto_calculated_category(self) -> AutoCalculatedCategory:
         """Retorna la categoría auto-calculada (reserva). Falla si no existe."""
         for budget_category in self.categories.values():
             if isinstance(budget_category.category, AutoCalculatedCategory):
