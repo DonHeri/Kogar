@@ -109,3 +109,39 @@ class PeriodRepository:
             (period_id,),
         )
         return {row["full_name"]: row["amount_cents"] for row in self.cursor.fetchall()}
+
+    def save_custom_splits(self, period_id: int, splits: dict[str, int]) -> None:
+        "Guarda los porcentajes personalizados de reparto para un período. Si ya existen, sobreescribe."
+
+        for full_name, percentage_basis_points in splits.items():
+            self.cursor.execute(
+                " SELECT id FROM members WHERE full_name = %s ", (full_name,)
+            )
+            row = self.cursor.fetchone()
+            if row is None:
+                raise ValueError(f"Miembro {full_name} no está en la base de datos ")
+            self.cursor.execute(
+                """
+                INSERT INTO period_custom_splits(period_id,member_id,percentage_basis_points)
+                VALUES (%s,%s,%s)
+                ON CONFLICT (period_id,member_id)
+                DO UPDATE SET percentage_basis_points = EXCLUDED.percentage_basis_points
+                """,
+                (period_id, row["id"], percentage_basis_points),
+            )
+
+    def get_custom_splits(self, period_id: int) -> dict[str, int]:
+        "Lee los porcentajes personalizados guardados de un período. Devuelve {nombre: percentage_basis_points}."
+        self.cursor.execute(
+            """
+            SELECT m.full_name, pcs.percentage_basis_points
+            FROM period_custom_splits pcs
+            INNER JOIN members m ON m.id = pcs.member_id
+            WHERE pcs.period_id = %s
+            """,
+            (period_id,),
+        )
+        return {
+            row["full_name"]: row["percentage_basis_points"]
+            for row in self.cursor.fetchall()
+        }

@@ -40,3 +40,24 @@ class BudgetCategoryRepository:
             (period_id,),
         )
         return self.cursor.fetchall()
+
+    def update_planned_amount(
+        self, household_period_id: int, name: str, planned_amount: int
+    ) -> None:
+        self.cursor.execute(
+            """
+            UPDATE budget_categories
+            SET planned_amount = %s
+            WHERE household_period_id = %s AND name = %s
+            """,
+            (planned_amount, household_period_id, name),
+        )
+
+    def delete(self, household_period_id: int, name: str) -> None:
+        self.cursor.execute(
+            """
+            DELETE FROM budget_categories
+            WHERE household_period_id = %s AND name = %s
+            """,
+            (household_period_id, name),
+        )
