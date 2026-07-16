@@ -46,7 +46,7 @@ def _add_debt(hh, owner, installment_cents, principal_cents=None):
     )
 
 
-def _add_saving_bucket(hh, owners, goal_cents=None):
+def _add_saving_bucket(hh, owners, goal_cents=None, deadline=None):
     """Crea y registra un bucket de ahorro. owners: str (personal) o list (compartido)."""
     if isinstance(owners, str):
         owners = [owners]
@@ -55,6 +55,7 @@ def _add_saving_bucket(hh, owners, goal_cents=None):
             saving_bucket_name=f"bucket-{'-'.join(owners)}",
             owners=owners,
             goal_cents=goal_cents,
+            deadline=deadline,
         )
     )
 
@@ -1189,13 +1190,17 @@ def test_get_member_status_normalizes_name(household_with_members):
 
 
 def test_get_member_status_includes_debt_and_saving_goal(household_with_members):
-    """debt y saving_goal deben reflejar los valores declarados en PLANNING"""
+    """debt y saving_goal (derivado de las metas con deadline, informativo) reflejan
+    lo declarado en PLANNING"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.freeze_registration_state()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva autocalcula a 200000 → capacity per member = 100000
     _add_debt(household_with_members, "member1", 20000)
-    household_with_members.set_member_saving_goal("member1", 30000)
+    # deadline dentro del mes actual -> months_until_deadline == 1 -> required == goal
+    _add_saving_bucket(
+        household_with_members, "member1", goal_cents=30000, deadline=datetime.now()
+    )
     household_with_members.freeze_planning_state()
 
     status = SummaryService.get_member_status(household_with_members, "member1")
@@ -1496,53 +1501,58 @@ def test_get_reserve_contribution_by_member_with_custom_method(household_with_me
 
 
 # ====================================================
-# TESTS: validate_debt_and_saving_dont_exceed_capacity
+# TESTS: validate_debt_doesnt_exceed_capacity
 # ====================================================
 
 
-def test_validate_debt_and_saving_passes_within_reserva(household_with_members):
-    """Deuda + ahorro dentro de la parte de reserva no lanza"""
-    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
-    # EQUAL: 120000 / 2 = 60000 por miembro
-    _set_budget(household_with_members, "fijos", 180000)
-    household_with_members.set_member_saving_goal("member1", 40000)
-    _add_debt(household_with_members, "member1", 10000)
-
-    # 40000 + 10000 = 50000 <= 60000 → OK
-    household_with_members.validate_debt_and_saving_dont_exceed_capacity()
-
-
-def test_validate_debt_and_saving_raises_when_exceeds_reserva(household_with_members):
-    """Deuda + ahorro mayor que la parte de reserva del miembro lanza ValueError"""
-    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
-    # EQUAL: 120000 / 2 = 60000 por miembro
-    _set_budget(household_with_members, "fijos", 180000)
-    household_with_members.set_member_saving_goal("member1", 50000)
-    _add_debt(household_with_members, "member1", 20000)
-
-    # 50000 + 20000 = 70000 > 60000 → lanza
-    with pytest.raises(ValueError, match="member1"):
-        household_with_members.validate_debt_and_saving_dont_exceed_capacity()
-
-
-def test_validate_debt_and_saving_no_reserva_raises_if_commitments(
+def test_validate_debt_doesnt_exceed_capacity_passes_within_reserva(
     household_with_members,
 ):
-    """Sin categoría reserva, cualquier compromiso supera capacidad 0"""
-    household_with_members.set_member_saving_goal("member1", 1)
+    """Deuda dentro de la parte de reserva no lanza. El ahorro no se valida —
+    es elección, no obligación (T5/T6)."""
+    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
+    # EQUAL: 120000 / 2 = 60000 por miembro
+    _set_budget(household_with_members, "fijos", 180000)
+    _add_debt(household_with_members, "member1", 50000)
+
+    # 50000 <= 60000 → OK
+    household_with_members.validate_debt_doesnt_exceed_capacity()
+
+
+def test_validate_debt_doesnt_exceed_capacity_raises_when_exceeds_reserva(
+    household_with_members,
+):
+    """Deuda mayor que la parte de reserva del miembro lanza ValueError"""
+    # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
+    # EQUAL: 120000 / 2 = 60000 por miembro
+    _set_budget(household_with_members, "fijos", 180000)
+    _add_debt(household_with_members, "member1", 70000)
+
+    # 70000 > 60000 → lanza
+    with pytest.raises(ValueError, match="member1"):
+        household_with_members.validate_debt_doesnt_exceed_capacity()
+
+
+def test_validate_debt_doesnt_exceed_capacity_no_reserva_raises_if_debt(
+    household_with_members,
+):
+    """Sin categoría reserva, cualquier deuda supera capacidad 0"""
+    _add_debt(household_with_members, "member1", 1)
 
     with pytest.raises(ValueError, match="member1"):
-        household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+        household_with_members.validate_debt_doesnt_exceed_capacity()
 
 
-def test_validate_debt_and_saving_ignores_missing_money(household_with_members):
-    """Sin reserva (fijos == total_incomes), cualquier compromiso supera capacidad"""
+def test_validate_debt_doesnt_exceed_capacity_ignores_missing_money(
+    household_with_members,
+):
+    """Sin reserva (fijos == total_incomes), cualquier deuda supera capacidad"""
     # fijos=total_incomes → reserva=0 → capacidad=0 por miembro
     _set_budget(household_with_members, "fijos", 300000)
-    household_with_members.set_member_saving_goal("member1", 1)
+    _add_debt(household_with_members, "member1", 1)
 
     with pytest.raises(ValueError, match="member1"):
-        household_with_members.validate_debt_and_saving_dont_exceed_capacity()
+        household_with_members.validate_debt_doesnt_exceed_capacity()
 
 
 # ====================================================
@@ -1765,73 +1775,27 @@ def test_get_debt_status_after_full_payment(household_month_ready):
 
 
 # ====================================================
-# TESTS: auto_assign_saving_goals y get_saving_goal_status
+# TESTS: get_saving_status
 # ====================================================
 
 
-def test_auto_assign_saving_goals_basic(household_month_ready):
-    """saving_goal[m] = reserva_contribution[m] - debt[m] para cada miembro"""
+def test_get_saving_status_after_deposit(household_month_ready):
+    """Depósito de ahorro en MONTH se refleja en get_saving_status. required_this_month
+    es informativo (deriva de goal+deadline), no un compromiso declarado."""
     hh = household_month_ready
-    # EQUAL, reserva=120000 → 60000 por miembro
-    _add_debt(hh, "member1", 10000)
-    _add_debt(hh, "member2", 20000)
-
-    hh.auto_assign_saving_goals()
-
-    goals = hh.get_saving_goals()
-    assert goals["member1"] == 50000  # 60000 - 10000
-    assert goals["member2"] == 40000  # 60000 - 20000
-
-
-def test_auto_assign_saving_goals_no_debt(household_month_ready):
-    """Sin deuda declarada, saving_goal == cuota_reserva completa"""
-    hh = household_month_ready
-    # member debts son 0 por defecto
-
-    hh.auto_assign_saving_goals()
-
-    goals = hh.get_saving_goals()
-    # EQUAL, reserva=120000 → 60000 por miembro, deuda=0
-    assert goals["member1"] == 60000
-    assert goals["member2"] == 60000
-
-
-def test_auto_assign_saving_goals_proportional_vs_equal(household_month_ready):
-    """PROPORTIONAL y EQUAL generan cuotas distintas → saving goals distintos"""
-    hh = household_month_ready
-    _add_debt(hh, "member1", 10000)
-    _add_debt(hh, "member2", 10000)
-
-    # EQUAL (fixture ya usa EQUAL): cada miembro 60000 de reserva
-    hh.auto_assign_saving_goals()
-    goals_equal = dict(hh.get_saving_goals())
-
-    # PROPORTIONAL: member1=200000 (66.7%), member2=100000 (33.3%)
-    # reserva=120000: member1=80000, member2=40000
-    hh.assign_distribution_method(MetodoReparto.PROPORTIONAL)
-    hh.auto_assign_saving_goals()
-    goals_proportional = dict(hh.get_saving_goals())
-
-    assert goals_equal["member1"] == 50000  # 60000 - 10000
-    assert goals_equal["member2"] == 50000  # 60000 - 10000
-
-    assert goals_proportional["member1"] == 70000  # 80000 - 10000
-    assert goals_proportional["member2"] == 30000  # 40000 - 10000
-
-    # Los resultados deben diferir entre métodos
-    assert goals_equal != goals_proportional
-
-
-def test_get_saving_goal_status_after_deposit(household_month_ready):
-    """Depósito de ahorro en MONTH se refleja en get_saving_goal_status"""
-    hh = household_month_ready
-    hh.set_member_saving_goal("member1", 50000)
+    bucket_id = _add_saving_bucket(
+        hh, "member1", goal_cents=50000, deadline=datetime.now()
+    )
     hh.freeze_planning_state()
-    bucket_id = _add_saving_bucket(hh, "member1")
 
     hh.deposit_to_saving_bucket(bucket_id, "member1", 30000)
 
-    status = hh.get_saving_goal_status("member1", _WIDE_START, _WIDE_END)
-    assert status["committed"] == 50000
-    assert status["paid"] == 30000
-    assert status["remaining"] == 20000
+    status = hh.get_saving_status("member1", _WIDE_START, _WIDE_END)
+    bucket_status = status["buckets"][bucket_id]
+
+    # required_this_month es un cálculo en vivo sobre el saldo actual, no el
+    # snapshot de antes del depósito: tras depositar 30000 de una meta de
+    # 50000, faltan 20000 — el "print" ya lo refleja.
+    assert bucket_status["required_this_month"] == 20000
+    assert bucket_status["paid_this_period"] == 30000
+    assert status["totals"]["paid_this_period"] == 30000

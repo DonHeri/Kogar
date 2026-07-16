@@ -198,19 +198,19 @@ class WorkflowManager:
         return self.household.get_budget_as_percentage(category=category)
 
     # ====== PLANNING PHASE — SAVING & DEBT ======
-    def set_member_saving_goal(self, member: str, amount_euros: float) -> None:
-        """Declara el ahorro personal de un miembro (PLANNING)"""
-        self.validate_phase(Phase.PLANNING)
-        member = normalize_name(member)
-        amount_cents = to_cents(amount_euros)
-        self.household.set_member_saving_goal(member, amount_cents)
-
-    def get_saving_goal_status(self, member_name):
-        """Retorna {committed, paid, remaining} del ahorro del miembro en el período."""
+    def get_saving_status(self, member: str) -> dict:
+        """Resumen de ahorro de un miembro en el período: buckets + totales (PLANNING+).
+        Informativo — nada aquí es una obligación, ver Household.get_saving_status."""
         self.validate_phase_accessible(Phase.PLANNING)
-        member = normalize_name(member_name)
+        member = normalize_name(member)
         start_date, end_date = self._current_period_range()
-        return self.household.get_saving_goal_status(member, start_date, end_date)
+        return self.household.get_saving_status(member, start_date, end_date)
+
+    def get_saving_requirement_by_member(self, member: str) -> int:
+        """Cuánto exigirían las metas del miembro este mes (informativo, snapshot de hoy)."""
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member)
+        return self.household.get_saving_requirement_by_member(member)
 
     def add_debt_bucket(
         self,
@@ -236,11 +236,6 @@ class WorkflowManager:
         """Fija la cuota mensual real de una deuda (la del usuario)."""
         self.validate_phase_accessible(Phase.PLANNING)
         self.household.set_debt_bucket_installment(bucket_id, to_cents(amount_euros))
-
-    def auto_assign_saving_goals(self):
-        """Asigna metas de ahorro automáticamente: parte de reserva de cada miembro menos su deuda."""
-        self.validate_phase(Phase.PLANNING)
-        return self.household.auto_assign_saving_goals()
 
     def register_debt_payment(
         self,
@@ -276,11 +271,6 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         start_date, end_date = self._current_period_range()
         return self.household.get_all_debts_summary(start_date, end_date)
-
-    def get_all_saving_goals(self) -> dict[str, int]:
-        """Retorna {member: ahorro_comprometido_céntimos} (PLANNING+)"""
-        self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_saving_goals()
 
     def get_debt_history(self, member: str) -> list:
         """Historial completo de pagos de deuda de un miembro (MONTH+)"""
@@ -328,10 +318,11 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_reserve_contribution_by_member(member_name)
 
-    def validate_debt_and_saving_dont_exceed_capacity(self):
-        """Valida que deuda + ahorro comprometidos no superen la parte de reserva de cada miembro."""
+    def validate_debt_doesnt_exceed_capacity(self):
+        """Valida que la deuda comprometida no supere la parte de reserva de cada miembro.
+        El ahorro no se valida — es elección, no obligación."""
         self.validate_phase(Phase.PLANNING)
-        return self.household.validate_debt_and_saving_dont_exceed_capacity()
+        return self.household.validate_debt_doesnt_exceed_capacity()
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
@@ -347,7 +338,7 @@ class WorkflowManager:
         if total_budgeted <= 0:
             raise ValueError("Debe asignar presupuesto a al menos una categoría")
 
-        self.household.validate_debt_and_saving_dont_exceed_capacity()
+        self.household.validate_debt_doesnt_exceed_capacity()
 
         # Congelar estado de planificación (cachea percentages y contributions acordadas)
         self.household.freeze_planning_state()

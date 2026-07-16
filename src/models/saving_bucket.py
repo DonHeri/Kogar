@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, date
+from math import ceil
 from uuid import uuid4
 
 from src.models.saving_bucket_entry import SavingBucketEntry
@@ -70,6 +71,37 @@ class SavingBucket:
             result[entry.member_name] += entry.amount_cents
         return result
 
+    @property
+    def remaining_goal(self) -> int | None:
+        """Cuánto falta para la meta. None si no hay meta. 0 si ya se alcanzó/superó."""
+        if self.goal is None:
+            return None
+
+        return max(self.goal - self.balance, 0)
+
+    @property
+    def months_until_deadline(self) -> int | None:
+        """Meses desde hoy hasta el deadline. None si no hay deadline.
+        Si el deadline ya pasó, devuelve 1 (hace falta ya) — mismo patrón que
+        DebtBucket.remaining_term_months + el max(...,1) de next_installment."""
+        if self.deadline is None:
+            return None
+
+        now = datetime.now()
+        months = (self.deadline.year - now.year) * 12 + (
+            self.deadline.month - now.month
+        )
+        return max(months, 1)
+
+    @property
+    def required_monthly_contribution(self) -> int | None:
+        """Cuánto haría falta aportar ESTE MES para llegar a la meta en el deadline.
+        None si falta meta o deadline (sin los dos no hay "ritmo" que calcular)."""
+        if self.goal is None or self.deadline is None:
+            return None
+
+        return ceil(self.remaining_goal / self.months_until_deadline)
+
     # ====== API PÚBLICA ======
 
     def deposit(
@@ -127,6 +159,18 @@ class SavingBucket:
                 date=date or datetime.now(),
             )
         )
+
+    def get_period_deposits(self, start_date: date, end_date: date) -> int:
+        """Neto depositado (o retirado, en negativo) en este bucket dentro del rango."""
+        return sum(
+            e.amount_cents
+            for e in self._entries
+            if start_date <= e.date.date() <= end_date
+        )
+
+    # ============================================================
+    # Queries
+    # ============================================================
 
     def __repr__(self):  # pragma: no cover
         return (

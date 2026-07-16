@@ -38,7 +38,6 @@ class Household:
         self.method: MetodoReparto = method
         self._custom_splits = {}
         self._registered_incomes = {}
-        self._saving_goals: dict[str, int] = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
         self._income_entries: list[IncomeEntry] = []
@@ -51,7 +50,6 @@ class Household:
             raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
-        self._saving_goals[member.name] = 0
 
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
@@ -86,11 +84,6 @@ class Household:
 
     # ====== PLANNING — BUDGET ======
 
-    def set_member_saving_goal(self, member_name: str, amount_cents: int) -> None:
-        """Declara el ahorro personal mensual de un miembro (PLANNING)"""
-        self.validate_member_exist(member_name)
-        self._saving_goals[member_name] = amount_cents
-
     def add_debt_bucket(self, debt_bucket: DebtBucket) -> UUID:
         """Registra un bucket de deuda personal (un único owner)."""
         self.validate_member_exist(member_name=debt_bucket.owner)
@@ -122,24 +115,17 @@ class Household:
     def get_custom_splits(self):
         return self._custom_splits
 
-    def validate_debt_and_saving_dont_exceed_capacity(
-        self,
-    ):
-        """
-        Valida que los compromisos personales (deuda + ahorro) no superen
-        la parte de 'reserva' que le corresponde a cada miembro.
-        """
-
+    def validate_debt_doesnt_exceed_capacity(self):
+        """Valida que la deuda (obligación real) de cada miembro no supere su
+        parte de reserva. El ahorro NO se valida aquí — es elección, no obligación."""
         for member in self.members:
             reserve_capacity = self.get_reserve_contribution_by_member(member)
             debt = self.debt_bucket_tracker.total_expected_installment_by_member(
                 member_name=member
             )
-            saving = self._saving_goals.get(member, 0)
-
-            if (debt + saving) > reserve_capacity:
+            if debt > reserve_capacity:
                 raise ValueError(
-                    f"Compromisos ({debt + saving}¢) de {member} superan su "
+                    f"La deuda ({debt}¢) de {member} supera su "
                     f"parte de reserva ({reserve_capacity}¢)"
                 )
 
@@ -147,17 +133,6 @@ class Household:
         """Congela el estado de planificación al pasar a fase MONTH"""
         self._agreed_percentages = self.get_percentages_by_method(self.method)
         self._agreed_contributions = self.get_current_contributions()
-
-    def auto_assign_saving_goals(self):
-        """Calcula automáticamente los objetivos de ahorro de cada miembro según su parte de la categoría auto-calculada (reserva) y su deuda personal"""
-
-        for member in self.members:
-            reserve_contribution = self.get_reserve_contribution_by_member(member)
-            debt = self.debt_bucket_tracker.total_expected_installment_by_member(
-                member_name=member
-            )
-
-            self._saving_goals[member] = reserve_contribution - debt
 
     # ====== MONTH — EXPENSES ======
 
@@ -220,7 +195,22 @@ class Household:
             )
             for member in self.members
         }
+
     # ====== MONTH — SAVING BUCKETS ======
+    def get_saving_status(
+        self, member_name: str, start_date: date, end_date: date
+    ) -> dict:
+        """Resumen de ahorro de un miembro en el período: detalle por bucket + totales."""
+        self.validate_member_exist(member_name)
+        return self.saving_bucket_tracker.member_saving_summary(
+            member_name, start_date, end_date
+        )
+
+    def get_saving_requirement_by_member(self, member_name: str) -> int:
+        """Cuánto exigirían las metas del miembro este mes (informativo, snapshot de hoy)."""
+        return self.saving_bucket_tracker.total_required_contribution_by_member(
+            member_name
+        )
 
     def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
         bucket_id = self.saving_bucket_tracker.add_bucket(bucket)
@@ -230,17 +220,13 @@ class Household:
         self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
     ) -> None:
         self.validate_member_exist(member_name)
-        self.saving_bucket_tracker.deposit(
-            bucket_id, amount_cents, member_name, date
-        )
+        self.saving_bucket_tracker.deposit(bucket_id, amount_cents, member_name, date)
 
     def withdraw_from_bucket(
         self, bucket_id: UUID, member_name: str, amount_cents: int, date=None
     ) -> None:
         self.validate_member_exist(member_name)
-        self.saving_bucket_tracker.withdraw(
-            bucket_id, amount_cents, member_name, date
-        )
+        self.saving_bucket_tracker.withdraw(bucket_id, amount_cents, member_name, date)
 
     # ====== MONTH — NEW MONTH ======
 
@@ -254,7 +240,6 @@ class Household:
         self._agreed_contributions = {}
         self._agreed_percentages = {}
 
-        self._saving_goals = {name: 0 for name in self.members}
         self._income_entries = list()
 
     # ====== QUERIES — REGISTRATION ======
@@ -439,9 +424,6 @@ class Household:
             )
         return self._agreed_contributions.copy()
 
-    def get_saving_goals(self):
-        return self._saving_goals
-
     # ====== QUERIES — MONTH ======
     def get_extra_income_entries(self):
         """Obtiene ingresos extra registrados en MONTH"""
@@ -503,19 +485,6 @@ class Household:
         budgeted = self.get_total_budgeted()
         spent = self.get_total_spent()
         return budgeted - spent
-
-    def get_saving_goal_status(self, member_name, start_date: date, end_date: date):
-        """Estado del compromiso mensual de ahorro de un miembro en el período.
-
-        committed = objetivo mensual (auto-asignado); paid = neto ahorrado por el
-        miembro en sus buckets dentro del rango del período.
-        """
-        self.validate_member_exist(member_name)
-        committed = self._saving_goals.get(member_name, 0)
-        paid = self.saving_bucket_tracker.get_member_saved_in_period(
-            member_name, start_date, end_date
-        )
-        return {"committed": committed, "paid": paid, "remaining": committed - paid}
 
     def get_bucket_by_id(self, bucket_id: UUID) -> SavingBucket:
         return self.saving_bucket_tracker.get_bucket_by_id(bucket_id)

@@ -64,6 +64,58 @@ class SavingBucketTracker:
             amount_cents=amount_cents, member_name=member_name, date=date
         )
 
+    def total_required_contribution_by_member(self, member_name: str) -> int:
+        """Suma de lo que exigirían las metas con deadline del miembro, ahora mismo.
+        Informativo — no es un compromiso, solo agrega lo que ya calcula cada bucket."""
+        total = sum(
+            bucket.required_monthly_contribution or 0
+            for bucket in self.buckets.values()
+            if member_name in bucket.owners
+        )
+        return total
+
+    def member_saving_summary(
+        self, member_name: str, start_date: date, end_date: date
+    ) -> dict:
+        """Resumen de ahorro de un miembro: detalle por bucket (meta, deadline, cuota
+        informativa, lo depositado este período) + totales. Espeja member_debt_summary,
+        pero sin 'committed' — aquí nada se compromete de antemano.
+
+        Returns:
+            {
+              "buckets": {bucket_id: {
+                  "name", "goal", "deadline", "balance",
+                  "remaining_goal", "required_this_month", "paid_this_period",
+              }},
+              "totals": {"paid_this_period": int, "required_this_month": int},
+            }
+        """
+        buckets = {}
+        total_paid = 0
+        total_required = 0
+        for id, bucket in self.get_bucket_by_member(member_name).items():
+            paid = bucket.get_period_deposits(start_date, end_date)
+            required = bucket.required_monthly_contribution
+            buckets[id] = {
+                "name": bucket.bucket_name,
+                "goal": bucket.goal,
+                "deadline": bucket.deadline,
+                "balance": bucket.balance,
+                "remaining_goal": bucket.remaining_goal,
+                "required_this_month": required,
+                "paid_this_period": paid,
+            }
+            total_paid += paid
+            total_required += required or 0
+
+        return {
+            "buckets": buckets,
+            "totals": {
+                "paid_this_period": total_paid,
+                "required_this_month": total_required,
+            },
+        }
+
     # ====== QUERIES ======
     def get_all_buckets(self) -> dict[UUID, SavingBucket]:
         """Retorna una copia de todos los buckets registrados."""
