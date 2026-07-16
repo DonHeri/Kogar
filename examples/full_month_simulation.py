@@ -5,10 +5,11 @@ Caso real:
 - Amanda gana 1.339,58€ / Heri gana 1.124,50€ (total hogar: 2.464,08€)
 - Reparto proporcional al sueldo
 - Fijos: 53% | Variables: 20% | Reserva (auto): 27%
-- Amanda tiene una deuda personal de 118,90€/mes (préstamo coche)
-- Heri tiene una deuda personal de 138,66€/mes (préstamo estudios)
-- El resto de reserva de cada uno → ahorro automático
-- Bucket compartido: "Vacaciones verano" con meta de 1.200€
+- Amanda tiene una deuda personal: financiación coche (cuota 317,67€/mes)
+- Heri tiene una deuda personal: préstamo estudios (cuota 150€/mes)
+- Ahorro en buckets: colchón libre de Heri, meta de Amanda (curso, deadline relativo),
+  y un bucket compartido "Vacaciones verano" con meta de 1.200€ y deadline fijo.
+  El ahorro es elección, no obligación — nada se valida contra la reserva.
 
 Flujo: REGISTRATION → PLANNING → MONTH → CLOSING
 """
@@ -16,12 +17,12 @@ Flujo: REGISTRATION → PLANNING → MONTH → CLOSING
 from datetime import date, datetime
 
 from src.models.budget import Budget
-from src.models.constants import MetodoReparto, SavingScope
-from src.models.debt_tracker import DebtTracker
+from src.models.constants import MetodoReparto
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
-from src.models.saving_tracker import SavingTracker
-from src.utils.currency import format_percentage, to_euros
+from src.models.saving_bucket_tracker import SavingBucketTracker
+from src.utils.currency import format_percentage, to_cents, to_euros, to_euros_float
 from src.workflow.workflow_manager import WorkflowManager
 
 # Persistencia
@@ -32,10 +33,9 @@ from src.storage.period_repository import PeriodRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
 from src.storage.budget_categories_repository import BudgetCategoryRepository
 from src.storage.expense_repository import ExpenseRepository
-from src.storage.saving_entry_repository import SavingEntryRepository
 from src.storage.income_entry_repository import IncomeEntryRepository
-from src.storage.saving_buckets_repository import SavingBucketRepository
-from src.storage.bucket_entry_repository import BucketEntryRepository
+from src.storage.saving_bucket_repository import SavingBucketRepository
+from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 with DatabaseConnection(
@@ -51,10 +51,9 @@ with DatabaseConnection(
     debt_repo = DebtEntryRepository(conn)
     budget_categories_repo = BudgetCategoryRepository(conn)
     expense_repo = ExpenseRepository(conn)
-    saving_repo = SavingEntryRepository(conn)
     income_entry_repo = IncomeEntryRepository(conn)
-    saving_buckets_repo = SavingBucketRepository(conn)
-    bucket_entry_repo = BucketEntryRepository(conn)
+    saving_bucket_repo = SavingBucketRepository(conn)
+    saving_bucket_entry_repo = SavingBucketEntryRepository(conn)
     # =============================================
     # SETUP — Instanciar todo
     # =============================================
@@ -62,22 +61,21 @@ with DatabaseConnection(
     household = Household(
         budget=Budget(),
         expense_tracker=ExpenseTracker(),
-        saving_tracker=SavingTracker(),
-        debt_tracker=DebtTracker(),
+        saving_bucket_tracker=SavingBucketTracker(),
+        debt_bucket_tracker=DebtBucketTracker(),
         method=MetodoReparto.PROPORTIONAL,
     )
     wm = WorkflowManager(
-        household,
+        household=household,
         household_repo=household_repo,
         member_repo=member_repo,
         period_repo=period_repo,
         debt_repo=debt_repo,
         budget_categories_repository=budget_categories_repo,
         expense_repo=expense_repo,
-        saving_repo=saving_repo,
+        saving_bucket_repo=saving_bucket_repo,
         income_entry_repo=income_entry_repo,
-        saving_buckets_repo=saving_buckets_repo,
-        bucket_entry_repo=bucket_entry_repo,
+        saving_bucket_entry_repo=saving_bucket_entry_repo,
     )
 
     # =============================================
@@ -144,37 +142,64 @@ with DatabaseConnection(
             print(f"    {member.title()}: {to_euros(amount)}")
 
     # --- Compromisos personales (se descuentan de la cuota de reserva) ---
-    wm.set_member_debt("Amanda", 118.90)  # préstamo coche
-    wm.set_member_debt("Heri", 138.66)  # préstamo estudios
+    coche_debt_id = wm.add_debt_bucket(
+        name="financiación coche",
+        principal_euros=20000,
+        owner="amanda",
+        installment_euros=317.67,
+    )
+    estudios_debt_id = wm.add_debt_bucket(
+        name="Estudios",
+        principal_euros=4000,
+        owner="heri",
+        installment_euros=150,
+    )
 
-    debts = wm.get_all_debts()
+    debts = wm.get_all_debts_summary()
     print("\nDeuda declarada:")
-    print(f"  Amanda: {to_euros(debts['amanda'])} (préstamo coche)")
-    print(f"  Heri:   {to_euros(debts['heri'])} (préstamo estudios)")
+    for member, summary in debts.items():
+        for bucket in summary["buckets"].values():
+            print(
+                f"  {member.title()} — {bucket['name']}: "
+                f"{to_euros(bucket['principal'])} total · "
+                f"cuota {to_euros(bucket['installment'])}/mes · "
+                f"{bucket['remaining_installments']} cuotas restantes"
+            )
 
-    # --- Ahorro automático = cuota de reserva - deuda ---
-    wm.auto_assign_saving_goals()
+    # --- Validar que la deuda no supera la reserva de cada miembro.
+    # El ahorro NO se valida aquí: es elección, no obligación (ver DECISIONS). ---
+    wm.validate_debt_doesnt_exceed_capacity()
+    print("\n[OK] Deuda validada (no supera la parte de reserva de cada miembro)")
 
-    saving_goals = wm.get_all_saving_goals()
-    print("\nAhorro automático (reserva - deuda):")
-    print(f"  Amanda: {to_euros(saving_goals['amanda'])}")
-    print(f"  Heri:   {to_euros(saving_goals['heri'])}")
+    # --- Ahorro: todo vive en buckets. Personal/compartido se deriva de owners;
+    # la meta y el deadline son opcionales. Sin los dos, el bucket es puro ahorro
+    # libre (colchón) — sin exigencia calculada. ---
 
-    # --- Validar que deuda + ahorro no supera la reserva de cada miembro ---
-    wm.validate_debt_and_saving_dont_exceed_capacity()
-    print("\n[OK] Compromisos personales validados (no superan reserva)")
-
-    # --- Bucket de ahorro compartido: Vacaciones ---
-    bucket_id = wm.create_saving_bucket(
+    # Bucket personal SIN meta: colchón / ahorro libre de Heri.
+    colchon_heri_id = wm.create_saving_bucket(
+        bucket_name="colchón", owners=["heri"], description="colchón de ahorro de Heri"
+    )
+    # Bucket personal CON meta y deadline relativo ("dentro de 7 meses"): Amanda ahorra
+    # para un curso. required_this_month se deriva solo, es informativo.
+    curso_amanda_id = wm.create_saving_bucket(
+        bucket_name="curso francés",
+        owners=["amanda"],
+        goal_euros=3400,
+        deadline_in_months=7,
+        description="ahorro para estudios amanda",
+    )
+    # Bucket COMPARTIDO con meta y deadline explícito: vacaciones.
+    vacaciones_compartido_id = wm.create_saving_bucket(
         bucket_name="Vacaciones verano",
         goal_euros=1200.0,
-        scope=SavingScope.SHARED,
         owners=["Amanda", "Heri"],
-        deadline=datetime(2026, 7, 1),
+        deadline=datetime(2027, 7, 1),
         description="Viaje de verano",
     )
-    bucket = wm.get_bucket_by_id(bucket_id)
-    print(f"\nBucket creado: '{bucket.bucket_name}' — meta {to_euros(bucket.goal)}")
+
+    bucket = wm.get_bucket_by_id(vacaciones_compartido_id)
+    if bucket.goal:
+        print(f"\nBucket creado: '{bucket.bucket_name}' — meta {to_euros(bucket.goal)}")
     print(f"  Propietarios: {', '.join(o.title() for o in bucket.owners)}")
     deadline = bucket.deadline.strftime("%d/%m/%Y") if bucket.deadline else "sin fecha"
     print(f"  Fecha límite: {deadline}")
@@ -187,11 +212,14 @@ with DatabaseConnection(
     print(f"  Variables: {to_euros(wm.get_category_budget('variables'))}")
     print(f"  Reserva:   {to_euros(wm.get_category_budget('reserva'))} (autocalculada)")
     for member in ["amanda", "heri"]:
-        debt_status = wm.get_debt_status(member)
-        saving_status = wm.get_saving_goal_status(member)
+        debt_totals = wm.get_debt_status(member)["totals"]
+        saving_required = wm.get_saving_requirement_by_member(member)
         print(f"\n  {member.title()}:")
-        print(f"    Deuda mensual:  {to_euros(debt_status['committed'])}")
-        print(f"    Ahorro mensual: {to_euros(saving_status['committed'])}")
+        print(f"    Deuda mensual:            {to_euros(debt_totals['committed'])}")
+        print(
+            f"    Ahorro exigido (informativo): {to_euros(saving_required)} "
+            f"(metas con meta+deadline; no es obligación)"
+        )
 
     wm.finish_planning()
     print("\n[OK] Planning congelado. Fase: MONTH\n")
@@ -219,41 +247,81 @@ with DatabaseConnection(
     print("  Amanda: farmacia 67.30€")
     print("  Heri:   supermercado 150€")
 
-    # --- Pagos de deuda ---
+    # --- Pagos de deuda (por bucket) ---
     wm.register_debt_payment(
-        member="amanda", amount_euros=118.90, description="Cuota préstamo coche"
+        member="amanda", bucket_id=coche_debt_id, amount_euros=317.67
     )
-    print(
-        f"\nDeuda Amanda: pago único {to_euros(wm.get_debt_status('amanda')['paid'])}"
-    )
+    amanda_paid = to_euros(wm.get_debt_status("amanda")["totals"]["paid"])
+    print(f"\nDeuda Amanda: pago de la cuota completa {amanda_paid}")
 
-    wm.register_debt_payment("heri", 70.00, "Préstamo estudios - parcial 1")
-    wm.register_debt_payment("heri", 68.66, "Préstamo estudios - parcial 2")
-    heri_paid = to_euros(wm.get_debt_status("heri")["paid"])
+    wm.register_debt_payment(
+        member="heri", bucket_id=estudios_debt_id, amount_euros=80.0
+    )
+    wm.register_debt_payment(
+        member="heri", bucket_id=estudios_debt_id, amount_euros=70.0
+    )
+    heri_paid = to_euros(wm.get_debt_status("heri")["totals"]["paid"])
     print(f"Deuda Heri:   dos pagos parciales, total {heri_paid}")
 
-    # --- Depósito de ahorro en cuenta individual ---
-    saving_remaining_amanda = wm.get_saving_goal_status("amanda")["remaining"]
-    wm.register_savings_deposit(
-        "Amanda", saving_remaining_amanda / 100, SavingScope.PERSONAL, "Ahorro mensual"
-    )
-    print(f"\nAhorro: Amanda deposita {to_euros(saving_remaining_amanda)} (personal)")
+    # --- AHORRO en MONTH: todo pasa por deposit_to_saving_bucket/withdraw_from_saving_bucket,
+    # sin scope. La verdad es lo que se deposita/retira de verdad, no una promesa. ---
 
-    saving_remaining_heri = wm.get_saving_goal_status("heri")["remaining"]
-    wm.register_savings_deposit(
-        "Heri", saving_remaining_heri / 100, SavingScope.SHARED, "Fondo conjunto"
+    # Vacaciones (compartido): ambos aportan.
+    wm.deposit_to_saving_bucket(
+        bucket_id=vacaciones_compartido_id, member="heri", amount_euros=100.0
     )
-    print(f"Ahorro: Heri deposita {to_euros(saving_remaining_heri)} (compartido)")
+    wm.deposit_to_saving_bucket(
+        bucket_id=vacaciones_compartido_id, member="amanda", amount_euros=100.0
+    )
 
-    # --- Aportaciones al bucket de vacaciones ---
-    wm.deposit_to_bucket(bucket_id, "Amanda", 100.0)
-    wm.deposit_to_bucket(bucket_id, "Heri", 100.0)
-    bucket = wm.get_bucket_by_id(bucket_id)
+    # Colchón de Heri (sin meta): deposita el excedente discrecional tras deuda —
+    # su parte de reserva menos la cuota de deuda. Nadie se lo exige, es su elección.
+    disponible_heri = to_euros_float(
+        wm.get_reserve_contribution_by_member("heri")
+    ) - to_euros_float(wm.get_debt_status("heri")["totals"]["committed"])
+    wm.deposit_to_saving_bucket(
+        bucket_id=colchon_heri_id, member="heri", amount_euros=disponible_heri
+    )
+    print(f"\nHeri deposita en su colchón: {to_euros(to_cents(disponible_heri))}")
+
+    # Curso de Amanda (meta + deadline): deposita, luego retira una parte —
+    # get_saving_status debe reflejar el NETO, no cada movimiento por separado.
+    wm.deposit_to_saving_bucket(
+        bucket_id=curso_amanda_id, member="amanda", amount_euros=500.0
+    )
+    wm.withdraw_from_saving_bucket(
+        bucket_id=curso_amanda_id, member="amanda", amount_euros=100.0
+    )
+
+    amanda_status = wm.get_saving_status("amanda")
+    curso_status = amanda_status["buckets"][curso_amanda_id]
+    print(
+        f"Amanda - curso francés: depositó 500€, retiró 100€, neto este período: "
+        f"{to_euros(curso_status['paid_this_period'])} "
+        f"(saldo total: {to_euros(curso_status['balance'])}, "
+        f"aún exige {to_euros(curso_status['required_this_month'])}/mes)"
+    )
+
+    # --- Bucket de vacaciones: estado tras los depósitos ---
+    bucket = wm.get_bucket_by_id(vacaciones_compartido_id)
     pct_meta = int(bucket.balance / bucket.goal * 100) if bucket.goal else 0
     print(
         f"\nBucket '{bucket.bucket_name}': "
         f"{to_euros(bucket.balance)} / {to_euros(bucket.goal)} ({pct_meta}%)"
     )
+
+    # --- Total compartido y movimientos compartidos del período ---
+    total_shared = wm.get_savings_total_shared()
+    print(f"Total en buckets compartidos (todo el hogar): {to_euros(total_shared)}")
+
+    today = date.today()
+    shared_movements = wm.get_savings_shared_by_period(today, today)
+    print("Movimientos compartidos de hoy, por miembro:")
+    for member, entries in shared_movements.items():
+        if not entries:
+            continue
+        neto = sum(e.amount_cents for e in entries)
+        print(f"  {member.title()}: {len(entries)} movimiento(s), neto {to_euros(neto)}")
 
     # --- Agregar un ingreso extra ---
     wm.add_income_entry("Amanda", 200.0, "Venta de bicicleta")
@@ -261,12 +329,12 @@ with DatabaseConnection(
     print(
         f"\nIngreso extra registrado: {extra_incomes[0].member_name.title()} - {to_euros(extra_incomes[0].amount_cents)} - {extra_incomes[0].description}"
     )
-    new_reserve = wm.get_category_budget("reserva")
-
-    print(to_euros(new_reserve))
+    print("\nReserva recalculada tras el ingreso extra:")
+    print(f"  Total: {to_euros(wm.get_category_budget('reserva'))}")
     for member in ["amanda", "heri"]:
         print(
-            f"{member.title()}: {to_euros(wm.get_reserve_contribution_by_member(member))}"
+            f"  {member.title()}: "
+            f"{to_euros(wm.get_reserve_contribution_by_member(member))}"
         )
 
     # =============================================
@@ -292,18 +360,18 @@ with DatabaseConnection(
     print("\nESTADO POR MIEMBRO:")
     for member in ["amanda", "heri"]:
         print(f"\n  {member.title()}:")
-        debt_status = wm.get_debt_status(member)
-        saving_status = wm.get_saving_goal_status(member)
+        debt_totals = wm.get_debt_status(member)["totals"]
+        saving_totals = wm.get_saving_status(member)["totals"]
 
         print(
-            f"    Deuda:  {to_euros(debt_status['paid'])} pagado de"
-            f" {to_euros(debt_status['committed'])}"
-            f" (faltan {to_euros(debt_status['remaining'])})"
+            f"    Deuda:  {to_euros(debt_totals['paid'])} pagado de"
+            f" {to_euros(debt_totals['committed'])}"
+            f" (faltan {to_euros(debt_totals['remaining'])})"
         )
         print(
-            f"    Ahorro: {to_euros(saving_status['paid'])} depositado de"
-            f" {to_euros(saving_status['committed'])}"
-            f" (faltan {to_euros(saving_status['remaining'])})"
+            f"    Ahorro: {to_euros(saving_totals['paid_this_period'])} depositado"
+            f" (metas exigen {to_euros(saving_totals['required_this_month'])}/mes,"
+            f" informativo — no es obligación)"
         )
 
         # Historial de pagos de deuda
@@ -311,7 +379,8 @@ with DatabaseConnection(
         if history:
             print(f"    Historial deuda ({len(history)} pago/s):")
             for entry in history:
-                print(f"      · {to_euros(entry.amount_cents)} — {entry.description}")
+                fecha = entry.date.strftime("%d/%m/%Y")
+                print(f"      · {to_euros(entry.amount_cents)} ({fecha})")
 
     # --- Total compartido ahorrado ---
     total_shared = wm.get_savings_total_shared()
@@ -320,11 +389,11 @@ with DatabaseConnection(
     # --- Buckets del hogar ---
     print("\nBUCKETS DEL HOGAR:")
     for bid, bkt in wm.get_all_buckets().items():
-        pct = int(bkt.balance / bkt.goal * 100) if bkt.goal else 0
-        print(
-            f"  '{bkt.bucket_name}': "
-            f"{to_euros(bkt.balance)} / {to_euros(bkt.goal)} ({pct}%)"
-        )
+        if bkt.goal:
+            pct = int(bkt.balance / bkt.goal * 100)
+            print(f"  '{bkt.bucket_name}': {to_euros(bkt.balance)} / {to_euros(bkt.goal)} ({pct}%)")
+        else:
+            print(f"  '{bkt.bucket_name}': {to_euros(bkt.balance)} (sin meta)")
 
     # --- Settlement: quién debe a quién ---
     print("\nSETTLEMENT (gastos compartidos):")
@@ -358,12 +427,17 @@ with DatabaseConnection(
         f"  Total restante:      {to_euros(month_summary['totals']['total_remaining'])}"
     )
 
-    print("\nCOMPROMISOS PERSONALES — CUMPLIMIENTO:")
+    # Solo la deuda es un compromiso real (cumple/no cumple). El ahorro es elección:
+    # se muestra lo depositado, sin marcar "fallo" por no llegar a una meta.
+    print("\nCOMPROMISOS PERSONALES:")
     for member in ["amanda", "heri"]:
-        debt_status = wm.get_debt_status(member)
-        saving_status = wm.get_saving_goal_status(member)
-        debt_ok = "[OK]" if debt_status["remaining"] == 0 else "[FAIL]"
-        saving_ok = "[OK]" if saving_status["remaining"] == 0 else "[FAIL]"
-        print(f"  {member.title()}: Deuda {debt_ok} | Ahorro {saving_ok}")
+        debt_totals = wm.get_debt_status(member)["totals"]
+        saving_totals = wm.get_saving_status(member)["totals"]
+        debt_ok = "[OK]" if debt_totals["remaining"] == 0 else "[FAIL]"
+        print(
+            f"  {member.title()}: Deuda {debt_ok} | "
+            f"Ahorro depositado {to_euros(saving_totals['paid_this_period'])} "
+            f"(informativo)"
+        )
 
     print("\n[OK] Mes cerrado.")
