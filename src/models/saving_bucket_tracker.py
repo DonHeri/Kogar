@@ -85,7 +85,17 @@ class SavingBucketTracker:
 
     def get_total_shared(self) -> int:
         """Total ahorrado en buckets compartidos (todos los miembros)."""
-        return sum(bucket.balance for bucket in self.buckets.values() if bucket.is_shared)
+        return sum(
+            bucket.balance for bucket in self.buckets.values() if bucket.is_shared
+        )
+
+    def get_shared_buckets(self, participant: str) -> dict[UUID, SavingBucket]:
+        shared_buckets = {}
+        for id, bucket in self.buckets.items():
+            if participant in bucket.owners and bucket.is_shared:
+                shared_buckets[id] = bucket
+
+        return shared_buckets
 
     def get_member_saved_in_period(
         self, member_name: str, start_date: date, end_date: date
@@ -102,9 +112,7 @@ class SavingBucketTracker:
                     total += entry.amount_cents
         return total
 
-    def get_shared_by_period(
-        self, start_date: date, end_date: date
-    ) -> dict[str, list]:
+    def get_shared_by_period(self, start_date: date, end_date: date) -> dict[str, list]:
         """Movimientos en buckets compartidos dentro del rango, agrupados por miembro."""
         result: dict[str, list] = {}
         for bucket in self.buckets.values():

@@ -485,7 +485,7 @@ class WorkflowManager:
 
         return bucket_id
 
-    def deposit_to_bucket(
+    def deposit_to_saving_bucket(
         self, bucket_id: UUID, member: str, amount_euros: float, date=None
     ) -> None:
         """Registra un depósito en un bucket (MONTH)"""
@@ -494,7 +494,11 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.deposit_to_saving_bucket(bucket_id, member, amount_cents, date)
 
-        if self.saving_bucket_entry_repo and self.period_id and member in self.member_ids:
+        if (
+            self.saving_bucket_entry_repo
+            and self.period_id
+            and member in self.member_ids
+        ):
             self.saving_bucket_entry_repo.save(
                 period_id=self.period_id,
                 bucket_id=bucket_id,
@@ -503,7 +507,7 @@ class WorkflowManager:
                 entry_date=date or datetime.now(),
             )
 
-    def withdraw_from_bucket(
+    def withdraw_from_saving_bucket(
         self, bucket_id: UUID, member: str, amount_euros: float, date=None
     ) -> None:
         """Registra un retiro de un bucket (MONTH)"""
@@ -512,7 +516,11 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.withdraw_from_bucket(bucket_id, member, amount_cents, date)
 
-        if self.saving_bucket_entry_repo and self.period_id and member in self.member_ids:
+        if (
+            self.saving_bucket_entry_repo
+            and self.period_id
+            and member in self.member_ids
+        ):
             self.saving_bucket_entry_repo.save(
                 period_id=self.period_id,
                 bucket_id=bucket_id,
@@ -536,6 +544,12 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member)
         return self.household.get_buckets_by_member(member)
+
+    def get_shared_buckets(self, member: str):
+        """Obtiene los buckets compartidos en los que participa un miembro (PLANNING+)"""
+        self.validate_phase_accessible(Phase.PLANNING)
+        member = normalize_name(member)
+        return self.household.get_shared_buckets(member)
 
     # ====== MONTH PHASE - member balance Queries ======
     def get_member_owed_total(self, member_name: str) -> int:

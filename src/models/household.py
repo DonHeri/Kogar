@@ -526,6 +526,9 @@ class Household:
     def get_buckets_by_member(self, member_name: str) -> dict[UUID, SavingBucket]:
         return self.saving_bucket_tracker.get_bucket_by_member(member_name)
 
+    def get_shared_buckets(self, member_name: str) -> dict[UUID, SavingBucket]:
+        return self.saving_bucket_tracker.get_shared_buckets(member_name)
+
     def get_savings_total_shared(self) -> int:
         return self.saving_bucket_tracker.get_total_shared()
 

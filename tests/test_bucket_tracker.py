@@ -175,6 +175,37 @@ def test_get_bucket_by_member_returns_empty_if_no_match(tracker_with_buckets):
 
 
 # ====================================================
+# TESTS: get_shared_buckets
+# ====================================================
+
+
+def test_get_shared_buckets_excludes_personal_buckets(tracker_with_buckets):
+    """amanda participa en 3 buckets, pero solo 2 son compartidos."""
+    result = tracker_with_buckets.get_shared_buckets("amanda")
+
+    assert len(result) == 2
+    for bucket in result.values():
+        assert "amanda" in bucket.owners
+        assert bucket.is_shared is True
+
+
+def test_get_shared_buckets_checks_every_bucket_not_just_the_first(
+    tracker_with_buckets,
+):
+    """Regresión: un return mal indentado cortaba el bucle en la primera
+    vuelta y devolvía vacío aunque hubiera match más adelante."""
+    result = tracker_with_buckets.get_shared_buckets("heri")
+
+    assert len(result) == 2
+
+
+def test_get_shared_buckets_returns_empty_if_no_match(tracker_with_buckets):
+    result = tracker_with_buckets.get_shared_buckets("miembro_inexistente")
+
+    assert result == {}
+
+
+# ====================================================
 # TESTS: deposit
 # ====================================================
 

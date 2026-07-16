@@ -1147,7 +1147,7 @@ def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
     wm = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
 
-    wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)  # 30000 céntimos
+    wm.deposit_to_saving_bucket(bucket_id, "Amanda", 300.0)  # 30000 céntimos
 
     bucket = wm.get_bucket_by_id(bucket_id)
     assert bucket.balance == 30000
@@ -1157,9 +1157,9 @@ def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
     """withdraw_from_bucket reduce el balance correctamente"""
     wm = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
-    wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)
+    wm.deposit_to_saving_bucket(bucket_id, "Amanda", 300.0)
 
-    wm.withdraw_from_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
+    wm.withdraw_from_saving_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
 
     bucket = wm.get_bucket_by_id(bucket_id)
     assert bucket.balance == 20000
@@ -1169,10 +1169,10 @@ def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
     """Retirar más de lo disponible lanza ValueError"""
     wm = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
-    wm.deposit_to_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
+    wm.deposit_to_saving_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
 
     with pytest.raises(ValueError, match="Saldo insuficiente"):
-        wm.withdraw_from_bucket(bucket_id, "Amanda", 200.0)
+        wm.withdraw_from_saving_bucket(bucket_id, "Amanda", 200.0)
 
 
 def test_get_all_buckets_returns_all(wm_in_month_two_members):
@@ -1207,7 +1207,7 @@ def test_deposit_outside_month_raises(wm):
     wm.finish_registration()
 
     with pytest.raises(ValueError, match="month"):
-        wm.deposit_to_bucket(uuid4(), "Amanda", 100.0)
+        wm.deposit_to_saving_bucket(uuid4(), "Amanda", 100.0)
 
 
 def test_withdraw_outside_month_raises(wm):
@@ -1219,7 +1219,7 @@ def test_withdraw_outside_month_raises(wm):
     wm.finish_registration()
 
     with pytest.raises(ValueError, match="month"):
-        wm.withdraw_from_bucket(uuid4(), "Amanda", 100.0)
+        wm.withdraw_from_saving_bucket(uuid4(), "Amanda", 100.0)
 
 
 def test_full_flow_registration_to_closing(wm):
