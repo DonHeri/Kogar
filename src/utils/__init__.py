@@ -3,6 +3,7 @@ from src.utils.currency import (
     format_percentage_float,
     to_cents,
     to_euros,
+    to_euros_float,
     to_percentage_basis,
 )
 from src.utils.text import format_name, normalize_name
