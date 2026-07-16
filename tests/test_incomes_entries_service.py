@@ -7,7 +7,7 @@ from src.models.income_entry import IncomeEntry
 from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense import Expense
 from src.models.budget import Budget
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.member import Member
 from src.models.constants import MetodoReparto
@@ -34,10 +34,10 @@ def full_household(members_with_incomes):
     """Crea un hogar con los miembros proporcionados"""
     b = Budget()
     e = ExpenseTracker()
-    s = SavingTracker()
+    s = SavingBucketTracker()
     d = DebtBucketTracker()
     household = Household(
-        budget=b, expense_tracker=e, saving_tracker=s, debt_bucket_tracker=d
+        budget=b, expense_tracker=e, saving_bucket_tracker=s, debt_bucket_tracker=d
     )
     for member in members_with_incomes.values():
         household.register_member(member)

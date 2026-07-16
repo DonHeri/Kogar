@@ -13,7 +13,7 @@ from src.models.debt_bucket import DebtBucket
 def car_bucket():
     """Deuda personal con cuota fija declarada por el usuario."""
     return DebtBucket(
-        name="Deuda Coche",
+        debt_bucket_name="Deuda Coche",
         principal_cents=2000000,
         owner="heri",
         installment_cents=100000,

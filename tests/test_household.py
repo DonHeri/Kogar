@@ -3,14 +3,15 @@ from datetime import datetime, date
 import pytest
 
 from src.models.budget import Budget
-from src.models.constants import MetodoReparto, SavingScope
+from src.models.constants import MetodoReparto
 from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.debt_bucket import DebtBucket
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
 from src.models.member import Member
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
+from src.models.saving_bucket import SavingBucket
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.setllement_calculator import SettlementCalculator
 from src.workflow.summary_service import SummaryService
@@ -37,10 +38,23 @@ def _add_debt(hh, owner, installment_cents, principal_cents=None):
         principal_cents = installment_cents * 100
     return hh.add_debt_bucket(
         DebtBucket(
-            name=f"deuda-{owner}",
+            debt_bucket_name=f"deuda-{owner}",
             principal_cents=principal_cents,
             owner=owner,
             installment_cents=installment_cents,
+        )
+    )
+
+
+def _add_saving_bucket(hh, owners, goal_cents=None):
+    """Crea y registra un bucket de ahorro. owners: str (personal) o list (compartido)."""
+    if isinstance(owners, str):
+        owners = [owners]
+    return hh.add_saving_bucket(
+        SavingBucket(
+            saving_bucket_name=f"bucket-{'-'.join(owners)}",
+            owners=owners,
+            goal_cents=goal_cents,
         )
     )
 
@@ -74,13 +88,13 @@ def member_zero_income():
 def base_household():
     b = Budget()
     e = ExpenseTracker()
-    s = SavingTracker()
+    s = SavingBucketTracker()
     d = DebtBucketTracker()
     b.set_standard_categories()
     return Household(
         budget=b,
         expense_tracker=e,
-        saving_tracker=s,
+        saving_bucket_tracker=s,
         debt_bucket_tracker=d,
         method=MetodoReparto.EQUAL,
     )
@@ -645,7 +659,9 @@ def test_remove_category_deletes_from_budget(base_household):
 
 def test_set_standard_categories_populates_budget(base_household):
     """set_standard_categories() establece categorías en budget"""
-    household = Household(Budget(), ExpenseTracker(), SavingTracker(), DebtBucketTracker())
+    household = Household(
+        Budget(), ExpenseTracker(), SavingBucketTracker(), DebtBucketTracker()
+    )
     household.set_standard_categories()
 
     categories = household.get_active_categories()
@@ -1430,32 +1446,29 @@ def test_set_budget_by_percentages_sum_matches_incomes(base_household):
 # ====================================================
 
 
-def test_register_savings_deposit_delegates_to_tracker(household_with_members):
-    """Test: registrar un depósito de ahorro funciona y actualiza el balance"""
-    # Congelamos para que se creen las cuentas en el SavingTracker
+def test_deposit_to_saving_bucket_updates_balance(household_with_members):
+    """Test: depositar en un bucket de ahorro actualiza su balance"""
     household_with_members.freeze_registration_state()
+    bucket_id = _add_saving_bucket(household_with_members, "member1")
 
-    household_with_members.register_savings_deposit(
-        "member1", 5000, SavingScope.PERSONAL, "Ahorro test", datetime.now()
-    )
+    household_with_members.deposit_to_saving_bucket(bucket_id, "member1", 5000)
 
-    summary = household_with_members.get_member_savings_summary("member1")
-    assert summary["balance_personal"] == 5000
+    bucket = household_with_members.get_bucket_by_id(bucket_id)
+    assert bucket.balance == 5000
 
 
-def test_register_savings_withdrawal_delegates_to_tracker(household_with_members):
-    """Test: registrar un retiro de ahorro reduce el balance"""
+def test_withdraw_from_saving_bucket_reduces_balance(household_with_members):
+    """Test: retirar de un bucket de ahorro reduce su balance"""
     household_with_members.freeze_registration_state()
-    household_with_members.register_savings_deposit(
-        "member1", 10000, SavingScope.SHARED, "Fondo común"
+    bucket_id = _add_saving_bucket(
+        household_with_members, ["member1", "member2"]
     )
+    household_with_members.deposit_to_saving_bucket(bucket_id, "member1", 10000)
 
-    household_with_members.register_savings_withdrawal(
-        "member1", 4000, SavingScope.SHARED, "Gasto casa"
-    )
+    household_with_members.withdraw_from_bucket(bucket_id, "member1", 4000)
 
-    summary = household_with_members.get_member_savings_summary("member1")
-    assert summary["balance_shared"] == 6000
+    bucket = household_with_members.get_bucket_by_id(bucket_id)
+    assert bucket.balance == 6000
 
 
 def test_get_reserve_contribution_by_member_with_equal_method(household_with_members):
@@ -1814,10 +1827,11 @@ def test_get_saving_goal_status_after_deposit(household_month_ready):
     hh = household_month_ready
     hh.set_member_saving_goal("member1", 50000)
     hh.freeze_planning_state()
+    bucket_id = _add_saving_bucket(hh, "member1")
 
-    hh.register_savings_deposit("member1", 30000, SavingScope.PERSONAL)
+    hh.deposit_to_saving_bucket(bucket_id, "member1", 30000)
 
-    status = hh.get_saving_goal_status("member1")
+    status = hh.get_saving_goal_status("member1", _WIDE_START, _WIDE_END)
     assert status["committed"] == 50000
     assert status["paid"] == 30000
     assert status["remaining"] == 20000

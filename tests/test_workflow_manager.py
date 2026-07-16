@@ -1,11 +1,11 @@
 import pytest
 
 from src.models.budget import Budget
-from src.models.constants import MetodoReparto, Phase, SavingScope
+from src.models.constants import MetodoReparto, Phase
 from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.workflow.workflow_manager import WorkflowManager
 
 # ====================================================
@@ -15,7 +15,9 @@ from src.workflow.workflow_manager import WorkflowManager
 
 @pytest.fixture
 def household():
-    return Household(Budget(), ExpenseTracker(), SavingTracker(), DebtBucketTracker())
+    return Household(
+        Budget(), ExpenseTracker(), SavingBucketTracker(), DebtBucketTracker()
+    )
 
 
 @pytest.fixture
@@ -1136,18 +1138,14 @@ def test_create_bucket_returns_uuid(wm_in_month_two_members):
     from uuid import UUID as UUIDType
 
     wm = wm_in_month_two_members
-    bucket_id = wm.create_saving_bucket(
-        "Viaje", 2000, SavingScope.SHARED, ["Amanda", "Heri"]
-    )
+    bucket_id = wm.create_saving_bucket("Viaje", ["Amanda", "Heri"], 2000)
     assert isinstance(bucket_id, UUIDType)
 
 
 def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
     """deposit_to_bucket registra el depósito y el balance del bucket aumenta"""
     wm = wm_in_month_two_members
-    bucket_id = wm.create_saving_bucket(
-        "Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"]
-    )
+    bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
 
     wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)  # 30000 céntimos
 
@@ -1158,9 +1156,7 @@ def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
 def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
     """withdraw_from_bucket reduce el balance correctamente"""
     wm = wm_in_month_two_members
-    bucket_id = wm.create_saving_bucket(
-        "Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"]
-    )
+    bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
     wm.deposit_to_bucket(bucket_id, "Amanda", 300.0)
 
     wm.withdraw_from_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
@@ -1172,9 +1168,7 @@ def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
 def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
     """Retirar más de lo disponible lanza ValueError"""
     wm = wm_in_month_two_members
-    bucket_id = wm.create_saving_bucket(
-        "Fondo", 50000, SavingScope.SHARED, ["Amanda", "Heri"]
-    )
+    bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
     wm.deposit_to_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
 
     with pytest.raises(ValueError, match="Saldo insuficiente"):
@@ -1184,8 +1178,8 @@ def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
 def test_get_all_buckets_returns_all(wm_in_month_two_members):
     """get_all_buckets retorna todos los buckets creados"""
     wm = wm_in_month_two_members
-    wm.create_saving_bucket("B1", 10000, SavingScope.SHARED, ["Amanda", "Heri"])
-    wm.create_saving_bucket("B2", 20000, SavingScope.SHARED, ["Amanda", "Heri"])
+    wm.create_saving_bucket("B1", ["Amanda", "Heri"], 10000)
+    wm.create_saving_bucket("B2", ["Amanda", "Heri"], 20000)
 
     buckets = wm.get_all_buckets()
     assert len(buckets) == 2
@@ -1194,8 +1188,8 @@ def test_get_all_buckets_returns_all(wm_in_month_two_members):
 def test_get_buckets_by_member_filters_correctly(wm_in_month_two_members):
     """get_buckets_by_member solo retorna buckets del miembro solicitado"""
     wm = wm_in_month_two_members
-    wm.create_saving_bucket("Solo Amanda", 10000, SavingScope.PERSONAL, ["Amanda"])
-    wm.create_saving_bucket("Compartido", 20000, SavingScope.SHARED, ["Amanda", "Heri"])
+    wm.create_saving_bucket("Solo Amanda", ["Amanda"], 10000)
+    wm.create_saving_bucket("Compartido", ["Amanda", "Heri"], 20000)
 
     amanda_buckets = wm.get_buckets_by_member("Amanda")
     heri_buckets = wm.get_buckets_by_member("Heri")

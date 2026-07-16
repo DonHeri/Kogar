@@ -6,22 +6,22 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
-from src.storage.saving_entry_repository import SavingEntryRepository
 from src.storage.income_entry_repository import IncomeEntryRepository
-from src.storage.saving_buckets_repository import SavingBucketRepository
-from src.storage.bucket_entry_repository import BucketEntryRepository
+from src.storage.saving_bucket_repository import SavingBucketRepository
+from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.storage.budget_categories_repository import BudgetCategoryRepository
 
 from src.models.period import Period
 
 from src.models.category import Category
-from src.models.constants import MetodoReparto, Phase, SavingScope
+from src.models.constants import MetodoReparto, Phase
 from src.models.expense import Expense
 from src.models.household import Household
 from src.models.member import Member
 from src.models.saving_bucket import SavingBucket
 from src.models.debt_bucket import DebtBucket
 from src.utils.currency import to_cents, to_percentage_basis
+from src.utils.dates import add_months
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.setllement_calculator import SettlementCalculator
@@ -39,10 +39,9 @@ class WorkflowManager:
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
         debt_repo: DebtEntryRepository | None = None,
-        saving_repo: SavingEntryRepository | None = None,
         income_entry_repo: IncomeEntryRepository | None = None,
-        bucket_entry_repo: BucketEntryRepository | None = None,
-        saving_buckets_repo: SavingBucketRepository | None = None,
+        saving_bucket_entry_repo: SavingBucketEntryRepository | None = None,
+        saving_bucket_repo: SavingBucketRepository | None = None,
         budget_categories_repository: BudgetCategoryRepository | None = None,
     ) -> None:
         self.household = household
@@ -53,10 +52,9 @@ class WorkflowManager:
         self.period_repo = period_repo
         self.expense_repo = expense_repo
         self.debt_repo = debt_repo
-        self.saving_repo = saving_repo
         self.income_entry_repo = income_entry_repo
-        self.bucket_entry_repo = bucket_entry_repo
-        self.saving_buckets_repo = saving_buckets_repo
+        self.saving_bucket_entry_repo = saving_bucket_entry_repo
+        self.saving_bucket_repo = saving_bucket_repo
         self.budget_categories_repository = budget_categories_repository
         self.period_id: int | None = None
         self.period: Period | None = None
@@ -208,10 +206,11 @@ class WorkflowManager:
         self.household.set_member_saving_goal(member, amount_cents)
 
     def get_saving_goal_status(self, member_name):
-        """Retorna {committed, paid, remaining} para el objetivo de ahorro del miembro."""
+        """Retorna {committed, paid, remaining} del ahorro del miembro en el período."""
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member_name)
-        return self.household.get_saving_goal_status(member)
+        start_date, end_date = self._current_period_range()
+        return self.household.get_saving_goal_status(member, start_date, end_date)
 
     def add_debt_bucket(
         self,
@@ -225,7 +224,7 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         owner = normalize_name(owner)
         bucket = DebtBucket(
-            name=name.strip(),
+            debt_bucket_name=name.strip(),
             principal_cents=to_cents(principal_euros),
             owner=owner,
             installment_cents=to_cents(installment_euros),
@@ -430,62 +429,6 @@ class WorkflowManager:
 
     # ====== PLANNING PHASE - SAVING ======
 
-    def register_savings_deposit(
-        self,
-        member: str,
-        amount_euros: float,
-        scope: SavingScope,
-        description: str = "",
-        date=None,
-    ) -> None:
-        """Registra un depósito en la cuenta de ahorro de un miembro (MONTH)"""
-        self.validate_phase(Phase.MONTH)
-        member = normalize_name(member)
-        amount_cents = to_cents(amount_euros)
-        self.household.register_savings_deposit(
-            member, amount_cents, scope, description, date
-        )
-        if self.saving_repo and self.period_id and member in self.member_ids:
-            self.saving_repo.save(
-                period_id=self.period_id,
-                member_id=self.member_ids[member],
-                amount_cents=amount_cents,
-                scope=scope,
-                description=description,
-                saving_date=date or datetime.now(),
-            )
-
-    def register_savings_withdrawal(
-        self,
-        member: str,
-        amount_euros: float,
-        scope: SavingScope,
-        description: str = "",
-        date=None,
-    ) -> None:
-        """Registra un retiro de la cuenta de ahorro de un miembro (MONTH)"""
-        self.validate_phase(Phase.MONTH)
-        member = normalize_name(member)
-        amount_cents = to_cents(amount_euros)
-        self.household.register_savings_withdrawal(
-            member, amount_cents, scope, description, date
-        )
-        if self.saving_repo and self.period_id and member in self.member_ids:
-            self.saving_repo.save(
-                period_id=self.period_id,
-                member_id=self.member_ids[member],
-                amount_cents=-amount_cents,
-                scope=scope,
-                description=description,
-                saving_date=date or datetime.now(),
-            )
-
-    def get_member_savings_summary(self, member: str) -> dict:
-        """Retorna resumen de ahorro de un miembro (PLANNING+)"""
-        self.validate_phase_accessible(Phase.PLANNING)
-        member = normalize_name(member)
-        return self.household.get_member_savings_summary(member)
-
     def get_savings_total_shared(self) -> int:
         """Total ahorrado en fondo compartido por todos los miembros (MONTH+)"""
         self.validate_phase_accessible(Phase.MONTH)
@@ -500,27 +443,41 @@ class WorkflowManager:
     def create_saving_bucket(
         self,
         bucket_name: str,
-        goal_euros: float,
-        scope: SavingScope,
         owners: list,
+        goal_euros: float | None = None,
         deadline: datetime | None = None,
+        deadline_in_months: int | None = None,
         description: str = "",
     ) -> UUID:
-        """Crea y registra un nuevo bucket. Retorna su UUID."""
+        """Crea y registra un nuevo bucket de ahorro. La meta es opcional (colchón).
+        Personal o compartido se deriva de owners. Retorna su UUID.
+
+        deadline_in_months: alternativa a deadline para quien no piensa en
+        fecha de calendario, sino en plazo ("dentro de 7 meses"). Si se dan
+        los dos a la vez, deadline_in_months manda.
+        """
         self.validate_phase_accessible(Phase.PLANNING)
-        goal_cents = to_cents(goal_euros)
+        goal_cents = to_cents(goal_euros) if goal_euros is not None else None
         bucket_name = bucket_name.strip()
-        description.strip()
+        description = description.strip()
         owners = [normalize_name(name) for name in owners]
 
+        if deadline_in_months is not None:
+            target = add_months(date.today(), deadline_in_months)
+            deadline = datetime(target.year, target.month, target.day)
+
         bucket = SavingBucket(
-            bucket_name, goal_cents, scope, owners, deadline, description
+            saving_bucket_name=bucket_name,
+            owners=owners,
+            goal_cents=goal_cents,
+            deadline=deadline,
+            description=description,
         )
 
         bucket_id = self.household.add_saving_bucket(bucket)
 
-        if self.saving_buckets_repo and self.household_id:
-            self.saving_buckets_repo.save(
+        if self.saving_bucket_repo and self.household_id:
+            self.saving_bucket_repo.save(
                 saving_bucket=bucket,
                 household_id=self.household_id,
                 member_ids=self.member_ids,
@@ -537,8 +494,8 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.deposit_to_saving_bucket(bucket_id, member, amount_cents, date)
 
-        if self.bucket_entry_repo and self.period_id and member in self.member_ids:
-            self.bucket_entry_repo.save(
+        if self.saving_bucket_entry_repo and self.period_id and member in self.member_ids:
+            self.saving_bucket_entry_repo.save(
                 period_id=self.period_id,
                 bucket_id=bucket_id,
                 member_id=self.member_ids[member],
@@ -555,8 +512,8 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.withdraw_from_bucket(bucket_id, member, amount_cents, date)
 
-        if self.bucket_entry_repo and self.period_id and member in self.member_ids:
-            self.bucket_entry_repo.save(
+        if self.saving_bucket_entry_repo and self.period_id and member in self.member_ids:
+            self.saving_bucket_entry_repo.save(
                 period_id=self.period_id,
                 bucket_id=bucket_id,
                 member_id=self.member_ids[member],

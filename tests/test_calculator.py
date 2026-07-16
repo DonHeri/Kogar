@@ -7,7 +7,7 @@ from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
 from src.models.member import Member
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
@@ -49,10 +49,13 @@ def percentages_66_33():
 def household_base():
     b = Budget()
     e = ExpenseTracker()
-    s = SavingTracker()
+    s = SavingBucketTracker()
     b.set_standard_categories()
     return Household(
-        budget=b, expense_tracker=e, saving_tracker=s, debt_bucket_tracker=DebtBucketTracker()
+        budget=b,
+        expense_tracker=e,
+        saving_bucket_tracker=s,
+        debt_bucket_tracker=DebtBucketTracker(),
     )
 
 

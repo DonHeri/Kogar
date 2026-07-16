@@ -3,7 +3,6 @@ from uuid import UUID
 
 import pytest
 
-from src.models.constants import SavingScope
 from src.models.saving_bucket import SavingBucket
 
 # ====================================================
@@ -14,20 +13,18 @@ from src.models.saving_bucket import SavingBucket
 @pytest.fixture
 def bucket_personal():
     return SavingBucket(
-        bucket_name="MacBook Pro",
-        goal_cents=220000,
-        scope=SavingScope.PERSONAL,
+        saving_bucket_name="MacBook Pro",
         owners=["heri"],
+        goal_cents=220000,
     )
 
 
 @pytest.fixture
 def bucket_shared():
     return SavingBucket(
-        bucket_name="Fondo de emergencia",
-        goal_cents=600000,
-        scope=SavingScope.SHARED,
+        saving_bucket_name="Fondo de emergencia",
         owners=["amanda", "heri"],
+        goal_cents=600000,
         description="3 meses de gastos fijos cubiertos",
     )
 
@@ -35,12 +32,17 @@ def bucket_shared():
 @pytest.fixture
 def bucket_shared_with_deadline():
     return SavingBucket(
-        bucket_name="Viaje a Japón",
-        goal_cents=280000,
-        scope=SavingScope.SHARED,
+        saving_bucket_name="Viaje a Japón",
         owners=["amanda", "heri"],
+        goal_cents=280000,
         deadline=datetime(2027, 4, 23),
     )
+
+
+@pytest.fixture
+def bucket_no_goal():
+    """Colchón: bucket personal sin meta."""
+    return SavingBucket(saving_bucket_name="Colchón", owners=["heri"])
 
 
 # ====================================================
@@ -51,7 +53,7 @@ def bucket_shared_with_deadline():
 def test_creation_personal_valid(bucket_personal):
     assert bucket_personal.bucket_name == "MacBook Pro"
     assert bucket_personal.goal == 220000
-    assert bucket_personal.scope == SavingScope.PERSONAL
+    assert bucket_personal.is_shared is False
     assert bucket_personal.owners == ["heri"]
     assert bucket_personal.balance == 0
     assert bucket_personal.deadline is None
@@ -60,9 +62,15 @@ def test_creation_personal_valid(bucket_personal):
 
 def test_creation_shared_valid(bucket_shared):
     assert bucket_shared.bucket_name == "Fondo de emergencia"
-    assert bucket_shared.scope == SavingScope.SHARED
+    assert bucket_shared.is_shared is True
     assert len(bucket_shared.owners) == 2
     assert bucket_shared.description == "3 meses de gastos fijos cubiertos"
+
+
+def test_creation_without_goal(bucket_no_goal):
+    """Un bucket puede no tener meta (colchón/ahorro libre)."""
+    assert bucket_no_goal.goal is None
+    assert bucket_no_goal.is_shared is False
 
 
 def test_creation_with_deadline(bucket_shared_with_deadline):
@@ -74,29 +82,9 @@ def test_id_is_uuid(bucket_personal):
 
 
 def test_each_bucket_has_unique_id():
-    b1 = SavingBucket("B1", 10000, SavingScope.PERSONAL, ["heri"])
-    b2 = SavingBucket("B2", 10000, SavingScope.PERSONAL, ["heri"])
+    b1 = SavingBucket("B1", ["heri"], 10000)
+    b2 = SavingBucket("B2", ["heri"], 10000)
     assert b1.id != b2.id
-
-
-# ====================================================
-# TESTS: Creation — invalid scope/owners
-# ====================================================
-
-
-def test_personal_bucket_with_two_owners_raises():
-    with pytest.raises(ValueError, match="Personal"):
-        SavingBucket("B", 10000, SavingScope.PERSONAL, ["amanda", "heri"])
-
-
-def test_shared_bucket_with_one_owner_raises():
-    with pytest.raises(ValueError, match="compartido"):
-        SavingBucket("B", 10000, SavingScope.SHARED, ["amanda"])
-
-
-def test_shared_bucket_with_empty_owners_raises():
-    with pytest.raises(ValueError, match="compartido"):
-        SavingBucket("B", 10000, SavingScope.SHARED, [])
 
 
 # ====================================================
@@ -106,23 +94,28 @@ def test_shared_bucket_with_empty_owners_raises():
 
 def test_goal_cents_zero_raises():
     with pytest.raises(ValueError):
-        SavingBucket("B", 0, SavingScope.PERSONAL, ["heri"])
+        SavingBucket("B", ["heri"], 0)
 
 
 def test_goal_cents_negative_raises():
     with pytest.raises(ValueError):
-        SavingBucket("B", -100, SavingScope.PERSONAL, ["heri"])
+        SavingBucket("B", ["heri"], -100)
 
 
 def test_goal_cents_float_raises():
     goal: object = 100.0
     with pytest.raises(TypeError):
-        SavingBucket("B", goal, SavingScope.PERSONAL, ["heri"])  # type: ignore[arg-type]
+        SavingBucket("B", ["heri"], goal)  # type: ignore[arg-type]
 
 
 def test_goal_cents_bool_raises():
     with pytest.raises(TypeError):
-        SavingBucket("B", True, SavingScope.PERSONAL, ["heri"])
+        SavingBucket("B", ["heri"], True)
+
+
+def test_empty_name_raises():
+    with pytest.raises(ValueError):
+        SavingBucket("", ["heri"], 10000)
 
 
 # ====================================================
@@ -249,11 +242,11 @@ def test_str_contains_bucket_name(bucket_personal):
     assert "MacBook Pro" in str(bucket_personal)
 
 
-def test_str_contains_scope_personal(bucket_personal):
+def test_str_contains_type_personal(bucket_personal):
     assert "Personal" in str(bucket_personal)
 
 
-def test_str_contains_scope_shared(bucket_shared):
+def test_str_contains_type_shared(bucket_shared):
     assert "Compartido" in str(bucket_shared)
 
 
@@ -281,3 +274,9 @@ def test_str_shows_progress(bucket_personal):
     assert "1100.00" in output
     assert "2200.00" in output
     assert "50%" in output
+
+
+def test_str_no_goal_shows_sin_meta(bucket_no_goal):
+    bucket_no_goal.deposit(5000, "heri")
+    output = str(bucket_no_goal)
+    assert "sin meta" in output

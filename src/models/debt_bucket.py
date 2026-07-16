@@ -18,20 +18,20 @@ class DebtBucket:
 
     def __init__(
         self,
-        name: str,
+        debt_bucket_name: str,
         principal_cents: int,
         owner: str,
         installment_cents: int,
         start_date: datetime | None = None,
         term_months: int | None = None,  # Meses de cuota
     ):
-        self._validate_non_empty_string(name, "bucket_name")
+        self._validate_non_empty_string(debt_bucket_name, "bucket_name")
         self._validate_valid_amount(principal_cents, "principal_cents")
         self._validate_non_empty_string(owner, "owner")
         self._validate_valid_amount(installment_cents, "installment_cents")
 
         self._id = uuid4()
-        self.name = name
+        self.name = debt_bucket_name
         self.principal_cents = principal_cents
         self._owner = owner
         self._installment_cents = installment_cents

@@ -10,7 +10,7 @@ from src.models.household import Household
 from src.models.expense import Expense
 from src.models.member import Member
 from src.models.expense_tracker import ExpenseTracker
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.period import Period
 from src.models.category import Category
@@ -112,7 +112,7 @@ class HouseholdLoader:
     def _build_base(self, period: Period | None) -> Household:
         budget = Budget()
         debt_tracker = DebtBucketTracker()
-        saving_tracker = SavingTracker()
+        saving_bucket_tracker = SavingBucketTracker()
         expense_tracker = ExpenseTracker()
         method = period.method if period else MetodoReparto.PROPORTIONAL
 
@@ -120,7 +120,7 @@ class HouseholdLoader:
             budget=budget,
             debt_bucket_tracker=debt_tracker,
             expense_tracker=expense_tracker,
-            saving_tracker=saving_tracker,
+            saving_bucket_tracker=saving_bucket_tracker,
             method=method,
         )
         return household
