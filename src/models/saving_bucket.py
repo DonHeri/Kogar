@@ -12,6 +12,7 @@ class SavingBucket:
     Cada bucket tiene un identificador único (UUID) que lo distingue de otros buckets.
 
     deadline: fecha límite opcional; None = sin plazo fijo
+    is_default: define el bucket de ahorro por defecto de cada miembro. Un miembro no puede tener dos buckets default
     """
 
     def __init__(
@@ -20,6 +21,7 @@ class SavingBucket:
         owners: list,
         goal_cents: int | None = None,
         deadline: datetime | None = None,
+        is_default: bool = False,
         description: str = "",
     ) -> None:
 
@@ -33,8 +35,13 @@ class SavingBucket:
 
         self._owners = owners
         self.deadline = deadline
+        self._is_default = is_default
         self._entries: list[SavingBucketEntry] = []
         self.description = description
+
+    @property
+    def is_default(self):
+        return self._is_default
 
     @property
     def id(self):

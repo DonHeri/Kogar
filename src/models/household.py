@@ -65,9 +65,25 @@ class Household:
             name: member.monthly_income for name, member in self.members.items()
         }
 
+        # Crear ahorro personal para cada miembro
+        self._create_personal_saving_bucket_for_members()
+
         # Crear categorías estándar
         if not self.budget.categories:
             self.budget.set_standard_categories()
+
+    def _create_personal_saving_bucket_for_members(self):
+        """Crea un bucket de ahorro personal para cada uno de los miembros."""
+        for name, _ in self.members.items():
+            if self.saving_bucket_tracker.get_default_bucket_by_member(name):
+                continue
+            personal_bucket = SavingBucket(
+                saving_bucket_name=f"{name}'s personal saving",
+                owners=[name],
+                is_default=True,
+            )
+
+            self.saving_bucket_tracker.add_bucket(personal_bucket)
 
     # ====== PLANNING — CATEGORIES ======
 

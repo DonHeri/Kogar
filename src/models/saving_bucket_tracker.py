@@ -117,6 +117,20 @@ class SavingBucketTracker:
         }
 
     # ====== QUERIES ======
+    def get_default_bucket_by_member(
+        self, member_name: str
+    ) -> dict[UUID, SavingBucket] | None:
+        """Devuelve el bucket por defecto de un miembro. Si no tiene devuelve None"""
+        default_bucket = {
+            id: bucket
+            for id, bucket in self.buckets.items()
+            if member_name in bucket.owners and bucket.is_default
+        }
+        if default_bucket:
+            return default_bucket
+        else:
+            return None
+
     def get_all_buckets(self) -> dict[UUID, SavingBucket]:
         """Retorna una copia de todos los buckets registrados."""
         return self.buckets.copy()

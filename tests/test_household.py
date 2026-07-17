@@ -86,7 +86,7 @@ def member_zero_income():
 
 
 @pytest.fixture
-def base_household():
+def base_household() -> Household:
     b = Budget()
     e = ExpenseTracker()
     s = SavingBucketTracker()
@@ -102,7 +102,7 @@ def base_household():
 
 
 @pytest.fixture
-def household_with_members(base_household, members_with_incomes):
+def household_with_members(base_household, members_with_incomes) -> Household:
     """Household ya configurado con dos miembros con ingresos"""
     for member in members_with_incomes.values():
         base_household.register_member(member)
@@ -110,7 +110,7 @@ def household_with_members(base_household, members_with_incomes):
 
 
 @pytest.fixture
-def household_with_members_and_child_categories(household_with_members):
+def household_with_members_and_child_categories(household_with_members) -> Household:
     """Household con dos hijas (vivienda, suministros) colgando de fijos."""
     household_with_members.add_category("vivienda", parent="fijos")
     household_with_members.add_category("suministros", parent="fijos")
@@ -141,6 +141,47 @@ def test_register_duplicate_member_raises(base_household, member_zero_income):
     base_household.register_member(member_zero_income)
     with pytest.raises(ValueError, match="ya está registrado en el hogar"):
         base_household.register_member(member_zero_income)
+
+
+# ============================================================
+# freeze_registration
+# ============================================================
+def test_freeze_registation_add_personal_bucket_by_member(household_with_members):
+    household_with_members.freeze_registration_state()
+
+    for name in ("member1", "member2"):
+        default_bucket = household_with_members.saving_bucket_tracker.get_default_bucket_by_member(
+            name
+        )
+        assert default_bucket is not None
+        bucket = list(default_bucket.values())[0]
+        assert bucket.is_default is True
+        assert bucket.owners == [name]
+
+
+def test_freeze_registration_state_does_not_duplicate_default_bucket(household_with_members):
+    household_with_members.freeze_registration_state()
+    household_with_members.freeze_registration_state()
+
+    buckets = household_with_members.saving_bucket_tracker.get_bucket_by_member(
+        "member1"
+    )
+    default_buckets = [b for b in buckets.values() if b.is_default]
+    assert len(default_buckets) == 1
+
+
+def test_freeze_registration_state_with_existing_bucket_does_not_crash(
+    household_with_members,
+):
+    _add_saving_bucket(household_with_members, "member1", goal_cents=100000)
+
+    household_with_members.freeze_registration_state()
+
+    buckets = household_with_members.saving_bucket_tracker.get_bucket_by_member(
+        "member1"
+    )
+    default_buckets = [b for b in buckets.values() if b.is_default]
+    assert len(default_buckets) == 1
 
 
 # ====================================================
@@ -1465,9 +1506,7 @@ def test_deposit_to_saving_bucket_updates_balance(household_with_members):
 def test_withdraw_from_saving_bucket_reduces_balance(household_with_members):
     """Test: retirar de un bucket de ahorro reduce su balance"""
     household_with_members.freeze_registration_state()
-    bucket_id = _add_saving_bucket(
-        household_with_members, ["member1", "member2"]
-    )
+    bucket_id = _add_saving_bucket(household_with_members, ["member1", "member2"])
     household_with_members.deposit_to_saving_bucket(bucket_id, "member1", 10000)
 
     household_with_members.withdraw_from_bucket(bucket_id, "member1", 4000)

@@ -1181,8 +1181,9 @@ def test_get_all_buckets_returns_all(wm_in_month_two_members):
     wm.create_saving_bucket("B1", ["Amanda", "Heri"], 10000)
     wm.create_saving_bucket("B2", ["Amanda", "Heri"], 20000)
 
-    buckets = wm.get_all_buckets()
-    assert len(buckets) == 2
+    buckets = wm.get_all_buckets()  # Incluye bucket personal de cada persona
+
+    assert len(buckets) == 4  # 2 creados + 1 personal por miembro
 
 
 def test_get_buckets_by_member_filters_correctly(wm_in_month_two_members):
@@ -1194,8 +1195,8 @@ def test_get_buckets_by_member_filters_correctly(wm_in_month_two_members):
     amanda_buckets = wm.get_buckets_by_member("Amanda")
     heri_buckets = wm.get_buckets_by_member("Heri")
 
-    assert len(amanda_buckets) == 2
-    assert len(heri_buckets) == 1
+    assert len(amanda_buckets) == 3  # 2 + bucket personal
+    assert len(heri_buckets) == 2  # 1 + bucket personal
 
 
 def test_deposit_outside_month_raises(wm):
