@@ -4,6 +4,7 @@ from src.utils.currency import (
     format_percentage,
     to_cents,
     to_euros,
+    to_euros_float,
     to_percentage_basis,
 )
 
@@ -75,6 +76,35 @@ def test_to_euros_returns_string():
 def test_to_euros_includes_symbol():
     """El resultado siempre incluye el símbolo €"""
     assert to_euros(250).endswith("€")
+
+
+# ====================================================
+# TESTS: to_euros_float
+# ====================================================
+
+
+def test_to_euros_float_converts_correctly():
+    """Convierte céntimos a euros como número, sin símbolo"""
+    assert to_euros_float(100) == 1.0
+
+
+def test_to_euros_float_decimals():
+    assert to_euros_float(999) == 9.99
+
+
+def test_to_euros_float_zero():
+    assert to_euros_float(0) == 0.0
+
+
+def test_to_euros_float_returns_float():
+    """El resultado es siempre float, nunca string"""
+    assert isinstance(to_euros_float(100), float)
+
+
+def test_to_euros_float_is_symmetric_with_to_cents():
+    """to_cents → to_euros_float es reversible para valores típicos"""
+    original = 49.99
+    assert to_euros_float(to_cents(original)) == original
 
 
 # ====================================================

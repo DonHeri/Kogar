@@ -15,7 +15,7 @@ class Expense:
         amount_cents: int,
         participants: list[str],
         description: str = "",
-        date: datetime = None,
+        date: datetime | None = None,
     ) -> None:
         """
         Crea un gasto con validaciones básicas
@@ -59,7 +59,7 @@ class Expense:
         name = normalize_name(name)
         self.participants.append(name)
 
-    def is_same_month(self, other_date: datetime = None) -> bool:
+    def is_same_month(self, other_date: datetime | None = None) -> bool:
         """
         Verifica si el gasto es del mismo mes/año que otra fecha
 
@@ -75,7 +75,7 @@ class Expense:
             self._date.year == other_date.year and self._date.month == other_date.month
         )
 
-    def is_same_year(self, other_date: datetime = None) -> bool:
+    def is_same_year(self, other_date: datetime | None = None) -> bool:
         """
         Verifica si el gasto es del mismo año que otra fecha
 

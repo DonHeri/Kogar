@@ -4,10 +4,10 @@ from src.workflow.incomes_entries_service import IncomeEntryService
 from src.models.household import Household
 
 from src.models.income_entry import IncomeEntry
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense import Expense
 from src.models.budget import Budget
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.member import Member
 from src.models.constants import MetodoReparto
@@ -34,9 +34,11 @@ def full_household(members_with_incomes):
     """Crea un hogar con los miembros proporcionados"""
     b = Budget()
     e = ExpenseTracker()
-    s = SavingTracker()
-    d = DebtTracker()
-    household = Household(budget=b, expense_tracker=e, saving_tracker=s, debt_tracker=d)
+    s = SavingBucketTracker()
+    d = DebtBucketTracker()
+    household = Household(
+        budget=b, expense_tracker=e, saving_bucket_tracker=s, debt_bucket_tracker=d
+    )
     for member in members_with_incomes.values():
         household.register_member(member)
     household.freeze_registration_state()
@@ -68,14 +70,14 @@ def test_add_income_entry_creates_entry(full_household):
         member_name="member1",
         amount_cents=50000,
     )
-    last_reserve = full_household.get_category_budget("reserva")
+    last_reserve = full_household.get_category_planned_amount("reserva")
     categories_budgets = {
-        name: full_household.get_category_budget(name)
+        name: full_household.get_category_planned_amount(name)
         for name in full_household.get_active_categories()
     }
 
     IncomeEntryService.add_income_entry(income_entry=entry, household=full_household)
-    new_reserve = full_household.get_category_budget("reserva")
+    new_reserve = full_household.get_category_planned_amount("reserva")
 
     assert new_reserve == last_reserve + 50000
     assert len(full_household._income_entries) == 1
@@ -85,7 +87,9 @@ def test_add_income_entry_creates_entry(full_household):
     assert full_household.get_total_incomes() == last_incomes + 50000
 
     # Cambia total, pero no cambia la distribución de los presupuestos de las categorías
-    assert categories_budgets["fijos"] == full_household.get_category_budget("fijos")
-    assert categories_budgets["variables"] == full_household.get_category_budget(
-        "variables"
+    assert categories_budgets["fijos"] == full_household.get_category_planned_amount(
+        "fijos"
     )
+    assert categories_budgets[
+        "variables"
+    ] == full_household.get_category_planned_amount("variables")

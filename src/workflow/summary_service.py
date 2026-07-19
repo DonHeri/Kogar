@@ -29,8 +29,15 @@ class SummaryService:
         members = list(household.members.keys())
         total_incomes = household.get_total_incomes()
         categories = household.get_active_categories()
-        debts = household.get_member_debts()
-        saving_goals = household.get_saving_goals()
+        debts = {
+            name: household.debt_bucket_tracker.total_expected_installment_by_member(
+                name
+            )
+            for name in members
+        }
+        saving_goals = {
+            name: household.get_saving_requirement_by_member(name) for name in members
+        }
         total_budgeted = household.get_total_budgeted()
 
         missing_money_by_member = {
@@ -102,8 +109,10 @@ class SummaryService:
             "owed": owed,
             "paid": paid,
             "balance": balance,
-            "debt": household._member_debts.get(member_name, 0),
-            "saving_goal": household._saving_goals.get(member_name, 0),
+            "debt": household.debt_bucket_tracker.total_expected_installment_by_member(
+                member_name
+            ),
+            "saving_goal": household.get_saving_requirement_by_member(member_name),
             "by_category": by_category,
         }
 
@@ -132,7 +141,7 @@ class SummaryService:
                     "paid":     80000,
                     "balance": -120000,      # negativo = debe dinero
                     "debt": cuanto paga cada miembro de deuda,
-                    "saving_goal": cuanto ahorra cada miembro,
+                    "saving_goal": cuánto exigen sus metas de ahorro este mes (informativo),
                     "by_category": {
                         "fijos": {
                             "contribution": 100000,

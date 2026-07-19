@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 
-class BucketEntryRepository:
+class SavingBucketEntryRepository:
     def __init__(self, db) -> None:
         psycopg2.extras.register_uuid()
         self.db = db

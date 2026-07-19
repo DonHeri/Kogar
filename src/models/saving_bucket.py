@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, date
+from math import ceil
 from uuid import uuid4
 
-from src.models.bucket_entry import BucketEntry
-from src.models.constants import SavingScope
+from src.models.saving_bucket_entry import SavingBucketEntry
 
 
 class SavingBucket:
@@ -12,35 +12,36 @@ class SavingBucket:
     Cada bucket tiene un identificador único (UUID) que lo distingue de otros buckets.
 
     deadline: fecha límite opcional; None = sin plazo fijo
+    is_default: define el bucket de ahorro por defecto de cada miembro. Un miembro no puede tener dos buckets default
     """
 
     def __init__(
         self,
-        bucket_name: str,
-        goal_cents: int,
-        scope: SavingScope,
+        saving_bucket_name: str,
         owners: list,
+        goal_cents: int | None = None,
         deadline: datetime | None = None,
+        is_default: bool = False,
         description: str = "",
     ) -> None:
 
-        self._validate_valid_amount(goal_cents, "goal_cents")
-        self._validate_non_empty_string(bucket_name, "bucket_name")
+        if goal_cents is not None:
+            self._validate_valid_amount(goal_cents, "goal_cents")
+        self._validate_non_empty_string(saving_bucket_name, "bucket_name")
 
         self._id = uuid4()
-        self.bucket_name = bucket_name
-        self._goal_cents = goal_cents
-        self.scope = scope
-
-        if scope == SavingScope.PERSONAL and len(owners) != 1:
-            raise ValueError("Bucket Personal no puede tener más de 1 miembro")
-        elif scope == SavingScope.SHARED and len(owners) < 2:
-            raise ValueError("Bucket compartido no puede tener 1 miembro")
+        self.bucket_name = saving_bucket_name
+        self._goal_cents = goal_cents  # Un bucket puede ser de meta indefinida.
 
         self._owners = owners
         self.deadline = deadline
-        self._entries: list[BucketEntry] = []
+        self._is_default = is_default
+        self._entries: list[SavingBucketEntry] = []
         self.description = description
+
+    @property
+    def is_default(self):
+        return self._is_default
 
     @property
     def id(self):
@@ -51,8 +52,18 @@ class SavingBucket:
         return self._owners
 
     @property
-    def goal(self) -> int:
-        return self._goal_cents
+    def is_shared(self):
+        return len(self.owners) > 1
+
+    @property
+    def goal(self) -> int | None:
+        if self._goal_cents:
+            return self._goal_cents
+
+    @property
+    def entries(self) -> list[SavingBucketEntry]:
+        """Copia del historial de movimientos del bucket."""
+        return list(self._entries)
 
     @property
     def balance(self) -> int:
@@ -66,6 +77,37 @@ class SavingBucket:
         for entry in self._entries:
             result[entry.member_name] += entry.amount_cents
         return result
+
+    @property
+    def remaining_goal(self) -> int | None:
+        """Cuánto falta para la meta. None si no hay meta. 0 si ya se alcanzó/superó."""
+        if self.goal is None:
+            return None
+
+        return max(self.goal - self.balance, 0)
+
+    @property
+    def months_until_deadline(self) -> int | None:
+        """Meses desde hoy hasta el deadline. None si no hay deadline.
+        Si el deadline ya pasó, devuelve 1 (hace falta ya) — mismo patrón que
+        DebtBucket.remaining_term_months + el max(...,1) de next_installment."""
+        if self.deadline is None:
+            return None
+
+        now = datetime.now()
+        months = (self.deadline.year - now.year) * 12 + (
+            self.deadline.month - now.month
+        )
+        return max(months, 1)
+
+    @property
+    def required_monthly_contribution(self) -> int | None:
+        """Cuánto haría falta aportar ESTE MES para llegar a la meta en el deadline.
+        None si falta meta o deadline (sin los dos no hay "ritmo" que calcular)."""
+        if self.goal is None or self.deadline is None:
+            return None
+
+        return ceil(self.remaining_goal / self.months_until_deadline)
 
     # ====== API PÚBLICA ======
 
@@ -84,7 +126,7 @@ class SavingBucket:
         self._validate_member_in_bucket(member_name)
 
         self._entries.append(
-            BucketEntry(
+            SavingBucketEntry(
                 amount_cents=amount_cents,
                 member_name=member_name,
                 date=date or datetime.now(),
@@ -109,38 +151,55 @@ class SavingBucket:
         self._validate_member_in_bucket(member_name)
 
         available = (
-            self.balance
-            if self.scope == SavingScope.PERSONAL
-            else self.balance_by_member.get(member_name, 0)
+            self.balance_by_member.get(member_name, 0)
+            if self.is_shared
+            else self.balance
         )
 
         if amount_cents > available:
             raise ValueError(f"Saldo insuficiente. Disponible: {available} céntimos")
 
         self._entries.append(
-            BucketEntry(
+            SavingBucketEntry(
                 amount_cents=-amount_cents,
                 member_name=member_name,
                 date=date or datetime.now(),
             )
         )
 
+    def get_period_deposits(self, start_date: date, end_date: date) -> int:
+        """Neto depositado (o retirado, en negativo) en este bucket dentro del rango."""
+        return sum(
+            e.amount_cents
+            for e in self._entries
+            if start_date <= e.date.date() <= end_date
+        )
+
+    # ============================================================
+    # Queries
+    # ============================================================
+
     def __repr__(self):  # pragma: no cover
         return (
             f"SavingBucket(id={self._id}, name={self.bucket_name!r}, "
-            f"scope={self.scope.name}, goal={self.goal}, balance={self.balance})"
+            f"shared={self.is_shared}, goal={self.goal}, balance={self.balance})"
         )
 
     def __str__(self):
         owners = ", ".join(o.title() for o in self._owners)
-        tipo = "Personal" if self.scope == SavingScope.PERSONAL else "Compartido"
+        tipo = "Compartido" if self.is_shared else "Personal"
         balance_eur = self.balance / 100
-        goal_eur = self.goal / 100
-        pct = int(balance_eur / goal_eur * 100) if goal_eur else 0
+
+        if self.goal is not None:
+            goal_eur = self.goal / 100
+            pct = int(balance_eur / goal_eur * 100) if goal_eur else 0
+            progreso = f"{balance_eur:.2f}€ / {goal_eur:.2f}€ ({pct}%)"
+        else:
+            progreso = f"{balance_eur:.2f}€ (sin meta)"
 
         lines = [
             f"[{tipo}] {self.bucket_name} — {owners}",
-            f"  Progreso : {balance_eur:.2f}€ / {goal_eur:.2f}€ ({pct}%)",
+            f"  Progreso : {progreso}",
         ]
         if self.description:
             lines.append(f"  Desc.    : {self.description.capitalize()}")
