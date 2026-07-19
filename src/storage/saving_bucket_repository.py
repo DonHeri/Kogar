@@ -2,7 +2,6 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 from src.models.saving_bucket import SavingBucket
-from src.models.constants import SavingScope
 
 
 class SavingBucketRepository:
@@ -20,15 +19,14 @@ class SavingBucketRepository:
         """Inserta en saving_buckets y devuelve el id del bucket insertado."""
         id = saving_bucket.id
         bucket_name: str = saving_bucket.bucket_name
-        goal_cents: int = saving_bucket.goal
-        scope: SavingScope = saving_bucket.scope
+        goal_cents: int | None = saving_bucket.goal
         owners: list = saving_bucket.owners
         deadline: datetime | None = saving_bucket.deadline
         description: str = saving_bucket.description
         self.cursor.execute(
-            """ 
-            INSERT INTO saving_buckets (id,household_id ,bucket_name, goal_cents, scope, deadline, description)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            INSERT INTO saving_buckets (id, household_id, bucket_name, goal_cents, deadline, description)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -36,7 +34,6 @@ class SavingBucketRepository:
                 household_id,
                 bucket_name,
                 goal_cents,
-                scope.value,
                 deadline,
                 description,
             ),

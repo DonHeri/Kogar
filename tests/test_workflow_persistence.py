@@ -6,11 +6,11 @@ import psycopg2
 from src.models.budget import Budget
 from src.models.constants import Phase
 from src.models.constants import MetodoReparto
-from src.models.debt_tracker import DebtTracker
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
 from src.models.period import Period
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
@@ -57,9 +57,9 @@ def wm_with_repos(member_repo, household_repo, period_repo):
     """WorkflowManager vacío con los tres repositorios inyectados"""
     household = Household(
         budget=Budget(),
-        debt_tracker=DebtTracker(),
+        debt_bucket_tracker=DebtBucketTracker(),
         expense_tracker=ExpenseTracker(),
-        saving_tracker=SavingTracker(),
+        saving_bucket_tracker=SavingBucketTracker(),
     )
     wm = WorkflowManager(
         household=household,
@@ -76,8 +76,8 @@ def wm_pre_registration(wm_with_repos):
     """WM con dos miembros e ingresos registrados, listo para finish_registration"""
     wm_with_repos.register_member("Heri")
     wm_with_repos.register_member("amanda")
-    wm_with_repos.set_member_incomes(name="heri", amount_eur=1652)
-    wm_with_repos.set_member_incomes(name="amanda", amount_eur=1456)
+    wm_with_repos.set_member_incomes(name="heri", amount_euros=1652)
+    wm_with_repos.set_member_incomes(name="amanda", amount_euros=1456)
 
     return wm_with_repos
 
@@ -274,8 +274,8 @@ def test_assign_distribution_method_persists_method(wm_pre_registration):
 def test_start_new_month_permite_avanzar_a_planning(wm_finish_month):
     wm_finish_month.start_new_month()
 
-    wm_finish_month.set_member_incomes(name="heri", amount_eur=1652)
-    wm_finish_month.set_member_incomes(name="amanda", amount_eur=1456)
+    wm_finish_month.set_member_incomes(name="heri", amount_euros=1652)
+    wm_finish_month.set_member_incomes(name="amanda", amount_euros=1456)
 
     household_id = wm_finish_month.finish_registration(start_date=date(2026, 2, 6))
 

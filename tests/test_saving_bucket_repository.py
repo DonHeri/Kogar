@@ -6,10 +6,10 @@ import psycopg2.extras
 
 from src.models.member import Member
 from src.models.saving_bucket import SavingBucket
-from src.models.constants import SavingScope
+
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
-from src.storage.saving_buckets_repository import SavingBucketRepository
+from src.storage.saving_bucket_repository import SavingBucketRepository
 from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
@@ -71,9 +71,8 @@ def member_ids(household_id, member_repo):
 def shared_bucket():
     """Bucket compartido con dos owners, sin persistir."""
     return SavingBucket(
-        bucket_name="vacaciones",
+        saving_bucket_name="vacaciones",
         goal_cents=500000,
-        scope=SavingScope.SHARED,
         owners=["heri", "amanda"],
         description="viaje de verano",
     )
@@ -110,7 +109,6 @@ def test_save_persists_bucket_fields(
     assert row["household_id"] == household_id
     assert row["bucket_name"] == "vacaciones"
     assert row["goal_cents"] == 500000
-    assert row["scope"] == "shared"
     assert row["description"] == "viaje de verano"
 
 
@@ -136,9 +134,7 @@ def test_save_without_deadline_persists_null(
 ):
     """save persiste NULL en deadline cuando el bucket no tiene fecha límite."""
     bucket = SavingBucket(
-        bucket_name="colchón",
-        goal_cents=100000,
-        scope=SavingScope.PERSONAL,
+        saving_bucket_name="colchón",
         owners=["heri"],
     )
 
