@@ -63,9 +63,9 @@ class DebtAccount:
     # ====== QUERIES ======
 
     def get_period_summary(self, start_date: date, end_date: date) -> dict:
-        """Resumen de pagos de deuda en el rango de fechas del período"""
+        """Resumen de pagos de deuda en el rango del período [start_date, end_date)"""
         entries = [
-            e for e in self._entries if start_date <= e.date.date() <= end_date
+            e for e in self._entries if start_date <= e.date.date() < end_date
         ]
         return {
             "paid": sum(e.amount_cents for e in entries),

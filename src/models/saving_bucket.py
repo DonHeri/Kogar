@@ -168,11 +168,11 @@ class SavingBucket:
         )
 
     def get_period_deposits(self, start_date: date, end_date: date) -> int:
-        """Neto depositado (o retirado, en negativo) en este bucket dentro del rango."""
+        """Neto depositado (o retirado, en negativo) en el rango [start_date, end_date)."""
         return sum(
             e.amount_cents
             for e in self._entries
-            if start_date <= e.date.date() <= end_date
+            if start_date <= e.date.date() < end_date
         )
 
     # ============================================================

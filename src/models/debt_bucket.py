@@ -87,8 +87,8 @@ class DebtBucket:
         return ceil(self.remaining_balance / self._installment_cents)
 
     def get_period_balance(self, start_date: date, end_date: date) -> dict[str, int]:
-        """Balance del bucket en el período: cuota comprometida, pagado y restante."""
-        entries = [e for e in self._entries if start_date <= e.date.date() <= end_date]
+        """Balance del bucket en el período [start_date, end_date): cuota, pagado y restante."""
+        entries = [e for e in self._entries if start_date <= e.date.date() < end_date]
         committed = self.next_installment
         paid = sum(e.amount_cents for e in entries)
         remaining = committed - paid

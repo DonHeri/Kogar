@@ -166,26 +166,26 @@ class SavingBucketTracker:
     def get_member_saved_in_period(
         self, member_name: str, start_date: date, end_date: date
     ) -> int:
-        """Neto ahorrado por un miembro (todos sus buckets) en el rango del período.
+        """Neto ahorrado por un miembro (todos sus buckets) en [start_date, end_date).
         Los retiros cuentan en negativo (BucketEntry negativa)."""
         total = 0
         for bucket in self.get_bucket_by_member(member_name).values():
             for entry in bucket.entries:
                 if (
                     entry.member_name == member_name
-                    and start_date <= entry.date.date() <= end_date
+                    and start_date <= entry.date.date() < end_date
                 ):
                     total += entry.amount_cents
         return total
 
     def get_shared_by_period(self, start_date: date, end_date: date) -> dict[str, list]:
-        """Movimientos en buckets compartidos dentro del rango, agrupados por miembro."""
+        """Movimientos en buckets compartidos en [start_date, end_date), por miembro."""
         result: dict[str, list] = {}
         for bucket in self.buckets.values():
             if not bucket.is_shared:
                 continue
             for entry in bucket.entries:
-                if start_date <= entry.date.date() <= end_date:
+                if start_date <= entry.date.date() < end_date:
                     result.setdefault(entry.member_name, []).append(entry)
         return result
 
