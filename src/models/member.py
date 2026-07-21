@@ -15,8 +15,17 @@ class Member:
         self.monthly_income: int = 0
 
     # ====== MUTATIONS ======
+    def set_income(self, income_cents: int) -> None:
+        """Fija el ingreso mensual (en céntimos), sustituyendo el anterior.
+
+        Es lo que se necesita mientras el período se planifica: el ingreso puede
+        corregirse las veces que haga falta sin que se acumule.
+        """
+        self._validate_income(income_cents)
+        self.monthly_income = income_cents
+
     def add_incomes(self, income_cents: int) -> None:
-        """Agrega ingreso mensual (en céntimos)"""
+        """Suma al ingreso mensual (en céntimos)"""
         self._validate_income(income_cents)
         self.monthly_income += income_cents
 
