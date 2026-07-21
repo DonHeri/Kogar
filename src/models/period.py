@@ -6,7 +6,7 @@ from src.models.constants import Phase, MetodoReparto
 
 @dataclass
 class Period:
-    household_id: int
+    household_id: int | None
     start_date: date
     status: Phase
     id: int | None = None

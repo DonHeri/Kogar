@@ -75,21 +75,16 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(self, start_date: date | None = None) -> int | None:
+    def finish_registration(self) -> int | None:
         """Validar, congelar ingresos y avanzar a planificación.
 
-        start_date es requerido cuando period_repo está inyectado.
+        El período ya está abierto: lo abre start_new_month, único punto por el que
+        nace un período. Aquí solo se congelan los ingresos y se avanza de fase.
         """
         if not self.household.members:
             raise ValueError("Registra al menos un miembro")
         if self.household.get_total_incomes() <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos")
-        if self.period_repo and start_date is None:
-            raise ValueError(
-                "start_date es requerido cuando period_repo está configurado"
-            )
-        if start_date is None:
-            start_date = date.today()
 
         # Congelar ingresos registrados
         self.household.freeze_registration_state()
@@ -98,25 +93,8 @@ class WorkflowManager:
         self.current_phase = Phase.PLANNING
         self._completed_phases.add(Phase.PLANNING)
 
-        # Persistir si hay repositorios
-        if self.household_repo and self.member_repo and not self.household_id:
-            household_id = self.household_repo.save()
-            self.household_id = household_id
-            for name, member in self.household.members.items():
-                member_id = self.member_repo.save(
-                    member=member, household_id=household_id
-                )
-                self.member_ids[name] = member_id
-
-        period = Period(
-            household_id=self.household_id,
-            start_date=start_date,
-            status=Phase.PLANNING,
-        )
-        self.period = period
-
-        if self.period_repo and not self.period_id:
-            self.period_id = self.period_repo.save(period)
+        # El hogar ya existe (lo crea _ensure_household al abrir el período)
+        self._persist_new_members()
 
         return self.household_id
 
@@ -250,6 +228,7 @@ class WorkflowManager:
         amount_cents = to_cents(amount_euros)
         if payment_date is None:
             payment_date = datetime.now()
+        self._validate_movement_date(payment_date)
 
         self.household.register_debt_payment(
             member_name=member,
@@ -278,14 +257,41 @@ class WorkflowManager:
         member = normalize_name(member)
         return self.household.get_debt_history(member)
 
+    def _validate_movement_date(self, movement_date) -> None:
+        """Un movimiento no puede tener fecha anterior al inicio del período abierto.
+
+        La fecha es lo que decide a qué período pertenece un movimiento. Una fecha
+        anterior al inicio caería fuera de esta ventana y no hay forma de imputarla
+        a un período ya cerrado, así que quedaría registrada pero invisible.
+
+        Quien llama decide qué hacer con el aviso: volver a registrarlo con una fecha
+        de este período, o descartarlo.
+        """
+        if movement_date is None or self.period is None:
+            return
+
+        day = (
+            movement_date.date()
+            if isinstance(movement_date, datetime)
+            else movement_date
+        )
+        if day < self.period.start_date:
+            raise ValueError(
+                f"La fecha {day} es anterior al inicio del período activo "
+                f"({self.period.start_date}) y pertenece a uno ya cerrado. "
+                f"Regístralo con una fecha de este período o descártalo."
+            )
+
     def _current_period_range(self) -> tuple[date, date]:
-        """Rango del período activo: inicio del período → fin (o hoy si sigue abierto)."""
+        """Rango semiabierto [inicio, fin) del período activo.
+
+        El fin es exclusivo para que el día de corte pertenezca solo al mes que
+        empieza, y no se cuente en los dos. Mientras el período sigue abierto no
+        tiene techo: todo lo registrado en él cuenta.
+        """
         start_date = self.period.start_date if self.period else date.today()
-        if self.period and self.period.end_date:
-            end_date = self.period.end_date
-        else:
-            end_date = date.today()
-        return start_date, end_date
+        end_date = self.period.end_date if self.period else date.max
+        return start_date, end_date or date.max
 
     # ====== PLANNING PHASE - Contribution Queries ======
 
@@ -408,15 +414,29 @@ class WorkflowManager:
                 expense=expense, period_id=self.period_id, member_ids=self.member_ids
             )
 
-    def finish_month(self):
-        """Avanzar de MONTH a CLOSING"""
-        self.validate_phase(Phase.MONTH)
+    def finish_month(self, end_date: date | None = None):
+        """Cerrar el mes en curso, esté en la fase que esté.
+
+        Cerrar un mes que no llegó a usarse es legítimo: el período existió y su
+        ventana temporal acaba aquí. Por eso solo se exige que siga abierto, en vez
+        de obligar a haber pasado por MONTH.
+        """
+        if self.period is None:
+            raise ValueError("No hay ningún período abierto que cerrar")
+        if self.period.status == Phase.CLOSING:
+            raise ValueError("El período ya está cerrado")
+
         self.current_phase = Phase.CLOSING
         self._completed_phases.add(Phase.CLOSING)
 
+        if end_date is None:
+            end_date = date.today()
+        self.period.end_date = end_date
+        self.period.status = Phase.CLOSING
+
         if self.period_repo and self.period_id:
             self.period_repo.update_status(self.period_id, Phase.CLOSING)
-            self.period_repo.update_end_date(self.period_id, date.today())
+            self.period_repo.update_end_date(self.period_id, end_date=end_date)
 
     # ====== PLANNING PHASE - SAVING ======
 
@@ -481,6 +501,7 @@ class WorkflowManager:
     ) -> None:
         """Registra un depósito en un bucket (MONTH)"""
         self.validate_phase(Phase.MONTH)
+        self._validate_movement_date(date)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.deposit_to_saving_bucket(bucket_id, member, amount_cents, date)
@@ -503,6 +524,7 @@ class WorkflowManager:
     ) -> None:
         """Registra un retiro de un bucket (MONTH)"""
         self.validate_phase(Phase.MONTH)
+        self._validate_movement_date(date)
         member = normalize_name(member)
         amount_cents = to_cents(amount_euros)
         self.household.withdraw_from_bucket(bucket_id, member, amount_cents, date)
@@ -592,17 +614,62 @@ class WorkflowManager:
         return SettlementCalculator.calculate(household=self.household)
 
     # ====== MONTH - NEW-MONTH ======
-    def start_new_month(
-        self,
-    ):
-        """Comenzar nuevo mes. Necesita haber finalizado mes anterior primero: finish_month"""
-        # Validar
-        self.validate_phase_accessible(Phase.CLOSING)
+    def start_new_month(self, start_date: date | None = None):
+        """Abrir un mes: único punto por el que nace un período.
+
+        Es también el arranque del programa: el primer mes no tiene período previo.
+        A partir del segundo, el mes anterior debe estar cerrado y el nuevo empieza
+        donde aquel terminó, para que los rangos no se solapen ni dejen huecos.
+        """
+        if self.period is not None:
+            if self.period.status != Phase.CLOSING:
+                raise ValueError(
+                    "Cierra el mes en curso con finish_month() antes de abrir uno nuevo"
+                )
+            if start_date is None:
+                start_date = self.period.end_date
 
         self.household.reset_for_new_month()
         self._completed_phases = {Phase.REGISTRATION}
         self.current_phase = Phase.REGISTRATION
-        self.period_id = None
+
+        self._start_period(start_date=start_date)
+
+    def _start_period(self, start_date: date | None = None):
+        """Instancia un nuevo período"""
+        if start_date is None:
+            start_date = date.today()
+
+        # El hogar debe existir antes: household_periods.household_id es NOT NULL
+        self._ensure_household()
+
+        period = Period(
+            household_id=self.household_id,
+            start_date=start_date,
+            status=Phase.PLANNING,
+        )
+
+        self.period = period
+
+        if self.period_repo:
+            self.period_id = self.period_repo.save(period)
+
+    def _ensure_household(self) -> None:
+        """Crea la fila del hogar si aún no existe. Idempotente."""
+        if self.household_id or not self.household_repo:
+            return
+        self.household_id = self.household_repo.save()
+
+    def _persist_new_members(self) -> None:
+        """Persiste los miembros que aún no tienen id de BD. Idempotente."""
+        if not self.member_repo or not self.household_id:
+            return
+        for name, member in self.household.members.items():
+            if name in self.member_ids:
+                continue
+            self.member_ids[name] = self.member_repo.save(
+                member=member, household_id=self.household_id
+            )
 
     # ====== QUERIES - General (Phase-independent) ======
     def add_income_entry(

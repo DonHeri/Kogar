@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 import pytest
 
 from src.models.budget import Budget
@@ -14,25 +16,47 @@ from src.workflow.workflow_manager import WorkflowManager
 
 
 @pytest.fixture
-def household():
+def household() -> Household:
     return Household(
         Budget(), ExpenseTracker(), SavingBucketTracker(), DebtBucketTracker()
     )
 
 
 @pytest.fixture
-def wm(household):
+def wm(household) -> WorkflowManager:
     return WorkflowManager(household)
 
 
 @pytest.fixture
-def wm_in_planning(wm):
+def wm_in_planning(wm) -> WorkflowManager:
     """WM en PLANNING: un miembro (Amanda, 5000) y categorías estándar."""
+    wm.start_new_month()
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
     wm.finish_registration()
     return wm
+
+
+@pytest.fixture
+def wm_in_month_two_members(wm):
+    """WM en MONTH con dos miembros: amanda (60%) y heri (40%), total 1000€"""
+    wm.start_new_month()
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_member_incomes("Amanda", 6000)
+    wm.set_member_incomes("Heri", 4000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 5000)
+    debt_id = wm.add_debt_bucket(
+        name="prestamo amanda",
+        principal_euros=21200,
+        owner="Amanda",
+        installment_euros=212,
+    )
+    wm.finish_planning()
+    return (wm, debt_id)
 
 
 # ====================================================
@@ -1039,6 +1063,7 @@ def test_set_budget_by_percentages_fractional_percentages(wm):
 @pytest.fixture
 def wm_in_month(wm):
     """WM listo en fase MONTH"""
+    wm.start_new_month()
     wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
@@ -1113,38 +1138,18 @@ def test_set_budget_for_category_raises_in_month(wm):
 # ====================================================
 
 
-@pytest.fixture
-def wm_in_month_two_members(wm):
-    """WM en MONTH con dos miembros: amanda (60%) y heri (40%), total 1000€"""
-    wm.household.budget.set_standard_categories()
-    wm.register_member("Amanda")
-    wm.register_member("Heri")
-    wm.set_member_incomes("Amanda", 6000)
-    wm.set_member_incomes("Heri", 4000)
-    wm.finish_registration()
-    wm.set_budget_for_category("fijos", 5000)
-    wm.add_debt_bucket(
-        name="prestamo amanda",
-        principal_euros=21200,
-        owner="Amanda",
-        installment_euros=212,
-    )
-    wm.finish_planning()
-    return wm
-
-
-def test_create_bucket_returns_uuid(wm_in_month_two_members):
+def test_create_bucket_returns_uuid(wm_in_month_two_members: WorkflowManager):
     """create_saving_bucket retorna un UUID válido"""
-    from uuid import UUID as UUIDType
+    from uuid import UUID
 
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Viaje", ["Amanda", "Heri"], 2000)
-    assert isinstance(bucket_id, UUIDType)
+    assert isinstance(bucket_id, UUID)
 
 
 def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
     """deposit_to_bucket registra el depósito y el balance del bucket aumenta"""
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
 
     wm.deposit_to_saving_bucket(bucket_id, "Amanda", 300.0)  # 30000 céntimos
@@ -1155,7 +1160,7 @@ def test_deposit_to_bucket_increases_balance(wm_in_month_two_members):
 
 def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
     """withdraw_from_bucket reduce el balance correctamente"""
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
     wm.deposit_to_saving_bucket(bucket_id, "Amanda", 300.0)
 
@@ -1167,7 +1172,7 @@ def test_withdraw_from_bucket_reduces_balance(wm_in_month_two_members):
 
 def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
     """Retirar más de lo disponible lanza ValueError"""
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     bucket_id = wm.create_saving_bucket("Fondo", ["Amanda", "Heri"], 50000)
     wm.deposit_to_saving_bucket(bucket_id, "Amanda", 100.0)  # 10000 céntimos
 
@@ -1177,7 +1182,7 @@ def test_withdraw_exceeding_balance_raises(wm_in_month_two_members):
 
 def test_get_all_buckets_returns_all(wm_in_month_two_members):
     """get_all_buckets retorna todos los buckets creados"""
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     wm.create_saving_bucket("B1", ["Amanda", "Heri"], 10000)
     wm.create_saving_bucket("B2", ["Amanda", "Heri"], 20000)
 
@@ -1188,7 +1193,7 @@ def test_get_all_buckets_returns_all(wm_in_month_two_members):
 
 def test_get_buckets_by_member_filters_correctly(wm_in_month_two_members):
     """get_buckets_by_member solo retorna buckets del miembro solicitado"""
-    wm = wm_in_month_two_members
+    wm, _ = wm_in_month_two_members
     wm.create_saving_bucket("Solo Amanda", ["Amanda"], 10000)
     wm.create_saving_bucket("Compartido", ["Amanda", "Heri"], 20000)
 
@@ -1225,6 +1230,9 @@ def test_withdraw_outside_month_raises(wm):
 
 def test_full_flow_registration_to_closing(wm):
     """Flujo completo de punta a punta: registro → planificación → mes → cierre"""
+    # El período nace aquí: start_new_month es el único punto de apertura
+    wm.start_new_month()
+
     # REGISTRATION
     wm.register_member("Amanda")
     wm.register_member("Heri")
@@ -1276,46 +1284,174 @@ def test_full_flow_registration_to_closing(wm):
 
 def test_start_new_month_return_to_registration_phase(wm_in_month_two_members):
     """Al comenzar nuevo mes, el status se reinicia"""
-    wm_in_month_two_members.finish_month()
-    old_status = wm_in_month_two_members.current_phase
-    wm_in_month_two_members.start_new_month()
-    new_status = wm_in_month_two_members.current_phase
+    wm, _ = wm_in_month_two_members
+    wm.finish_month()
+    old_status = wm.current_phase
+    wm.start_new_month()
+    new_status = wm.current_phase
 
     assert old_status == Phase.CLOSING
     assert new_status == Phase.REGISTRATION
 
 
-@pytest.mark.skip(
-    reason="T9: reset mensual de deuda pendiente de reconciliar. La deuda ahora cruza "
-    "meses (reset_for_new_month no reinicia el tracker); el 'no aparece en nuevo mes' "
-    "pasa a ser period-scoped por fechas, con el problema de límites de período aún abierto."
-)
-def test_last_payments_dont_appear_in_new_month(wm_in_month_two_members):
-    # Pagos pasados no aparecen en nuevo mes
+def test_last_payments_dont_appear_in_new_month(wm):
+    """Lo pagado se queda en su mes; la deuda, que es del hogar, cruza al siguiente.
 
-    wm_in_month_two_members.register_debt_payment("amanda", 150, "Pago de coche")
-    old_total_paid = wm_in_month_two_members.household.debt_tracker.get_total_paid(
-        "amanda"
+    Necesita fechas de corte reales: el mes se delimita por su ventana temporal,
+    así que dos meses simulados el mismo día no se podrían distinguir.
+    """
+    # ── Mes 1: del 28-ene al 28-feb ──
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.register_member("Heri")
+    wm.set_member_incomes("Amanda", 6000)
+    wm.set_member_incomes("Heri", 4000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 5000)
+    debt_id = wm.add_debt_bucket(
+        name="prestamo amanda",
+        principal_euros=21200,
+        owner="Amanda",
+        installment_euros=212,
     )
-    old_committed_debt = wm_in_month_two_members.get_all_debts()["amanda"]
+    wm.finish_planning()
 
-    wm_in_month_two_members.finish_month()
-
-    wm_in_month_two_members.start_new_month()
-
-    wm_in_month_two_members.set_member_incomes("Amanda", 6000)
-    wm_in_month_two_members.set_member_incomes("Heri", 4000)
-
-    # Crear cuentas
-    wm_in_month_two_members.finish_registration()
-
-    new_committed_debt = wm_in_month_two_members.get_all_debts()["amanda"]
-    new_total_paid = wm_in_month_two_members.household.debt_tracker.get_total_paid(
-        "amanda"
+    # Pago dentro de la ventana del mes 1
+    wm.register_debt_payment(
+        member="amanda",
+        bucket_id=debt_id,
+        amount_euros=150,
+        payment_date=datetime(2026, 2, 10),
     )
 
-    assert old_committed_debt == 21200
-    assert old_total_paid == 15000
+    totals_month_one = wm.get_debt_status(member="amanda")["totals"]
 
-    assert new_committed_debt == 0
-    assert new_total_paid == 0
+    # ── Mes 2: arranca donde cerró el mes 1 ──
+    wm.finish_month(end_date=date(2026, 2, 28))
+    wm.start_new_month()
+    wm.set_member_incomes("Amanda", 6000)
+    wm.set_member_incomes("Heri", 4000)
+    wm.finish_registration()
+
+    totals_month_two = wm.get_debt_status(member="amanda")["totals"]
+
+    assert totals_month_one["paid"] == 15000
+    assert totals_month_one["committed"] == 21200
+
+    # El pago se quedó en el mes 1, pero la cuota sigue comprometida
+    assert totals_month_two["paid"] == 0
+    assert totals_month_two["committed"] == 21200
+
+
+def test_payment_on_cut_off_day_counts_only_in_the_month_that_starts(wm):
+    """El día de corte pertenece al mes que empieza, no a los dos.
+
+    El rango del período es semiabierto [inicio, fin): sin eso, un pago hecho
+    justo el día del corte se contaría en el mes que cierra y en el que abre.
+    """
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 6000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 1000)
+    debt_id = wm.add_debt_bucket(
+        name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212
+    )
+    wm.finish_planning()
+
+    # Pago exactamente el día en que se corta el mes
+    wm.register_debt_payment(
+        member="amanda",
+        bucket_id=debt_id,
+        amount_euros=150,
+        payment_date=datetime(2026, 2, 28),
+    )
+
+    wm.finish_month(end_date=date(2026, 2, 28))
+    paid_closed_month = wm.get_debt_status(member="amanda")["totals"]["paid"]
+
+    wm.start_new_month()
+    wm.set_member_incomes("Amanda", 6000)
+    wm.finish_registration()
+    paid_new_month = wm.get_debt_status(member="amanda")["totals"]["paid"]
+
+    assert paid_closed_month == 0
+    assert paid_new_month == 15000
+
+
+def test_open_period_has_no_upper_bound(wm):
+    """Mientras el mes sigue abierto no tiene techo: lo registrado hoy cuenta."""
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 6000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 1000)
+    debt_id = wm.add_debt_bucket(
+        name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212
+    )
+    wm.finish_planning()
+
+    # Sin payment_date: se sella con la fecha de hoy
+    wm.register_debt_payment(member="amanda", bucket_id=debt_id, amount_euros=90)
+
+    assert wm.get_debt_status(member="amanda")["totals"]["paid"] == 9000
+
+
+@pytest.fixture
+def wm_month_from_28_jan(wm):
+    """WM en MONTH con un período que arranca el 28-ene-2026 y un bucket de deuda."""
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.household.budget.set_standard_categories()
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 6000)
+    wm.finish_registration()
+    wm.set_budget_for_category("fijos", 1000)
+    debt_id = wm.add_debt_bucket(
+        name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212
+    )
+    wm.finish_planning()
+    return wm, debt_id
+
+
+def test_payment_before_period_start_is_rejected(wm_month_from_28_jan):
+    """Un pago con fecha de un período ya cerrado se rechaza con aviso."""
+    wm, debt_id = wm_month_from_28_jan
+
+    with pytest.raises(ValueError, match="anterior al inicio del período"):
+        wm.register_debt_payment(
+            member="amanda",
+            bucket_id=debt_id,
+            amount_euros=150,
+            payment_date=datetime(2026, 1, 20),
+        )
+
+
+def test_payment_on_period_start_day_is_accepted(wm_month_from_28_jan):
+    """El día de inicio sí pertenece al período: el rango es [inicio, fin)."""
+    wm, debt_id = wm_month_from_28_jan
+
+    wm.register_debt_payment(
+        member="amanda",
+        bucket_id=debt_id,
+        amount_euros=150,
+        payment_date=datetime(2026, 1, 28),
+    )
+
+    assert wm.get_debt_status(member="amanda")["totals"]["paid"] == 15000
+
+
+def test_saving_deposit_before_period_start_is_rejected(wm_month_from_28_jan):
+    """La misma regla aplica a los movimientos de ahorro."""
+    wm, _ = wm_month_from_28_jan
+    bucket_id = wm.create_saving_bucket("Viaje", ["Amanda"], 2000)
+
+    with pytest.raises(ValueError, match="anterior al inicio del período"):
+        wm.deposit_to_saving_bucket(
+            bucket_id=bucket_id,
+            member="Amanda",
+            amount_euros=100,
+            date=datetime(2026, 1, 20),
+        )
