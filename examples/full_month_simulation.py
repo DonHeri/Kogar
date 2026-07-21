@@ -79,12 +79,15 @@ with DatabaseConnection(
     )
 
     # =============================================
-    # FASE 1 — REGISTRATION
+    # FASE 1 — ABRIR PERÍODO Y REGISTRAR
     # =============================================
 
     print("=" * 60)
-    print("FASE 1: REGISTRO")
+    print("FASE 1: APERTURA DEL PERÍODO Y REGISTRO")
     print("=" * 60)
+
+    # El período nace aquí: start_new_month es el único punto de apertura
+    wm.start_new_month(start_date=date(2026, 5, 6))
 
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 1339.58)
@@ -96,8 +99,7 @@ with DatabaseConnection(
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
     print(f"Total:  {to_euros(wm.get_total_incomes())}")
 
-    wm.finish_registration(start_date=date(2026, 5, 6))
-    print("\n[OK] Registro congelado. Fase: PLANNING\n")
+    print("\n[OK] Período abierto. Fase: PLANNING\n")
 
     # =============================================
     # FASE 2 — PLANNING

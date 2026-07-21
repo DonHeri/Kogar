@@ -147,7 +147,7 @@ def test_register_duplicate_member_raises(base_household, member_zero_income):
 # freeze_registration
 # ============================================================
 def test_freeze_registation_add_personal_bucket_by_member(household_with_members):
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
 
     for name in ("member1", "member2"):
         default_bucket = household_with_members.saving_bucket_tracker.get_default_bucket_by_member(
@@ -159,9 +159,9 @@ def test_freeze_registation_add_personal_bucket_by_member(household_with_members
         assert bucket.owners == [name]
 
 
-def test_freeze_registration_state_does_not_duplicate_default_bucket(household_with_members):
-    household_with_members.freeze_registration_state()
-    household_with_members.freeze_registration_state()
+def test_prepare_period_does_not_duplicate_default_bucket(household_with_members):
+    household_with_members.prepare_period()
+    household_with_members.prepare_period()
 
     buckets = household_with_members.saving_bucket_tracker.get_bucket_by_member(
         "member1"
@@ -170,12 +170,12 @@ def test_freeze_registration_state_does_not_duplicate_default_bucket(household_w
     assert len(default_buckets) == 1
 
 
-def test_freeze_registration_state_with_existing_bucket_does_not_crash(
+def test_prepare_period_with_existing_bucket_does_not_crash(
     household_with_members,
 ):
     _add_saving_bucket(household_with_members, "member1", goal_cents=100000)
 
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
 
     buckets = household_with_members.saving_bucket_tracker.get_bucket_by_member(
         "member1"
@@ -729,17 +729,16 @@ def test_get_category_budget_returns_amount(household_with_members):
 
 
 # ====================================================
-# TESTS: get_registered_incomes
+# TESTS: get_incomes
 # ====================================================
 
 
-def test_get_registered_incomes_raises_if_not_frozen(household_with_members):
-    """Debe fallar si intentas obtener ingresos antes de congelarlos"""
-    with pytest.raises(
-        ValueError,
-        match="Los ingresos no han sido congelados",
-    ):
-        household_with_members.get_registered_incomes()
+def test_get_incomes_returns_live_values(household_with_members):
+    """get_incomes() devuelve el ingreso vivo, sin depender de ningún congelado"""
+    incomes = household_with_members.get_incomes()
+
+    assert set(incomes) == set(household_with_members.members)
+    assert all(isinstance(value, int) for value in incomes.values())
 
 
 # ====================================================
@@ -996,7 +995,7 @@ def test_get_missing_money_raises_when_over_budget(household_with_members):
 def test_get_member_owed_total_sums_all_category_contributions(household_with_members):
     """Debe sumar todas las contribuciones acordadas del miembro"""
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 60000)
     _set_budget(household_with_members, "variables", 40000)
     # reserva autocalcula a 200000 → total = 300000 → EQUAL → 150000 por miembro
@@ -1010,7 +1009,7 @@ def test_get_member_owed_total_sums_all_category_contributions(household_with_me
 def test_get_member_owed_total_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 60000)
     # reserva autocalcula a 240000 → total = 300000 → EQUAL → 150000 por miembro
     household_with_members.freeze_planning_state()
@@ -1035,7 +1034,7 @@ def test_get_member_balance_negative_when_owes_money(household_with_members):
     """Balance negativo cuando el miembro debe dinero (paid < owed)"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
@@ -1055,7 +1054,7 @@ def test_get_member_balance_positive_when_paid_more(household_with_members):
     """Balance positivo cuando el miembro pagó de más (paid > owed)"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
@@ -1075,7 +1074,7 @@ def test_get_member_balance_zero_when_paid_exact(household_with_members):
     """Balance cero cuando el miembro pagó exactamente lo acordado"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
@@ -1094,7 +1093,7 @@ def test_get_member_balance_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva=200000 → total=300000 → EQUAL → owed=150000
     household_with_members.freeze_planning_state()
@@ -1122,7 +1121,7 @@ def test_get_member_status_returns_complete_structure(household_with_members):
     """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     # reserva=150000 → total=300000 → EQUAL → owed=150000
@@ -1157,7 +1156,7 @@ def test_get_member_status_paid_is_total_not_per_category(household_with_members
     """CRÍTICO: 'paid' debe ser el total pagado, NO el paid de una categoría"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 60000)
     _set_budget(household_with_members, "variables", 40000)
     # reserva autocalcula
@@ -1187,7 +1186,7 @@ def test_get_member_status_by_category_has_correct_structure(household_with_memb
     """'by_category' debe tener contribution, paid, remaining por categoría"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     household_with_members.freeze_planning_state()
@@ -1222,7 +1221,7 @@ def test_get_member_status_normalizes_name(household_with_members):
     """Debe normalizar el nombre del miembro"""
     _set_budget(household_with_members, "fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     household_with_members.freeze_planning_state()
 
     status = SummaryService.get_member_status(household_with_members, "MEMBER1")
@@ -1234,7 +1233,7 @@ def test_get_member_status_includes_debt_and_saving_goal(household_with_members)
     """debt y saving_goal (derivado de las metas con deadline, informativo) reflejan
     lo declarado en PLANNING"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     # reserva autocalcula a 200000 → capacity per member = 100000
     _add_debt(household_with_members, "member1", 20000)
@@ -1265,7 +1264,7 @@ def test_get_month_summary_returns_complete_structure(household_with_members):
     """Debe retornar dict con 'totals' y 'by_category'"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     household_with_members.freeze_planning_state()
@@ -1286,7 +1285,7 @@ def test_get_month_summary_returns_complete_structure(household_with_members):
 def test_get_month_summary_includes_missing_money(household_with_members):
     """'missing_money' debe estar presente en el summary"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 200000)
     # reserva autocalcula a 100000 → total = 300000 → missing = 0
     household_with_members.freeze_planning_state()
@@ -1301,7 +1300,7 @@ def test_get_month_summary_calculates_correctly(household_with_members):
     """Los cálculos de 'totals' deben ser correctos"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     # reserva=150000 → total_budgeted=300000
@@ -1325,7 +1324,7 @@ def test_get_month_summary_by_category_has_correct_structure(household_with_memb
     """Cada categoría en 'by_category' debe tener budget, spent, remaining"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     household_with_members.freeze_planning_state()
@@ -1359,7 +1358,7 @@ def test_get_month_summary_by_category_has_correct_structure(household_with_memb
 
 def test_get_agreed_percentages_raises_if_not_frozen(household_with_members):
     """Debe fallar si finish_planning() no ha sido llamado"""
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
 
     with pytest.raises(ValueError, match="Los porcentajes no han sido congelados"):
         household_with_members.get_agreed_percentages()
@@ -1368,7 +1367,7 @@ def test_get_agreed_percentages_raises_if_not_frozen(household_with_members):
 def test_get_agreed_percentages_returns_frozen_percentages(household_with_members):
     """Debe retornar los porcentajes congelados después de finish_planning()"""
     household_with_members.assign_distribution_method(MetodoReparto.PROPORTIONAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     household_with_members.freeze_planning_state()
 
@@ -1382,7 +1381,7 @@ def test_get_agreed_percentages_returns_frozen_percentages(household_with_member
 
 def test_get_agreed_contributions_raises_if_not_frozen(household_with_members):
     """Debe fallar si finish_planning() no ha sido llamado"""
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
 
     with pytest.raises(ValueError, match="Las contribuciones no han sido congeladas"):
         household_with_members.get_agreed_contributions()
@@ -1391,7 +1390,7 @@ def test_get_agreed_contributions_raises_if_not_frozen(household_with_members):
 def test_get_agreed_contributions_returns_frozen_contributions(household_with_members):
     """Debe retornar las contribuciones congeladas después de finish_planning()"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     household_with_members.freeze_planning_state()
@@ -1469,7 +1468,7 @@ def test_set_budget_by_percentages_sum_matches_incomes(base_household):
     m = Member("solo")
     m.monthly_income = 100001
     base_household.register_member(m)
-    base_household.freeze_registration_state()
+    base_household.prepare_period()
 
     # fijos=50%, variables=30%, reserva=20% — deben sumar exactamente 100001¢
     _set_budget_by_percentages(
@@ -1494,7 +1493,7 @@ def test_set_budget_by_percentages_sum_matches_incomes(base_household):
 
 def test_deposit_to_saving_bucket_updates_balance(household_with_members):
     """Test: depositar en un bucket de ahorro actualiza su balance"""
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     bucket_id = _add_saving_bucket(household_with_members, "member1")
 
     household_with_members.deposit_to_saving_bucket(bucket_id, "member1", 5000)
@@ -1505,7 +1504,7 @@ def test_deposit_to_saving_bucket_updates_balance(household_with_members):
 
 def test_withdraw_from_saving_bucket_reduces_balance(household_with_members):
     """Test: retirar de un bucket de ahorro reduce su balance"""
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     bucket_id = _add_saving_bucket(household_with_members, ["member1", "member2"])
     household_with_members.deposit_to_saving_bucket(bucket_id, "member1", 10000)
 
@@ -1601,7 +1600,7 @@ def test_validate_debt_doesnt_exceed_capacity_ignores_missing_money(
 
 def _setup_settlement(hh):
     """Congela estados para habilitar get_settlement()"""
-    hh.freeze_registration_state()
+    hh.prepare_period()
     hh.freeze_planning_state()
 
 
@@ -1760,7 +1759,7 @@ def test_get_settlement_three_members_only_should_pay_two(base_household):
 def household_month_ready(household_with_members):
     """Household con registration congelado y reserva presupuestada.
     EQUAL, reserva=120000 → 60000 por miembro. Listo para declarar deuda y pagar."""
-    household_with_members.freeze_registration_state()
+    household_with_members.prepare_period()
     # fijos=180000, variables=0 → reserva = 300000 - 180000 = 120000
     _set_budget(household_with_members, "fijos", 180000)
     return household_with_members

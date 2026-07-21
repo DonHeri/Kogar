@@ -32,16 +32,8 @@ class SettlementCalculator:
 
             participants = expense.participants
 
-            if household.get_registered_incomes():
-                incomes_map = {
-                    m: household.get_registered_incomes()[m] for m in participants
-                }
-            else:
-                # Usar datos mutables solo en REGISTRATION
-                incomes_map = {
-                    name: household.members[name].monthly_income
-                    for name in participants
-                }
+            incomes = household.get_incomes()
+            incomes_map = {name: incomes[name] for name in participants}
 
             # Cuánto debería pagar cada miembro según el método de reparto
             if household.method == MetodoReparto.CUSTOM:

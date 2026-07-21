@@ -37,19 +37,19 @@ class Household:
         self.debt_bucket_tracker: DebtBucketTracker = debt_bucket_tracker
         self.method: MetodoReparto = method
         self._custom_splits = {}
-        self._registered_incomes = {}
         self._agreed_percentages = {}
         self._agreed_contributions = {}
         self._income_entries: list[IncomeEntry] = []
 
-    # ====== REGISTRATION ======
+    # ====== MIEMBROS ======
 
     def register_member(self, member: Member):
-        """Registra un nuevo miembro en el hogar"""
+        """Registra un nuevo miembro en el hogar, con su bucket de ahorro personal"""
         if member.name in self.members:
             raise ValueError(f"{member.name} ya está registrado en el hogar")
 
         self.members[member.name] = member
+        self._create_personal_saving_bucket(member.name)
 
     def set_member_income(self, name: str, amount_cents: int):
         """Establece el ingreso mensual de un miembro (en céntimos)"""
@@ -57,33 +57,35 @@ class Household:
         if name not in self.members:
             raise ValueError(f"{name} no existe en el hogar")
 
-        self.members[name].add_incomes(amount_cents)
+        self.members[name].set_income(amount_cents)
 
-    def freeze_registration_state(self):
-        """Congela los ingresos registrados al pasar a fase PLANNING"""
-        self._registered_incomes = {
-            name: member.monthly_income for name, member in self.members.items()
-        }
+    def prepare_period(self):
+        """Deja el hogar listo para planificar: buckets personales y categorías base.
 
-        # Crear ahorro personal para cada miembro
+        Ya no congela ingresos: mientras el período está abierto manda el ingreso
+        vivo del miembro, y el acuerdo del mes se congela en freeze_planning_state().
+        """
         self._create_personal_saving_bucket_for_members()
 
-        # Crear categorías estándar
         if not self.budget.categories:
             self.budget.set_standard_categories()
 
-    def _create_personal_saving_bucket_for_members(self):
-        """Crea un bucket de ahorro personal para cada uno de los miembros."""
-        for name, _ in self.members.items():
-            if self.saving_bucket_tracker.get_default_bucket_by_member(name):
-                continue
-            personal_bucket = SavingBucket(
-                saving_bucket_name=f"{name}'s personal saving",
-                owners=[name],
-                is_default=True,
-            )
+    def _create_personal_saving_bucket(self, name: str) -> None:
+        """Crea el bucket de ahorro personal de un miembro si aún no lo tiene."""
+        if self.saving_bucket_tracker.get_default_bucket_by_member(name):
+            return
 
-            self.saving_bucket_tracker.add_bucket(personal_bucket)
+        personal_bucket = SavingBucket(
+            saving_bucket_name=f"{name}'s personal saving",
+            owners=[name],
+            is_default=True,
+        )
+        self.saving_bucket_tracker.add_bucket(personal_bucket)
+
+    def _create_personal_saving_bucket_for_members(self):
+        """Asegura el bucket de ahorro personal de todos los miembros. Idempotente."""
+        for name in self.members:
+            self._create_personal_saving_bucket(name)
 
     # ====== PLANNING — CATEGORIES ======
 
@@ -252,25 +254,20 @@ class Household:
         movimientos pasados. DebtBucketTracker y SavingBucketTracker NO se reinician:
         la deuda y el ahorro son household-scoped y cruzan meses."""
         self.expense_tracker = ExpenseTracker()
-        self._registered_incomes = {}
         self._agreed_contributions = {}
         self._agreed_percentages = {}
 
         self._income_entries = list()
 
-    # ====== QUERIES — REGISTRATION ======
+    # ====== QUERIES — MIEMBROS ======
 
     def get_member_names(self) -> list[str]:
         """Devuelve los nombres de miembros registrados en el núcleo familiar"""
         return list(self.members.keys())
 
-    def get_registered_incomes(self) -> dict[str, int]:
-        """Obtiene ingresos congelados (disponible en PLANNING/MONTH)"""
-        if not self._registered_incomes:
-            raise ValueError(
-                "Los ingresos no han sido congelados. Llama a finish_registration() primero."
-            )
-        return self._registered_incomes.copy()
+    def get_incomes(self) -> dict[str, int]:
+        """Ingreso mensual vivo de cada miembro (céntimos)"""
+        return {name: member.monthly_income for name, member in self.members.items()}
 
     # ====== QUERIES — PLANNING ======
     def get_budget_categories(self) -> dict[str, BudgetCategory]:
@@ -286,18 +283,12 @@ class Household:
         return self.budget.get_planned_amount(category)
 
     def get_total_incomes(self):
-        """Calcula el ingreso total mensual (usa datos congelados si están disponibles)"""
+        """Calcula el ingreso total mensual, más los ingresos extra del período"""
         self.validate_has_members()
         self.validate_total_incomes_positive()
 
         extra_incomes = [e.amount_cents for e in self._income_entries]
-
-        # Usar datos congelados si están disponibles (PLANNING/MONTH)
-        if self._registered_incomes:
-            incomes = list(self._registered_incomes.values()) + extra_incomes
-        else:
-            # Usar datos mutables solo en REGISTRATION
-            incomes = [m.monthly_income for m in self.members.values()] + extra_incomes
+        incomes = list(self.get_incomes().values()) + extra_incomes
 
         total = FinanceCalculator.sum_values(incomes)
         return total
@@ -333,16 +324,11 @@ class Household:
         return pct_basis
 
     def get_percentages_by_method(self, method: MetodoReparto):
-        """Calcula el porcentaje de reparto (usa datos congelados si están disponibles)"""
+        """Calcula el porcentaje de reparto sobre los ingresos vivos"""
         self.validate_has_members()
         self.validate_total_incomes_positive()
 
-        # Usar datos congelados si están disponibles (PLANNING/MONTH)
-        if self._registered_incomes:
-            income_map = self._registered_incomes
-        else:
-            # Usar datos mutables solo en REGISTRATION
-            income_map = {name: m.monthly_income for name, m in self.members.items()}
+        income_map = self.get_incomes()
 
         percentages = {}
 
@@ -375,9 +361,7 @@ class Household:
                 - contributions: {nombre_miembro: contribución (céntimos)}
                 - total_assigned: suma de contributions
         """
-        income_map = self._registered_incomes or {
-            name: m.monthly_income for name, m in self.members.items()
-        }
+        income_map = self.get_incomes()
 
         summary = {}
 
@@ -528,13 +512,8 @@ class Household:
             raise ValueError("No hay miembros registrados")
 
     def validate_total_incomes_positive(self):
-        """Valida que el ingreso total es mayor a 0 (usa datos congelados si están disponibles)"""
-        # Usar datos congelados si están disponibles (PLANNING/MONTH)
-        if self._registered_incomes:
-            incomes = list(self._registered_incomes.values())
-        else:
-            # Usar datos mutables solo en REGISTRATION
-            incomes = [m.monthly_income for m in self.members.values()]
+        """Valida que el ingreso total es mayor a 0"""
+        incomes = list(self.get_incomes().values())
 
         total = FinanceCalculator.sum_values(incomes)
         if total <= 0:

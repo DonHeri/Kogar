@@ -41,7 +41,7 @@ def full_household(members_with_incomes):
     )
     for member in members_with_incomes.values():
         household.register_member(member)
-    household.freeze_registration_state()
+    household.prepare_period()
 
     household.assign_distribution_method(method=MetodoReparto.EQUAL)
     BudgetDistributionService.set_budget_by_percentages(

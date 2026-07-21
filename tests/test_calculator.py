@@ -280,7 +280,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base):
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.freeze_registration_state()
+    household_base.prepare_period()
 
     _set_budget(household_base, "fijos", 150000)
     _set_budget(household_base, "variables", 90000)
@@ -314,7 +314,7 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base):
     m2.monthly_income = 3000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.freeze_registration_state()
+    household_base.prepare_period()
 
     for i in range(1, 6):
         household_base.add_category(f"categoria{i}")
@@ -335,7 +335,7 @@ def test_edge_case_five_members_equal_split(household_base):
         m.monthly_income = 60000
         household_base.register_member(m)
 
-    household_base.freeze_registration_state()
+    household_base.prepare_period()
     household_base.assign_distribution_method(MetodoReparto.EQUAL)
 
     _set_budget(household_base, "fijos", 150000)
@@ -363,7 +363,7 @@ def test_edge_case_one_cent_per_category(household_base):
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.freeze_registration_state()
+    household_base.prepare_period()
 
     _set_budget(household_base, "fijos", 1)
     _set_budget(household_base, "variables", 1)
@@ -385,7 +385,7 @@ def test_edge_case_ten_categories_accumulate_remainders(household_base):
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.freeze_registration_state()
+    household_base.prepare_period()
 
     for i in range(1, 11):
         household_base.add_category(f"categoria{i}")

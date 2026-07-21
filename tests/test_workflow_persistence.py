@@ -73,7 +73,7 @@ def wm_with_repos(member_repo, household_repo, period_repo):
 
 @pytest.fixture
 def wm_pre_registration(wm_with_repos):
-    """WM con dos miembros e ingresos registrados, listo para finish_registration"""
+    """WM con período abierto y dos miembros con ingresos"""
     # El período nace aquí, con su fecha de corte
     wm_with_repos.start_new_month(start_date=date(2026, 1, 6))
     wm_with_repos.register_member("Heri")
@@ -87,7 +87,6 @@ def wm_pre_registration(wm_with_repos):
 @pytest.fixture
 def wm_pre_planning(wm_pre_registration):
     """WM en PLANNING con categorías y presupuesto al 100%, listo para finish_planning"""
-    wm_pre_registration.finish_registration()
     # Finish registration settea categorías standard
     categories = wm_pre_registration.get_active_categories()
     pcts = [50.0, 30.0, 20.0]
@@ -129,18 +128,18 @@ def wm_finish_month(wm_pre_month):
 # ===============================================
 
 
-def test_finish_registration_persists_household(wm_pre_registration):
-    """finish_registration guarda el hogar en BD"""
-    household_id = wm_pre_registration.finish_registration()
+def test_opening_period_persists_household(wm_pre_registration):
+    """Abrir el período crea el hogar en BD"""
+    household_id = wm_pre_registration.household_id
 
     ids = [h["id"] for h in wm_pre_registration.household_repo.list_households()]
 
     assert household_id in ids
 
 
-def test_finish_registration_persists_members(wm_pre_registration):
-    """finish_registration guarda los miembros del hogar en BD"""
-    household_id = wm_pre_registration.finish_registration()
+def test_opening_period_persists_members(wm_pre_registration):
+    """Registrar miembros los guarda en BD"""
+    household_id = wm_pre_registration.household_id
 
     member_names = [
         m["full_name"]
@@ -151,9 +150,9 @@ def test_finish_registration_persists_members(wm_pre_registration):
     assert "heri" in member_names
 
 
-def test_finish_registration_persists_incomes(wm_pre_registration):
-    """finish_registration guarda los ingresos de cada miembro en BD"""
-    household_id = wm_pre_registration.finish_registration()
+def test_opening_period_persists_incomes(wm_pre_registration):
+    """Los ingresos de cada miembro se guardan en BD"""
+    household_id = wm_pre_registration.household_id
 
     incomes = [
         i["monthly_income"]
@@ -169,9 +168,9 @@ def test_finish_registration_persists_incomes(wm_pre_registration):
 # ===============================================
 
 
-def test_period_status_is_planning_after_registration(wm_pre_registration):
-    """finish_registration crea el período con status=PLANNING en BD"""
-    household_id = wm_pre_registration.finish_registration()
+def test_period_status_is_planning_on_open(wm_pre_registration):
+    """El período nace con status=PLANNING en BD"""
+    household_id = wm_pre_registration.household_id
 
     status = wm_pre_registration.period_repo.get_current(household_id).status
 
@@ -198,7 +197,7 @@ def test_period_status_is_closing_after_month(wm_pre_month):
 
 def test_period_unique_constraint(wm_pre_registration, period_repo):
     """No pueden existir dos períodos con el mismo (household_id, start_date)"""
-    household_id = wm_pre_registration.finish_registration()
+    household_id = wm_pre_registration.household_id
 
     duplicate = Period(
         household_id=household_id,
@@ -259,7 +258,7 @@ def test_save_agreed_contributions_overwrites_existing(
 
 def test_assign_distribution_method_persists_method(wm_pre_registration):
     """assign_distribution_method persiste method"""
-    household_id = wm_pre_registration.finish_registration()
+    household_id = wm_pre_registration.household_id
     wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     current_period = wm_pre_registration.period_repo.get_current(household_id)
 
@@ -279,7 +278,7 @@ def test_start_new_month_permite_avanzar_a_planning(wm_finish_month):
     wm_finish_month.set_member_incomes(name="heri", amount_euros=1652)
     wm_finish_month.set_member_incomes(name="amanda", amount_euros=1456)
 
-    household_id = wm_finish_month.finish_registration()
+    household_id = wm_finish_month.household_id
 
     assert (
         wm_finish_month.period_repo.get_current(household_id).status == Phase.PLANNING

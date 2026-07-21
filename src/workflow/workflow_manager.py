@@ -45,8 +45,8 @@ class WorkflowManager:
         budget_categories_repository: BudgetCategoryRepository | None = None,
     ) -> None:
         self.household = household
-        self.current_phase = Phase.REGISTRATION
-        self._completed_phases = {Phase.REGISTRATION}
+        self.current_phase = Phase.PLANNING
+        self._completed_phases = {Phase.PLANNING}
         self.household_repo = household_repo
         self.member_repo = member_repo
         self.period_repo = period_repo
@@ -61,42 +61,29 @@ class WorkflowManager:
         self.household_id: int | None = None
         self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
-    # ====== REGISTRATION PHASE ======
+    # ====== PLANNING PHASE - Miembros e ingresos ======
     def register_member(self, name: str):
-        """Registra miembros en fase inicial"""
-        self.validate_phase(Phase.REGISTRATION)
+        """Registra un miembro. Se puede hacer mientras se planifica el período."""
+        self.validate_phase(Phase.PLANNING)
         member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
+        self._persist_new_members()
 
     def set_member_incomes(self, name: str, amount_euros: float):
-        """Registra ingresos"""
-        self.validate_phase(Phase.REGISTRATION)
+        """Cambia el ingreso de un miembro.
+
+        Se puede hacer durante toda la planificación: el reparto se recalcula sobre
+        el ingreso vivo hasta que finish_planning congela el acuerdo del período.
+        """
+        self.validate_phase(Phase.PLANNING)
         name = normalize_name(name)  # Normalizar para lookup
         amount_cents = to_cents(amount_euros)
         self.household.set_member_income(name, amount_cents)
 
-    def finish_registration(self) -> int | None:
-        """Validar, congelar ingresos y avanzar a planificación.
-
-        El período ya está abierto: lo abre start_new_month, único punto por el que
-        nace un período. Aquí solo se congelan los ingresos y se avanza de fase.
-        """
-        if not self.household.members:
-            raise ValueError("Registra al menos un miembro")
-        if self.household.get_total_incomes() <= 0:
-            raise ValueError("Al menos un miembro debe tener ingresos")
-
-        # Congelar ingresos registrados
-        self.household.freeze_registration_state()
-
-        # Cambiar fase y marcarla como accesible
-        self.current_phase = Phase.PLANNING
-        self._completed_phases.add(Phase.PLANNING)
-
-        # El hogar ya existe (lo crea _ensure_household al abrir el período)
-        self._persist_new_members()
-
-        return self.household_id
+        if self.member_repo and name in self.member_ids:
+            self.member_repo.change_incomes(
+                member_id=self.member_ids[name], new_incomes_cents=amount_cents
+            )
 
     # ====== PLANNING PHASE - Distribution Configuration ======
     def assign_distribution_method(self, method: MetodoReparto):
@@ -332,8 +319,17 @@ class WorkflowManager:
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):
-        """Validar presupuestos, congelar acuerdos y avanzar a mes"""
+        """Validar el plan, congelar el acuerdo del período y avanzar a mes.
+
+        Aquí es donde el ingreso deja de ser editable: hasta este punto el reparto se
+        recalcula en vivo; a partir de él manda el acuerdo congelado.
+        """
         self.validate_phase(Phase.PLANNING)
+
+        if not self.household.members:
+            raise ValueError("Registra al menos un miembro")
+        if self.household.get_total_incomes() <= 0:
+            raise ValueError("Al menos un miembro debe tener ingresos")
 
         # Validar que hay al menos una categoría con presupuesto
         categories = self.household.get_active_categories()
@@ -630,8 +626,8 @@ class WorkflowManager:
                 start_date = self.period.end_date
 
         self.household.reset_for_new_month()
-        self._completed_phases = {Phase.REGISTRATION}
-        self.current_phase = Phase.REGISTRATION
+        self._completed_phases = {Phase.PLANNING}
+        self.current_phase = Phase.PLANNING
 
         self._start_period(start_date=start_date)
 
@@ -642,6 +638,9 @@ class WorkflowManager:
 
         # El hogar debe existir antes: household_periods.household_id es NOT NULL
         self._ensure_household()
+
+        # Buckets personales y categorías base para poder planificar
+        self.household.prepare_period()
 
         period = Period(
             household_id=self.household_id,
@@ -728,8 +727,8 @@ class WorkflowManager:
 
     # ====== QUERIES - Phase Summaries ======
     def get_registration_summary(self):
-        """Obtiene resumen completo de registro (disponible desde REGISTRATION)"""
-        self.validate_phase_accessible(Phase.REGISTRATION)
+        """Obtiene resumen de miembros e ingresos (disponible desde PLANNING)"""
+        self.validate_phase_accessible(Phase.PLANNING)
         return SummaryService.get_registration_summary(household=self.household)
 
     def get_planning_summary(self) -> dict:
@@ -743,10 +742,10 @@ class WorkflowManager:
         return SummaryService.get_month_summary(household=self.household)
 
     # ====== QUERIES - Frozen Data ======
-    def get_registered_incomes(self) -> dict[str, int]:
-        """Obtiene ingresos congelados (disponible desde PLANNING)"""
+    def get_incomes(self) -> dict[str, int]:
+        """Ingreso vivo de cada miembro (disponible desde PLANNING)"""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_registered_incomes()
+        return self.household.get_incomes()
 
     def get_agreed_percentages(self) -> dict[str, int]:
         """Obtiene porcentajes acordados congelados (disponible desde MONTH)"""
