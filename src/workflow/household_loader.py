@@ -71,7 +71,7 @@ class HouseholdLoader:
         # 1. Leer filas
         member_rows = self._member_repo.list_members(household_id)
         period = self._period_repo.find_by_id(period_id)
-        phase = period.status
+        phase = period.status if period else None
         category_rows = sorted(
             self._budget_categories_repo.find_by_period(period_id),
             key=lambda row: row["parent_name"] is not None,
@@ -83,7 +83,7 @@ class HouseholdLoader:
         # 3. Repoblar lo que el gasto necesita
         member_ids = self._hydrate_members(household, member_rows)
         self._hydrate_budget(household, category_rows)
-
+        
         return (household, member_ids, phase)
 
     def load_for_queries(self, household_id: int, period_id: int):

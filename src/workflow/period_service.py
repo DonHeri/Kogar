@@ -83,6 +83,7 @@ class PeriodService:
         period = self._load_period(period_id)
         household_id = period.household_id
 
+        # if household_id para que household siempre int
         household, _, phase = self.household_loader.load_base(
             household_id=household_id, period_id=period_id
         )
