@@ -35,11 +35,28 @@ class PeriodRepository:
         return self._to_period(row) if row else None
 
     def get_current(self, household_id: int) -> Period | None:
+        """Devuelve período actual"""
         self.cursor.execute(
             """
             SELECT * FROM household_periods
             WHERE household_id = %s AND status != 'closed'
             ORDER BY start_date DESC
+            LIMIT 1
+            """,
+            (household_id,),
+        )
+        row = self.cursor.fetchone()
+        return self._to_period(row) if row else None
+
+    def get_last(self, household_id: int) -> Period | None:
+        """Devuelve el último período cerrado"""
+        self.cursor.execute(
+            """
+            SELECT * FROM household_periods
+            WHERE household_id = %s 
+                AND status = 'closed' 
+                AND end_date IS NOT NULL
+            ORDER BY end_date DESC
             LIMIT 1
             """,
             (household_id,),
