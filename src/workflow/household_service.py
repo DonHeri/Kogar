@@ -86,39 +86,3 @@ class HouseholdService:
             new_incomes_cents=amount_cents, member_id=member_id
         )
 
-    def start_new_month(
-        self, household_id: int, start_date: date | None = None
-    ) -> int:
-        """Abre un período nuevo, que nace ya en PLANNING.
-
-        Registrar miembros e ingresos deja de ser una fase previa: se hace dentro
-        del período abierto, planificando.
-
-        Args:
-            household_id: Identificador del núcleo para el que se abre el período
-            start_date: Fecha de inicio del período
-
-        Returns:
-            period_id = Identificador de BD del periodo creado
-        """
-        household, _ = self.household_loader.load_members_only(
-            household_id=household_id
-        )
-
-        household.validate_has_members()
-        household.validate_total_incomes_positive()
-
-        if start_date is None:
-            start_date = date.today()
-
-        household.prepare_period()
-
-        period = Period(
-            household_id=household_id,
-            start_date=start_date,
-            status=Phase.PLANNING,
-        )
-
-        period_id = self.period_repo.save(period=period)
-
-        return period_id
