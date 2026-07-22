@@ -21,6 +21,8 @@ class MetodoReparto(Enum):
 
 
 class Phase(Enum):
+    # REGISTRATION quedó en desuso al absorberla PLANNING. Se mantiene por el CHECK
+    # de household_periods y por las filas antiguas; está fuera del ciclo vivo.
     REGISTRATION = "registration"
     PLANNING = "planning"
     MONTH = "month"
@@ -33,3 +35,22 @@ class Phase(Enum):
     @classmethod
     def get_values(cls):
         return [phase.value for phase in cls]
+
+    @classmethod
+    def cycle(cls) -> tuple["Phase", ...]:
+        """Fases del ciclo de un período, en orden."""
+        return (cls.PLANNING, cls.MONTH, cls.CLOSING)
+
+    @property
+    def order(self) -> int:
+        """Posición en el ciclo. REGISTRATION devuelve -1: está fuera.
+
+        Permite preguntar si una fase ya pasó sin llevar la cuenta en memoria, que
+        es lo único posible cuando el estado vive en BD y no en un objeto.
+        """
+        cycle = Phase.cycle()
+        return cycle.index(self) if self in cycle else -1
+
+    def is_at_least(self, other: "Phase") -> bool:
+        """True si esta fase es la pedida o una posterior del ciclo."""
+        return self.order >= other.order
