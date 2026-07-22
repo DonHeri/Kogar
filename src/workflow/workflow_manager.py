@@ -611,19 +611,29 @@ class WorkflowManager:
 
     # ====== MONTH - NEW-MONTH ======
     def start_new_month(self, start_date: date | None = None):
-        """Abrir un mes: único punto por el que nace un período.
+        """Abrir un período: único punto por el que nace uno.
 
-        Es también el arranque del programa: el primer mes no tiene período previo.
-        A partir del segundo, el mes anterior debe estar cerrado y el nuevo empieza
-        donde aquel terminó, para que los rangos no se solapen ni dejen huecos.
+        Es también el arranque del programa: el primero no tiene período previo.
+        La fecha de inicio la decide quien llama; por defecto, hoy.
+
+        Dejar hueco entre un período y el siguiente es un uso normal — el usuario
+        pasó un tiempo sin usar la aplicación. Lo que no se admite es empezar antes
+        de que el anterior acabase: ahí los rangos se solaparían y un movimiento
+        contaría en los dos.
         """
+        if start_date is None:
+            start_date = date.today()
+
         if self.period is not None:
             if self.period.status != Phase.CLOSING:
                 raise ValueError(
                     "Cierra el mes en curso con finish_month() antes de abrir uno nuevo"
                 )
-            if start_date is None:
-                start_date = self.period.end_date
+            if self.period.end_date and start_date < self.period.end_date:
+                raise ValueError(
+                    f"El período no puede empezar el {start_date}: el anterior acaba "
+                    f"el {self.period.end_date} y los rangos se solaparían."
+                )
 
         self.household.reset_for_new_month()
         self._completed_phases = {Phase.PLANNING}

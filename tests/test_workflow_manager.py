@@ -1293,12 +1293,40 @@ def test_payment_on_cut_off_day_counts_only_in_the_month_that_starts(wm):
     wm.finish_month(end_date=date(2026, 2, 28))
     paid_closed_month = wm.get_debt_status(member="amanda")["totals"]["paid"]
 
-    wm.start_new_month()
+    # El período nuevo arranca justo en el corte: la fecha se inyecta, no se hereda
+    wm.start_new_month(start_date=date(2026, 2, 28))
     wm.set_member_incomes("Amanda", 6000)
     paid_new_month = wm.get_debt_status(member="amanda")["totals"]["paid"]
 
     assert paid_closed_month == 0
     assert paid_new_month == 15000
+
+
+def test_new_period_starts_today_when_no_date_given(wm):
+    """Sin fecha, el período empieza hoy — no hereda el cierre del anterior.
+
+    Si el usuario cierra en marzo y no vuelve hasta mayo, heredar la fecha abriría
+    un período que arranca dos meses atrás. El hueco entre ambos es uso normal.
+    """
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 3000)
+    wm.finish_month(end_date=date(2026, 2, 28))
+
+    wm.start_new_month()
+
+    assert wm.period.start_date == date.today()
+
+
+def test_new_period_cannot_start_before_the_previous_one_ends(wm):
+    """Un hueco es legítimo; un solape no: el movimiento contaría en los dos."""
+    wm.start_new_month(start_date=date(2026, 1, 28))
+    wm.register_member("Amanda")
+    wm.set_member_incomes("Amanda", 3000)
+    wm.finish_month(end_date=date(2026, 2, 28))
+
+    with pytest.raises(ValueError, match="se solaparían"):
+        wm.start_new_month(start_date=date(2026, 2, 15))
 
 
 def test_open_period_has_no_upper_bound(wm):
