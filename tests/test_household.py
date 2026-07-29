@@ -70,7 +70,7 @@ def _get_settlement(hh):
 
 
 @pytest.fixture
-def members_with_incomes():
+def members_with_incomes() -> dict[str, Member]:
     """Dos miembros con ingresos diferentes"""
     m1 = Member("Member1")
     m2 = Member("Member2")
@@ -80,7 +80,7 @@ def members_with_incomes():
 
 
 @pytest.fixture
-def member_zero_income():
+def member_zero_income() -> Member:
     """Miembro sin ingresos"""
     return Member("NoIncome")
 
@@ -102,7 +102,9 @@ def base_household() -> Household:
 
 
 @pytest.fixture
-def household_with_members(base_household, members_with_incomes) -> Household:
+def household_with_members(
+    base_household: Household, members_with_incomes: dict[str, Member]
+) -> Household:
     """Household ya configurado con dos miembros con ingresos"""
     for member in members_with_incomes.values():
         base_household.register_member(member)
@@ -110,7 +112,9 @@ def household_with_members(base_household, members_with_incomes) -> Household:
 
 
 @pytest.fixture
-def household_with_members_and_child_categories(household_with_members) -> Household:
+def household_with_members_and_child_categories(
+    household_with_members: Household,
+) -> Household:
     """Household con dos hijas (vivienda, suministros) colgando de fijos."""
     household_with_members.add_category("vivienda", parent="fijos")
     household_with_members.add_category("suministros", parent="fijos")
@@ -122,13 +126,15 @@ def household_with_members_and_child_categories(household_with_members) -> House
 # ====================================================
 
 
-def test_create_valid_household(base_household) -> None:
+def test_create_valid_household(base_household: Household) -> None:
     """Verifica correcta creación de instancia Household"""
     assert isinstance(base_household.members, dict)
     assert len(base_household.members) == 0
 
 
-def test_register_member_adds_to_household(base_household, member_zero_income) -> None:
+def test_register_member_adds_to_household(
+    base_household: Household, member_zero_income: Member
+) -> None:
     """Verifica que se registre correctamente un miembro"""
     base_household.register_member(member_zero_income)
 
@@ -136,7 +142,9 @@ def test_register_member_adds_to_household(base_household, member_zero_income) -
     assert base_household.members[member_zero_income.name] == member_zero_income
 
 
-def test_register_duplicate_member_raises(base_household, member_zero_income) -> None:
+def test_register_duplicate_member_raises(
+    base_household: Household, member_zero_income: Member
+) -> None:
     """Lanza error si se intenta registrar un miembro ya existente"""
     base_household.register_member(member_zero_income)
     with pytest.raises(ValueError, match="ya está registrado en el hogar"):
@@ -147,7 +155,7 @@ def test_register_duplicate_member_raises(base_household, member_zero_income) ->
 # freeze_registration
 # ============================================================
 def test_freeze_registation_add_personal_bucket_by_member(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     household_with_members.prepare_period()
 
@@ -164,7 +172,7 @@ def test_freeze_registation_add_personal_bucket_by_member(
 
 
 def test_prepare_period_does_not_duplicate_default_bucket(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     household_with_members.prepare_period()
     household_with_members.prepare_period()
@@ -177,7 +185,7 @@ def test_prepare_period_does_not_duplicate_default_bucket(
 
 
 def test_prepare_period_with_existing_bucket_does_not_crash(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     _add_saving_bucket(household_with_members, "member1", goal_cents=100000)
 
@@ -196,7 +204,7 @@ def test_prepare_period_with_existing_bucket_does_not_crash(
 
 
 def test_set_members_incomes_updates_correctly(
-    base_household, member_zero_income
+    base_household: Household, member_zero_income: Member
 ) -> None:
     """Actualiza ingresos de miembro existente"""
     base_household.register_member(member_zero_income)
@@ -206,7 +214,9 @@ def test_set_members_incomes_updates_correctly(
     assert member_zero_income.monthly_income == 50000
 
 
-def test_set_members_incomes_raises_if_member_not_exists(base_household) -> None:
+def test_set_members_incomes_raises_if_member_not_exists(
+    base_household: Household,
+) -> None:
     """Lanza error si el miembro no está registrado"""
     with pytest.raises(ValueError, match="noexiste no existe en el hogar"):
         base_household.set_member_income("NoExiste", 500)
@@ -218,7 +228,7 @@ def test_set_members_incomes_raises_if_member_not_exists(base_household) -> None
 
 
 def test_get_total_incomes_calculates_correctly(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Calcula total de ingresos correctamente"""
     for member in members_with_incomes.values():
@@ -229,14 +239,14 @@ def test_get_total_incomes_calculates_correctly(
     assert total == 300000
 
 
-def test_get_total_incomes_raises_if_no_members(base_household) -> None:
+def test_get_total_incomes_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.get_total_incomes()
 
 
 def test_get_total_incomes_raises_if_zero_incomes(
-    base_household, member_zero_income
+    base_household: Household, member_zero_income: Member
 ) -> None:
     """Lanza error si todos los ingresos son 0"""
     base_household.register_member(member_zero_income)
@@ -251,7 +261,7 @@ def test_get_total_incomes_raises_if_zero_incomes(
 
 
 def test_get_percentages_calculates_correctly(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Calcula porcentajes correctos según ingresos"""
     for member in members_with_incomes.values():
@@ -265,7 +275,9 @@ def test_get_percentages_calculates_correctly(
     assert percentages["member2"] == 3333
 
 
-def test_get_percentages_proportional_sums_to_10000(household_with_members) -> None:
+def test_get_percentages_proportional_sums_to_10000(
+    household_with_members: Household,
+) -> None:
     """Suma total de porcentajes proporcionales = 10000 (100%)"""
     percentages = household_with_members.get_percentages_by_method(
         method=MetodoReparto.PROPORTIONAL
@@ -274,7 +286,7 @@ def test_get_percentages_proportional_sums_to_10000(household_with_members) -> N
     assert sum(percentages.values()) == 10000
 
 
-def test_get_percentages_raises_if_no_members(base_household) -> None:
+def test_get_percentages_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.get_percentages_by_method(method=MetodoReparto.PROPORTIONAL)
@@ -283,7 +295,7 @@ def test_get_percentages_raises_if_no_members(base_household) -> None:
 # ====================================================
 # TESTS: get_percentages_by_method — EQUAL
 # ====================================================
-def test_get_percentages_equal_splits_evenly(household_with_members) -> None:
+def test_get_percentages_equal_splits_evenly(household_with_members: Household) -> None:
     """Método EQUAL asigna 50/50 con dos miembros"""
     percentages = household_with_members.get_percentages_by_method(
         method=MetodoReparto.EQUAL
@@ -293,7 +305,7 @@ def test_get_percentages_equal_splits_evenly(household_with_members) -> None:
     assert percentages["member2"] == 5000
 
 
-def test_get_percentages_equal_sums_to_10000(household_with_members) -> None:
+def test_get_percentages_equal_sums_to_10000(household_with_members: Household) -> None:
     """Suma total de porcentajes iguales = 10000 (100%)"""
     percentages = household_with_members.get_percentages_by_method(
         method=MetodoReparto.EQUAL
@@ -302,7 +314,7 @@ def test_get_percentages_equal_sums_to_10000(household_with_members) -> None:
     assert sum(percentages.values()) == 10000
 
 
-def test_get_percentages_equal_raises_if_no_members(base_household) -> None:
+def test_get_percentages_equal_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.get_percentages_by_method(method=MetodoReparto.EQUAL)
@@ -313,7 +325,9 @@ def test_get_percentages_equal_raises_if_no_members(base_household) -> None:
 # ====================================================
 
 
-def test_get_percentages_custom_returns_set_splits(household_with_members) -> None:
+def test_get_percentages_custom_returns_set_splits(
+    household_with_members: Household,
+) -> None:
     """Método CUSTOM devuelve los splits definidos previamente"""
     household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
 
@@ -326,7 +340,7 @@ def test_get_percentages_custom_returns_set_splits(household_with_members) -> No
 
 
 def test_get_percentages_custom_raises_if_splits_not_set(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Método CUSTOM lanza error si no se llamó set_custom_splits() antes"""
     if hasattr(household_with_members, "_custom_splits"):
@@ -339,7 +353,7 @@ def test_get_percentages_custom_raises_if_splits_not_set(
         household_with_members.get_percentages_by_method(method=MetodoReparto.CUSTOM)
 
 
-def test_get_percentages_custom_raises_if_no_members(base_household) -> None:
+def test_get_percentages_custom_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.get_percentages_by_method(method=MetodoReparto.CUSTOM)
@@ -350,7 +364,9 @@ def test_get_percentages_custom_raises_if_no_members(base_household) -> None:
 # ====================================================
 
 
-def test_set_custom_splits_converts_to_basis_points(household_with_members) -> None:
+def test_set_custom_splits_converts_to_basis_points(
+    household_with_members: Household,
+) -> None:
     """Convierte porcentajes float a basis points correctamente"""
     household_with_members.set_custom_splits({"member1": 55.55, "member2": 44.45})
 
@@ -358,7 +374,9 @@ def test_set_custom_splits_converts_to_basis_points(household_with_members) -> N
     assert household_with_members._custom_splits["member2"] == 4445
 
 
-def test_set_custom_splits_stores_all_members(household_with_members) -> None:
+def test_set_custom_splits_stores_all_members(
+    household_with_members: Household,
+) -> None:
     """Almacena splits para todos los miembros del hogar"""
     household_with_members.set_custom_splits({"member1": 60.0, "member2": 40.0})
 
@@ -366,14 +384,14 @@ def test_set_custom_splits_stores_all_members(household_with_members) -> None:
     assert "member2" in household_with_members._custom_splits
 
 
-def test_set_custom_splits_raises_if_no_members(base_household) -> None:
+def test_set_custom_splits_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.set_custom_splits({"member1": 50.0, "member2": 50.0})
 
 
 def test_set_custom_splits_raises_if_member_missing_from_splits(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Lanza error si falta un miembro en el dict de splits"""
     with pytest.raises(
@@ -382,7 +400,9 @@ def test_set_custom_splits_raises_if_member_missing_from_splits(
         household_with_members.set_custom_splits({"member1": 100.0})
 
 
-def test_set_custom_splits_overwrites_previous(household_with_members) -> None:
+def test_set_custom_splits_overwrites_previous(
+    household_with_members: Household,
+) -> None:
     """Una segunda llamada sobreescribe los splits anteriores"""
     household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
     household_with_members.set_custom_splits({"member1": 40.0, "member2": 60.0})
@@ -397,7 +417,7 @@ def test_set_custom_splits_overwrites_previous(household_with_members) -> None:
 
 
 def test_preview_budget_contribution_summary_returns_all_categories(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Retorna contribuciones para TODAS las categorías"""
     for member in members_with_incomes.values():
@@ -418,7 +438,7 @@ def test_preview_budget_contribution_summary_returns_all_categories(
 
 
 def test_preview_budget_contribution_summary_structure(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Estructura de resumen es correcta"""
     for member in members_with_incomes.values():
@@ -437,7 +457,7 @@ def test_preview_budget_contribution_summary_structure(
 
 
 def test_preview_budget_contribution_summary_totals_match_budgets(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Total asignado = presupuesto para cada categoría"""
     for member in members_with_incomes.values():
@@ -456,7 +476,7 @@ def test_preview_budget_contribution_summary_totals_match_budgets(
 
 
 def test_preview_budget_contribution_summary_is_iterable(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Resumen es iterable y accesible por categoría"""
     for member in members_with_incomes.values():
@@ -481,7 +501,7 @@ def test_preview_budget_contribution_summary_is_iterable(
 
 
 def test_preview_budget_contribution_summary_with_zero_budgets(
-    base_household, members_with_incomes
+    base_household: Household, members_with_incomes: dict[str, Member]
 ) -> None:
     """Maneja correctamente categorías con presupuesto 0"""
     for member in members_with_incomes.values():
@@ -502,19 +522,21 @@ def test_preview_budget_contribution_summary_with_zero_budgets(
 # ====================================================
 
 
-def test_validate_members_exist_raises_if_empty(base_household) -> None:
+def test_validate_members_exist_raises_if_empty(base_household: Household) -> None:
     """Validador lanza error si no hay miembros"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
         base_household.validate_has_members()
 
 
-def test_validate_members_exist_passes_if_members(household_with_members) -> None:
+def test_validate_members_exist_passes_if_members(
+    household_with_members: Household,
+) -> None:
     """Validador pasa sin error si hay miembros"""
     household_with_members.validate_has_members()
 
 
 def test_validate_total_incomes_positive_raises_if_zero(
-    base_household, member_zero_income
+    base_household: Household, member_zero_income: Member
 ) -> None:
     """Validador lanza error si ingresos son 0"""
     base_household.register_member(member_zero_income)
@@ -523,14 +545,14 @@ def test_validate_total_incomes_positive_raises_if_zero(
 
 
 def test_validate_total_incomes_positive_passes_if_positive(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Validador pasa sin error si ingresos > 0"""
     household_with_members.validate_total_incomes_positive()
 
 
 def test_validate_all_members_have_split_raises_if_missing(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Validador lanza error si falta un miembro en splits"""
     with pytest.raises(
@@ -540,7 +562,7 @@ def test_validate_all_members_have_split_raises_if_missing(
 
 
 def test_validate_all_members_have_split_passes_if_all_present(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Validador pasa sin error si todos los miembros están presentes"""
     household_with_members._validate_all_members_have_split(
@@ -553,14 +575,14 @@ def test_validate_all_members_have_split_passes_if_all_present(
 # ====================================================
 
 
-def test_set_budget_for_category(household_with_members) -> None:
+def test_set_budget_for_category(household_with_members: Household) -> None:
     """set_budget_for_category asigna presupuesto correctamente"""
     _set_budget(household_with_members, "fijos", 200000)
 
     assert household_with_members.get_category_planned_amount("fijos") == 200000
 
 
-def test_set_budget_for_child_category(household_with_members) -> None:
+def test_set_budget_for_child_category(household_with_members: Household) -> None:
     """Asigna presupuesto a una hija dentro del techo de su raíz."""
     _set_budget(household_with_members, "fijos", 40000)
     household_with_members.add_category("vivienda", parent="fijos")
@@ -570,20 +592,24 @@ def test_set_budget_for_child_category(household_with_members) -> None:
     assert household_with_members.get_category_planned_amount("vivienda") == 30000
 
 
-def test_set_budget_for_category_normalizes_input(household_with_members) -> None:
+def test_set_budget_for_category_normalizes_input(
+    household_with_members: Household,
+) -> None:
     """set_budget_for_category normaliza la entrada (mayúsculas)"""
     _set_budget(household_with_members, "FIJOS", 200000)
 
     assert household_with_members.get_category_planned_amount("fijos") == 200000
 
 
-def test_set_budget_for_category_raises_if_nonexistent(household_with_members) -> None:
+def test_set_budget_for_category_raises_if_nonexistent(
+    household_with_members: Household,
+) -> None:
     """set_budget_for_category lanza ValueError si categoría no existe"""
     with pytest.raises(ValueError, match="debe estar creada"):
         _set_budget(household_with_members, "inexistente", 200000)
 
 
-def test_set_budget_for_category_multiple(household_with_members) -> None:
+def test_set_budget_for_category_multiple(household_with_members: Household) -> None:
     """Puedo asignar presupuesto a múltiples categorías"""
     _set_budget(household_with_members, "fijos", 200000)
     _set_budget(household_with_members, "variables", 100000)
@@ -593,7 +619,7 @@ def test_set_budget_for_category_multiple(household_with_members) -> None:
 
 
 def test_set_budget_for_category_reassign_doesnt_double_count(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     _set_budget(household_with_members, "fijos", 40000)
     _set_budget(household_with_members, "fijos", 50000)
@@ -603,7 +629,7 @@ def test_set_budget_for_category_reassign_doesnt_double_count(
 
 
 def test_set_budget_over_ceiling_raises_error(
-    household_with_members_and_child_categories,
+    household_with_members_and_child_categories: Household,
 ) -> None:
     """Asignar a una hija por encima del techo de su raíz lanza error."""
     _set_budget(household_with_members_and_child_categories, "fijos", 50000)
@@ -620,7 +646,7 @@ def test_set_budget_over_ceiling_raises_error(
 # ====================================================
 
 
-def test_get_planning_summary_basic(household_with_members) -> None:
+def test_get_planning_summary_basic(household_with_members: Household) -> None:
     """get_planning_summary retorna estructura completa"""
     _set_budget(household_with_members, "fijos", 300000)
 
@@ -639,7 +665,7 @@ def test_get_planning_summary_basic(household_with_members) -> None:
 
 
 def test_get_planning_summary_includes_distribution_method(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """get_planning_summary incluye método de distribución"""
     _set_budget(household_with_members, "fijos", 200000)
@@ -649,7 +675,9 @@ def test_get_planning_summary_includes_distribution_method(
     assert summary["distribution_method"] == MetodoReparto.EQUAL.value
 
 
-def test_get_planning_summary_with_missing_money(household_with_members) -> None:
+def test_get_planning_summary_with_missing_money(
+    household_with_members: Household,
+) -> None:
     """reserva autocalcula: total_budgeted siempre == total_incomes cuando hay reserva"""
     _set_budget(household_with_members, "fijos", 200000)
 
@@ -661,7 +689,7 @@ def test_get_planning_summary_with_missing_money(household_with_members) -> None
 
 
 def test_get_planning_summary_includes_contributions_preview(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """get_planning_summary incluye preview de contribuciones"""
     _set_budget(household_with_members, "fijos", 200000)  # <= 300000 ingresos
@@ -674,7 +702,7 @@ def test_get_planning_summary_includes_contributions_preview(
     assert sum(contributions.values()) == 200000
 
 
-def test_get_planning_summary_includes_debts(household_with_members) -> None:
+def test_get_planning_summary_includes_debts(household_with_members: Household) -> None:
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
     # reserva autocalcula a 150000
@@ -684,14 +712,14 @@ def test_get_planning_summary_includes_debts(household_with_members) -> None:
     assert summary["missing_money"]["total"] == 150000
 
 
-def test_get_planning_summary_raises_if_no_members(base_household) -> None:
+def test_get_planning_summary_raises_if_no_members(base_household: Household) -> None:
     """get_planning_summary lanza ValueError si no hay miembros"""
     with pytest.raises(ValueError, match="No hay miembros"):
         SummaryService.get_planning_summary(base_household)
 
 
 def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """set_budget_for_category bloquea presupuesto que supere los ingresos"""
     # Ingresos totales: 300000 — intentar presupuestar 500000
@@ -700,7 +728,9 @@ def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
         _set_budget(household_with_members, "variables", 200000)
 
 
-def test_get_planning_summary_percentages_sum_to_10000(household_with_members) -> None:
+def test_get_planning_summary_percentages_sum_to_10000(
+    household_with_members: Household,
+) -> None:
     """get_planning_summary percentages siempre suman 10000 (100%)"""
     _set_budget(household_with_members, "fijos", 200000)  # <= 300000 ingresos
 
@@ -715,21 +745,21 @@ def test_get_planning_summary_percentages_sum_to_10000(household_with_members) -
 # ====================================================
 
 
-def test_add_category_creates_in_budget(base_household) -> None:
+def test_add_category_creates_in_budget(base_household: Household) -> None:
     """add_category() agrega categoría al budget"""
     base_household.add_category("educacion")
 
     assert "educacion" in base_household.get_active_categories()
 
 
-def test_remove_category_deletes_from_budget(base_household) -> None:
+def test_remove_category_deletes_from_budget(base_household: Household) -> None:
     """remove_category() elimina categoría del budget"""
     base_household.remove_category("fijos")
 
     assert "fijos" not in base_household.get_active_categories()
 
 
-def test_set_standard_categories_populates_budget(base_household) -> None:
+def test_set_standard_categories_populates_budget(base_household: Household) -> None:
     """set_standard_categories() establece categorías en budget"""
     household = Household(
         Budget(), ExpenseTracker(), SavingBucketTracker(), DebtBucketTracker()
@@ -742,7 +772,7 @@ def test_set_standard_categories_populates_budget(base_household) -> None:
     assert "reserva" in categories
 
 
-def test_get_active_categories_returns_list(base_household) -> None:
+def test_get_active_categories_returns_list(base_household: Household) -> None:
     """get_active_categories() retorna lista de categorías"""
     categories = base_household.get_active_categories()
 
@@ -750,7 +780,7 @@ def test_get_active_categories_returns_list(base_household) -> None:
     assert len(categories) > 0
 
 
-def test_get_category_budget_returns_amount(household_with_members) -> None:
+def test_get_category_budget_returns_amount(household_with_members: Household) -> None:
     """get_category_budget() retorna monto asignado"""
     _set_budget(household_with_members, "fijos", 100000)
 
@@ -763,7 +793,7 @@ def test_get_category_budget_returns_amount(household_with_members) -> None:
 # ====================================================
 
 
-def test_get_incomes_returns_live_values(household_with_members) -> None:
+def test_get_incomes_returns_live_values(household_with_members: Household) -> None:
     """get_incomes() devuelve el ingreso vivo, sin depender de ningún congelado"""
     incomes = household_with_members.get_incomes()
 
@@ -776,14 +806,18 @@ def test_get_incomes_returns_live_values(household_with_members) -> None:
 # ====================================================
 
 
-def test_assign_distribution_method_sets_method(household_with_members) -> None:
+def test_assign_distribution_method_sets_method(
+    household_with_members: Household,
+) -> None:
     """assign_distribution_method() establece método de reparto"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
 
     assert household_with_members.method == MetodoReparto.EQUAL
 
 
-def test_assign_distribution_method_changes_percentages(household_with_members) -> None:
+def test_assign_distribution_method_changes_percentages(
+    household_with_members: Household,
+) -> None:
     """assign_distribution_method() cambia los porcentajes de contribución"""
     pct_proportional = household_with_members.get_percentages_by_method(
         MetodoReparto.PROPORTIONAL
@@ -800,7 +834,7 @@ def test_assign_distribution_method_changes_percentages(household_with_members) 
 # ====================================================
 
 
-def test_register_expense_adds_to_tracker(household_with_members) -> None:
+def test_register_expense_adds_to_tracker(household_with_members: Household) -> None:
     """register_expense() almacena en ExpenseTracker"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -814,7 +848,9 @@ def test_register_expense_adds_to_tracker(household_with_members) -> None:
     assert household_with_members.expense_tracker.expenses[0] == expense
 
 
-def test_register_expense_validates_member_exists(household_with_members) -> None:
+def test_register_expense_validates_member_exists(
+    household_with_members: Household,
+) -> None:
     """register_expense() valida que el miembro existe"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -825,7 +861,9 @@ def test_register_expense_validates_member_exists(household_with_members) -> Non
         household_with_members.register_expense(expense)
 
 
-def test_register_expense_validates_category_exists(household_with_members) -> None:
+def test_register_expense_validates_category_exists(
+    household_with_members: Household,
+) -> None:
     """register_expense() valida que la categoría existe"""
 
     expense = Expense("member1", make_category("nonexistent"), 25000, ["member1"])
@@ -835,7 +873,7 @@ def test_register_expense_validates_category_exists(household_with_members) -> N
 
 
 def test_get_category_spent_returns_zero_when_no_expenses(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """get_category_spent() retorna 0 cuando no hay gastos"""
     _set_budget(household_with_members, "fijos", 100000)
@@ -845,7 +883,9 @@ def test_get_category_spent_returns_zero_when_no_expenses(
     assert spent == 0
 
 
-def test_get_category_spent_sums_expenses_for_category(household_with_members) -> None:
+def test_get_category_spent_sums_expenses_for_category(
+    household_with_members: Household,
+) -> None:
     """get_category_spent() suma gastos de una categoría"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -861,7 +901,7 @@ def test_get_category_spent_sums_expenses_for_category(household_with_members) -
 
 
 def test_get_category_spent_only_counts_matching_category(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """get_category_spent() solo cuenta gastos de la categoría solicitada"""
 
@@ -880,7 +920,9 @@ def test_get_category_spent_only_counts_matching_category(
     assert spent_fijos == 25000
 
 
-def test_get_total_spent_returns_zero_when_no_expenses(household_with_members) -> None:
+def test_get_total_spent_returns_zero_when_no_expenses(
+    household_with_members: Household,
+) -> None:
     """get_total_spent() retorna 0 cuando no hay gastos"""
     _set_budget(household_with_members, "fijos", 100000)
 
@@ -889,7 +931,7 @@ def test_get_total_spent_returns_zero_when_no_expenses(household_with_members) -
     assert total_spent == 0
 
 
-def test_get_total_spent_sums_all_expenses(household_with_members) -> None:
+def test_get_total_spent_sums_all_expenses(household_with_members: Household) -> None:
     """get_total_spent() suma todos los gastos de todas las categorías"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -909,7 +951,9 @@ def test_get_total_spent_sums_all_expenses(household_with_members) -> None:
     assert total_spent == 50000
 
 
-def test_get_category_remaining_when_no_expenses(household_with_members) -> None:
+def test_get_category_remaining_when_no_expenses(
+    household_with_members: Household,
+) -> None:
     """get_category_remaining() retorna presupuesto completo si no hay gastos"""
     _set_budget(household_with_members, "fijos", 100000)
 
@@ -918,7 +962,9 @@ def test_get_category_remaining_when_no_expenses(household_with_members) -> None
     assert remaining == 100000
 
 
-def test_get_category_remaining_calculates_correctly(household_with_members) -> None:
+def test_get_category_remaining_calculates_correctly(
+    household_with_members: Household,
+) -> None:
     """get_category_remaining() calcula presupuesto - gastado correctamente"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -931,7 +977,9 @@ def test_get_category_remaining_calculates_correctly(household_with_members) -> 
     assert remaining == 75000
 
 
-def test_get_category_remaining_can_be_negative(household_with_members) -> None:
+def test_get_category_remaining_can_be_negative(
+    household_with_members: Household,
+) -> None:
     """get_category_remaining() puede ser negativo (sobregasto)"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -944,7 +992,9 @@ def test_get_category_remaining_can_be_negative(household_with_members) -> None:
     assert remaining == -50000
 
 
-def test_get_total_remaining_when_no_expenses(household_with_members) -> None:
+def test_get_total_remaining_when_no_expenses(
+    household_with_members: Household,
+) -> None:
     """get_total_remaining() retorna presupuesto total si no hay gastos"""
     _set_budget(household_with_members, "fijos", 100000)
     _set_budget(household_with_members, "variables", 50000)
@@ -955,7 +1005,9 @@ def test_get_total_remaining_when_no_expenses(household_with_members) -> None:
     assert total_remaining == 300000
 
 
-def test_get_total_remaining_calculates_correctly(household_with_members) -> None:
+def test_get_total_remaining_calculates_correctly(
+    household_with_members: Household,
+) -> None:
     """get_total_remaining() calcula total presupuestado - total gastado"""
 
     _set_budget(household_with_members, "fijos", 100000)
@@ -974,7 +1026,7 @@ def test_get_total_remaining_calculates_correctly(household_with_members) -> Non
     assert total_remaining == 265000
 
 
-def test_get_total_remaining_can_be_negative(household_with_members) -> None:
+def test_get_total_remaining_can_be_negative(household_with_members: Household) -> None:
     """get_total_remaining() puede ser negativo si gastos superan presupuesto"""
 
     _set_budget(household_with_members, "fijos", 50000)
@@ -994,7 +1046,7 @@ def test_get_total_remaining_can_be_negative(household_with_members) -> None:
 
 
 def test_get_registration_summary_returns_correct_structure(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Debe retornar members, member_incomes, total_household_income"""
     summary = SummaryService.get_registration_summary(household_with_members)
@@ -1017,7 +1069,9 @@ def test_get_registration_summary_returns_correct_structure(
 # ====================================================
 
 
-def test_get_missing_money_raises_when_over_budget(household_with_members) -> None:
+def test_get_missing_money_raises_when_over_budget(
+    household_with_members: Household,
+) -> None:
     """set_budget_for_category bloquea presupuesto que supere los ingresos"""
     with pytest.raises(ValueError):
         _set_budget(household_with_members, "fijos", 350000)
@@ -1029,7 +1083,7 @@ def test_get_missing_money_raises_when_over_budget(household_with_members) -> No
 
 
 def test_get_member_owed_total_sums_all_category_contributions(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Debe sumar todas las contribuciones acordadas del miembro"""
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
@@ -1044,7 +1098,9 @@ def test_get_member_owed_total_sums_all_category_contributions(
     assert owed == 150000
 
 
-def test_get_member_owed_total_normalizes_name(household_with_members) -> None:
+def test_get_member_owed_total_normalizes_name(
+    household_with_members: Household,
+) -> None:
     """Debe normalizar el nombre del miembro"""
     household_with_members.assign_distribution_method(method=MetodoReparto.EQUAL)
     household_with_members.prepare_period()
@@ -1058,7 +1114,7 @@ def test_get_member_owed_total_normalizes_name(household_with_members) -> None:
 
 
 def test_get_member_owed_total_raises_if_member_not_exists(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Debe fallar si el miembro no existe"""
     with pytest.raises(ValueError, match="no existe en el hogar"):
@@ -1070,7 +1126,9 @@ def test_get_member_owed_total_raises_if_member_not_exists(
 # ====================================================
 
 
-def test_get_member_balance_negative_when_owes_money(household_with_members) -> None:
+def test_get_member_balance_negative_when_owes_money(
+    household_with_members: Household,
+) -> None:
     """Balance negativo cuando el miembro debe dinero (paid < owed)"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1090,7 +1148,9 @@ def test_get_member_balance_negative_when_owes_money(household_with_members) -> 
     assert balance == -130000
 
 
-def test_get_member_balance_positive_when_paid_more(household_with_members) -> None:
+def test_get_member_balance_positive_when_paid_more(
+    household_with_members: Household,
+) -> None:
     """Balance positivo cuando el miembro pagó de más (paid > owed)"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1110,7 +1170,9 @@ def test_get_member_balance_positive_when_paid_more(household_with_members) -> N
     assert balance == 50000
 
 
-def test_get_member_balance_zero_when_paid_exact(household_with_members) -> None:
+def test_get_member_balance_zero_when_paid_exact(
+    household_with_members: Household,
+) -> None:
     """Balance cero cuando el miembro pagó exactamente lo acordado"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1129,7 +1191,7 @@ def test_get_member_balance_zero_when_paid_exact(household_with_members) -> None
     assert balance == 0
 
 
-def test_get_member_balance_normalizes_name(household_with_members) -> None:
+def test_get_member_balance_normalizes_name(household_with_members: Household) -> None:
     """Debe normalizar el nombre del miembro"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1146,7 +1208,9 @@ def test_get_member_balance_normalizes_name(household_with_members) -> None:
     assert balance == 0
 
 
-def test_get_member_balance_raises_if_member_not_exists(household_with_members) -> None:
+def test_get_member_balance_raises_if_member_not_exists(
+    household_with_members: Household,
+) -> None:
     """Debe fallar si el miembro no existe"""
     with pytest.raises(ValueError, match="no existe en el hogar"):
         household_with_members.get_member_balance("member3")
@@ -1157,7 +1221,9 @@ def test_get_member_balance_raises_if_member_not_exists(household_with_members) 
 # ====================================================
 
 
-def test_get_member_status_returns_complete_structure(household_with_members) -> None:
+def test_get_member_status_returns_complete_structure(
+    household_with_members: Household,
+) -> None:
     """Debe retornar dict con: income, owed, paid, balance, debt, saving_goal, by_category"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1193,7 +1259,7 @@ def test_get_member_status_returns_complete_structure(household_with_members) ->
 
 
 def test_get_member_status_paid_is_total_not_per_category(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """CRÍTICO: 'paid' debe ser el total pagado, NO el paid de una categoría"""
 
@@ -1225,7 +1291,7 @@ def test_get_member_status_paid_is_total_not_per_category(
 
 
 def test_get_member_status_by_category_has_correct_structure(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """'by_category' debe tener contribution, paid, remaining por categoría"""
 
@@ -1261,7 +1327,7 @@ def test_get_member_status_by_category_has_correct_structure(
     assert by_category["variables"]["remaining"] == 15000
 
 
-def test_get_member_status_normalizes_name(household_with_members) -> None:
+def test_get_member_status_normalizes_name(household_with_members: Household) -> None:
     """Debe normalizar el nombre del miembro"""
     _set_budget(household_with_members, "fijos", 100000)
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1274,7 +1340,7 @@ def test_get_member_status_normalizes_name(household_with_members) -> None:
 
 
 def test_get_member_status_includes_debt_and_saving_goal(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """debt y saving_goal (derivado de las metas con deadline, informativo) reflejan
     lo declarado en PLANNING"""
@@ -1295,7 +1361,9 @@ def test_get_member_status_includes_debt_and_saving_goal(
     assert status["saving_goal"] == 30000
 
 
-def test_get_member_status_raises_if_member_not_exists(household_with_members) -> None:
+def test_get_member_status_raises_if_member_not_exists(
+    household_with_members: Household,
+) -> None:
     """Debe fallar si el miembro no existe"""
     with pytest.raises(ValueError, match="no existe en el hogar"):
         SummaryService.get_member_status(household_with_members, "member3")
@@ -1306,7 +1374,9 @@ def test_get_member_status_raises_if_member_not_exists(household_with_members) -
 # ====================================================
 
 
-def test_get_month_summary_returns_complete_structure(household_with_members) -> None:
+def test_get_month_summary_returns_complete_structure(
+    household_with_members: Household,
+) -> None:
     """Debe retornar dict con 'totals' y 'by_category'"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1328,7 +1398,9 @@ def test_get_month_summary_returns_complete_structure(household_with_members) ->
     assert "total_remaining" in summary["totals"]
 
 
-def test_get_month_summary_includes_missing_money(household_with_members) -> None:
+def test_get_month_summary_includes_missing_money(
+    household_with_members: Household,
+) -> None:
     """'missing_money' debe estar presente en el summary"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.prepare_period()
@@ -1342,7 +1414,9 @@ def test_get_month_summary_includes_missing_money(household_with_members) -> Non
     assert summary["missing_money"]["total"] == 100000
 
 
-def test_get_month_summary_calculates_correctly(household_with_members) -> None:
+def test_get_month_summary_calculates_correctly(
+    household_with_members: Household,
+) -> None:
     """Los cálculos de 'totals' deben ser correctos"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1367,7 +1441,7 @@ def test_get_month_summary_calculates_correctly(household_with_members) -> None:
 
 
 def test_get_month_summary_by_category_has_correct_structure(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Cada categoría en 'by_category' debe tener budget, spent, remaining"""
 
@@ -1404,7 +1478,9 @@ def test_get_month_summary_by_category_has_correct_structure(
 # ====================================================
 
 
-def test_get_agreed_percentages_raises_if_not_frozen(household_with_members) -> None:
+def test_get_agreed_percentages_raises_if_not_frozen(
+    household_with_members: Household,
+) -> None:
     """Debe fallar si finish_planning() no ha sido llamado"""
     household_with_members.prepare_period()
 
@@ -1413,7 +1489,7 @@ def test_get_agreed_percentages_raises_if_not_frozen(household_with_members) -> 
 
 
 def test_get_agreed_percentages_returns_frozen_percentages(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Debe retornar los porcentajes congelados después de finish_planning()"""
     household_with_members.assign_distribution_method(MetodoReparto.PROPORTIONAL)
@@ -1429,7 +1505,9 @@ def test_get_agreed_percentages_returns_frozen_percentages(
     assert percentages["member2"] == 3333
 
 
-def test_get_agreed_contributions_raises_if_not_frozen(household_with_members) -> None:
+def test_get_agreed_contributions_raises_if_not_frozen(
+    household_with_members: Household,
+) -> None:
     """Debe fallar si finish_planning() no ha sido llamado"""
     household_with_members.prepare_period()
 
@@ -1438,7 +1516,7 @@ def test_get_agreed_contributions_raises_if_not_frozen(household_with_members) -
 
 
 def test_get_agreed_contributions_returns_frozen_contributions(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Debe retornar las contribuciones congeladas después de finish_planning()"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1462,7 +1540,7 @@ def test_get_agreed_contributions_returns_frozen_contributions(
 # ====================================================
 
 
-def test_get_budget_as_percentage_basic(household_with_members) -> None:
+def test_get_budget_as_percentage_basic(household_with_members: Household) -> None:
     """Retorna porcentaje correcto del presupuesto sobre ingresos"""
     # Ingresos: 300000, Presupuesto: 150000 → 50% = 5000 basis
     _set_budget(household_with_members, "fijos", 150000)
@@ -1472,7 +1550,9 @@ def test_get_budget_as_percentage_basic(household_with_members) -> None:
     assert pct_basis == 5000  # 50%
 
 
-def test_get_budget_as_percentage_zero_budget(household_with_members) -> None:
+def test_get_budget_as_percentage_zero_budget(
+    household_with_members: Household,
+) -> None:
     """Retorna 0 cuando el presupuesto de categoría es 0"""
     _set_budget(household_with_members, "variables", 0)
 
@@ -1481,7 +1561,9 @@ def test_get_budget_as_percentage_zero_budget(household_with_members) -> None:
     assert pct_basis == 0
 
 
-def test_get_budget_as_percentage_full_budget(household_with_members) -> None:
+def test_get_budget_as_percentage_full_budget(
+    household_with_members: Household,
+) -> None:
     """Retorna 10000 (100%) cuando presupuesto de categoría = ingresos totales"""
     # Ingresos totales: 300000
     _set_budget(household_with_members, "fijos", 300000)
@@ -1491,7 +1573,9 @@ def test_get_budget_as_percentage_full_budget(household_with_members) -> None:
     assert pct_basis == 10000  # 100%
 
 
-def test_get_budget_as_percentage_fractional_result(household_with_members) -> None:
+def test_get_budget_as_percentage_fractional_result(
+    household_with_members: Household,
+) -> None:
     """Maneja correctamente resultados fraccionarios con floor division"""
     # 100000 / 300000 = 0.33333... → (100000 * 10000) // 300000 = 3333 basis
     _set_budget(household_with_members, "variables", 100000)
@@ -1501,13 +1585,17 @@ def test_get_budget_as_percentage_fractional_result(household_with_members) -> N
     assert pct_basis == 3333  # 33.33%
 
 
-def test_get_budget_as_percentage_nonexistent_category(household_with_members) -> None:
+def test_get_budget_as_percentage_nonexistent_category(
+    household_with_members: Household,
+) -> None:
     """Lanza error si la categoría no existe"""
     with pytest.raises(ValueError, match="debe estar creada"):
         household_with_members.get_budget_as_percentage("categoria_falsa")
 
 
-def test_get_budget_as_percentage_roundtrip_consistency(household_with_members) -> None:
+def test_get_budget_as_percentage_roundtrip_consistency(
+    household_with_members: Household,
+) -> None:
     """set + get debe ser consistente (considerando floor division)"""
     _set_budget(household_with_members, "fijos", 150000)  # 50% de 300000
     retrieved_pct = household_with_members.get_budget_as_percentage("fijos")
@@ -1515,7 +1603,9 @@ def test_get_budget_as_percentage_roundtrip_consistency(household_with_members) 
     assert retrieved_pct == 5000
 
 
-def test_set_budget_by_percentages_sum_matches_incomes(base_household) -> None:
+def test_set_budget_by_percentages_sum_matches_incomes(
+    base_household: Household,
+) -> None:
     """set_budget_by_percentages: sin pérdida de céntimos con ingresos no redondos"""
     m = Member("solo")
     m.monthly_income = 100001
@@ -1543,7 +1633,9 @@ def test_set_budget_by_percentages_sum_matches_incomes(base_household) -> None:
 # ====================================================
 
 
-def test_deposit_to_saving_bucket_updates_balance(household_with_members) -> None:
+def test_deposit_to_saving_bucket_updates_balance(
+    household_with_members: Household,
+) -> None:
     """Test: depositar en un bucket de ahorro actualiza su balance"""
     household_with_members.prepare_period()
     bucket_id = _add_saving_bucket(household_with_members, "member1")
@@ -1554,7 +1646,9 @@ def test_deposit_to_saving_bucket_updates_balance(household_with_members) -> Non
     assert bucket.balance == 5000
 
 
-def test_withdraw_from_saving_bucket_reduces_balance(household_with_members) -> None:
+def test_withdraw_from_saving_bucket_reduces_balance(
+    household_with_members: Household,
+) -> None:
     """Test: retirar de un bucket de ahorro reduce su balance"""
     household_with_members.prepare_period()
     bucket_id = _add_saving_bucket(household_with_members, ["member1", "member2"])
@@ -1567,7 +1661,7 @@ def test_withdraw_from_saving_bucket_reduces_balance(household_with_members) -> 
 
 
 def test_get_reserve_contribution_by_member_with_equal_method(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Reserva (100000, sobre total 300000) se reparte EQUAL entre los 2 miembros"""
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
@@ -1582,7 +1676,7 @@ def test_get_reserve_contribution_by_member_with_equal_method(
 
 
 def test_get_reserve_contribution_by_member_with_custom_method(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Reserva (100000) se reparte según los splits CUSTOM (70/30)"""
     household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
@@ -1600,7 +1694,7 @@ def test_get_reserve_contribution_by_member_with_custom_method(
 
 
 def test_validate_debt_doesnt_exceed_capacity_passes_within_reserva(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Deuda dentro de la parte de reserva no lanza. El ahorro no se valida —
     es elección, no obligación (T5/T6)."""
@@ -1614,7 +1708,7 @@ def test_validate_debt_doesnt_exceed_capacity_passes_within_reserva(
 
 
 def test_validate_debt_doesnt_exceed_capacity_raises_when_exceeds_reserva(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Deuda mayor que la parte de reserva del miembro lanza ValueError"""
     # fijos=180000, variables=0 → reserva autocalcula = 300000 - 180000 = 120000
@@ -1628,7 +1722,7 @@ def test_validate_debt_doesnt_exceed_capacity_raises_when_exceeds_reserva(
 
 
 def test_validate_debt_doesnt_exceed_capacity_no_reserva_raises_if_debt(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Sin categoría reserva, cualquier deuda supera capacidad 0"""
     _add_debt(household_with_members, "member1", 1)
@@ -1638,7 +1732,7 @@ def test_validate_debt_doesnt_exceed_capacity_no_reserva_raises_if_debt(
 
 
 def test_validate_debt_doesnt_exceed_capacity_ignores_missing_money(
-    household_with_members,
+    household_with_members: Household,
 ) -> None:
     """Sin reserva (fijos == total_incomes), cualquier deuda supera capacidad"""
     # fijos=total_incomes → reserva=0 → capacidad=0 por miembro
@@ -1660,7 +1754,9 @@ def _setup_settlement(hh):
     hh.freeze_planning_state()
 
 
-def test_get_settlement_empty_when_no_shared_expenses(household_with_members) -> None:
+def test_get_settlement_empty_when_no_shared_expenses(
+    household_with_members: Household,
+) -> None:
     """Sin gastos compartidos el settlement es vacío"""
 
     _setup_settlement(household_with_members)
@@ -1677,13 +1773,17 @@ def test_get_settlement_empty_when_no_shared_expenses(household_with_members) ->
     assert _get_settlement(household_with_members) == []
 
 
-def test_get_settlement_empty_when_no_expenses(household_with_members) -> None:
+def test_get_settlement_empty_when_no_expenses(
+    household_with_members: Household,
+) -> None:
     """Sin gastos en absoluto el settlement es vacío"""
     _setup_settlement(household_with_members)
     assert _get_settlement(household_with_members) == []
 
 
-def test_get_settlement_one_paid_all_equal_split(household_with_members) -> None:
+def test_get_settlement_one_paid_all_equal_split(
+    household_with_members: Household,
+) -> None:
     """member1 pagó todo lo compartido — member2 le debe la mitad (EQUAL)"""
 
     _setup_settlement(household_with_members)
@@ -1707,7 +1807,9 @@ def test_get_settlement_one_paid_all_equal_split(household_with_members) -> None
     assert transfers[0]["amount"] == 5000
 
 
-def test_get_settlement_ignores_non_shared_expenses(household_with_members) -> None:
+def test_get_settlement_ignores_non_shared_expenses(
+    household_with_members: Household,
+) -> None:
     """Los gastos is_shared=False no entran en el settlement"""
 
     _setup_settlement(household_with_members)
@@ -1730,7 +1832,7 @@ def test_get_settlement_ignores_non_shared_expenses(household_with_members) -> N
     assert transfers[0]["amount"] == 5000  # solo el gasto compartido cuenta
 
 
-def test_get_settlement_already_balanced(household_with_members) -> None:
+def test_get_settlement_already_balanced(household_with_members: Household) -> None:
     """Si cada uno pagó exactamente su parte no hay transferencias"""
 
     _setup_settlement(household_with_members)
@@ -1756,7 +1858,7 @@ def test_get_settlement_already_balanced(household_with_members) -> None:
     assert _get_settlement(household_with_members) == []
 
 
-def test_get_settlement_three_members_equal(base_household) -> None:
+def test_get_settlement_three_members_equal(base_household: Household) -> None:
     """3 miembros EQUAL: uno paga todo → los otros dos le deben a partes iguales"""
     m1, m2, m3 = Member("alice"), Member("bob"), Member("carol")
     for m in (m1, m2, m3):
@@ -1785,7 +1887,9 @@ def test_get_settlement_three_members_equal(base_household) -> None:
     assert froms == {"bob", "carol"}
 
 
-def test_get_settlement_three_members_only_should_pay_two(base_household) -> None:
+def test_get_settlement_three_members_only_should_pay_two(
+    base_household: Household,
+) -> None:
     """3 miembros EQUAL: uno paga todo → los otros dos le deben a partes iguales"""
     m1, m2, m3 = Member("alice"), Member("bob"), Member("carol")
     for m in (m1, m2, m3):
@@ -1812,7 +1916,7 @@ def test_get_settlement_three_members_only_should_pay_two(base_household) -> Non
 
 
 @pytest.fixture
-def household_month_ready(household_with_members):
+def household_month_ready(household_with_members: Household) -> Household:
     """Household con registration congelado y reserva presupuestada.
     EQUAL, reserva=120000 → 60000 por miembro. Listo para declarar deuda y pagar."""
     household_with_members.prepare_period()
@@ -1821,7 +1925,7 @@ def household_month_ready(household_with_members):
     return household_with_members
 
 
-def test_register_debt_payment_basic(household_month_ready) -> None:
+def test_register_debt_payment_basic(household_month_ready: Household) -> None:
     """Pago de deuda se registra y get_debt_status refleja paid correcto"""
     hh = household_month_ready
     bid = _add_debt(hh, "member1", 50000)
@@ -1834,7 +1938,9 @@ def test_register_debt_payment_basic(household_month_ready) -> None:
     assert totals["remaining"] == 30000
 
 
-def test_register_debt_payment_overpayment_allowed(household_month_ready) -> None:
+def test_register_debt_payment_overpayment_allowed(
+    household_month_ready: Household,
+) -> None:
     """Sobrepago permitido (decisión T1): el backend no bloquea pagos > cuota."""
     hh = household_month_ready
     bid = _add_debt(hh, "member1", 50000)
@@ -1845,7 +1951,9 @@ def test_register_debt_payment_overpayment_allowed(household_month_ready) -> Non
     assert totals["paid"] == 60000
 
 
-def test_get_debt_status_after_partial_payment(household_month_ready) -> None:
+def test_get_debt_status_after_partial_payment(
+    household_month_ready: Household,
+) -> None:
     """Pago parcial: remaining = committed - paid"""
     hh = household_month_ready
     bid = _add_debt(hh, "member1", 50000)
@@ -1856,7 +1964,7 @@ def test_get_debt_status_after_partial_payment(household_month_ready) -> None:
     assert totals == {"committed": 50000, "paid": 20000, "remaining": 30000}
 
 
-def test_get_debt_status_after_full_payment(household_month_ready) -> None:
+def test_get_debt_status_after_full_payment(household_month_ready: Household) -> None:
     """Pago completo de la cuota del período: remaining == 0"""
     hh = household_month_ready
     bid = _add_debt(hh, "member1", 50000)
@@ -1873,7 +1981,7 @@ def test_get_debt_status_after_full_payment(household_month_ready) -> None:
 # ====================================================
 
 
-def test_get_saving_status_after_deposit(household_month_ready) -> None:
+def test_get_saving_status_after_deposit(household_month_ready: Household) -> None:
     """Depósito de ahorro en MONTH se refleja en get_saving_status. required_this_month
     es informativo (deriva de goal+deadline), no un compromiso declarado."""
     hh = household_month_ready
