@@ -19,7 +19,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test."""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -30,31 +30,31 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test."""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test."""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def bucket_repo(conn):
+def bucket_repo(conn: psycopg2.extensions.connection) -> SavingBucketRepository:
     """Repositorio de saving_buckets con conexión de test."""
     return SavingBucketRepository(conn)
 
 
 @pytest.fixture
-def household_id(household_repo):
+def household_id(household_repo: HouseholdRepository) -> int:
     """Hogar creado en BD listo para usar en tests."""
     return household_repo.save()
 
 
 @pytest.fixture
-def member_ids(household_id, member_repo):
+def member_ids(household_id: int, member_repo: MemberRepository) -> dict[str, int]:
     """Dict {nombre_normalizado: id_bd} con dos miembros creados en BD."""
     heri = Member("Heri")
     heri.add_incomes(135400)
@@ -68,7 +68,7 @@ def member_ids(household_id, member_repo):
 
 
 @pytest.fixture
-def shared_bucket():
+def shared_bucket() -> SavingBucket:
     """Bucket compartido con dos owners, sin persistir."""
     return SavingBucket(
         saving_bucket_name="vacaciones",
@@ -84,8 +84,11 @@ def shared_bucket():
 
 
 def test_save_returns_bucket_own_uuid(
-    bucket_repo, shared_bucket, household_id, member_ids
-):
+    bucket_repo: SavingBucketRepository,
+    shared_bucket: SavingBucket,
+    household_id: int,
+    member_ids: dict[str, int],
+) -> None:
     """save devuelve el mismo UUID que ya trae el bucket de dominio (PK directa, sin id serial)."""
     bucket_id = bucket_repo.save(
         saving_bucket=shared_bucket, household_id=household_id, member_ids=member_ids
@@ -95,8 +98,12 @@ def test_save_returns_bucket_own_uuid(
 
 
 def test_save_persists_bucket_fields(
-    bucket_repo, shared_bucket, household_id, member_ids, conn
-):
+    bucket_repo: SavingBucketRepository,
+    shared_bucket: SavingBucket,
+    household_id: int,
+    member_ids: dict[str, int],
+    conn: psycopg2.extensions.connection,
+) -> None:
     """save inserta correctamente los datos del bucket en saving_buckets."""
     bucket_id = bucket_repo.save(
         saving_bucket=shared_bucket, household_id=household_id, member_ids=member_ids
@@ -113,8 +120,12 @@ def test_save_persists_bucket_fields(
 
 
 def test_save_persists_all_owners(
-    bucket_repo, shared_bucket, household_id, member_ids, conn
-):
+    bucket_repo: SavingBucketRepository,
+    shared_bucket: SavingBucket,
+    household_id: int,
+    member_ids: dict[str, int],
+    conn: psycopg2.extensions.connection,
+) -> None:
     """save inserta una fila en bucket_owners por cada owner del bucket."""
     bucket_id = bucket_repo.save(
         saving_bucket=shared_bucket, household_id=household_id, member_ids=member_ids
@@ -130,8 +141,11 @@ def test_save_persists_all_owners(
 
 
 def test_save_without_deadline_persists_null(
-    bucket_repo, household_id, member_ids, conn
-):
+    bucket_repo: SavingBucketRepository,
+    household_id: int,
+    member_ids: dict[str, int],
+    conn: psycopg2.extensions.connection,
+) -> None:
     """save persiste NULL en deadline cuando el bucket no tiene fecha límite."""
     bucket = SavingBucket(
         saving_bucket_name="colchón",

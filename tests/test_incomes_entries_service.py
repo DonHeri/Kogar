@@ -20,7 +20,7 @@ from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
 @pytest.fixture
-def members_with_incomes():
+def members_with_incomes() -> dict[str, Member]:
     """Dos miembros con ingresos diferentes"""
     m1 = Member("Member1")
     m2 = Member("Member2")
@@ -30,7 +30,7 @@ def members_with_incomes():
 
 
 @pytest.fixture
-def full_household(members_with_incomes):
+def full_household(members_with_incomes: dict[str, Member]) -> Household:
     """Crea un hogar con los miembros proporcionados"""
     b = Budget()
     e = ExpenseTracker()
@@ -52,7 +52,7 @@ def full_household(members_with_incomes):
 
 
 @pytest.fixture
-def full_household_with_child_categories(full_household):
+def full_household_with_child_categories(full_household: Household) -> Household:
     """Household con dos hijas (vivienda, suministros) colgando de fijos."""
     full_household.add_category("vivienda", parent="fijos")
     full_household.add_category("suministros", parent="fijos")
@@ -62,7 +62,7 @@ def full_household_with_child_categories(full_household):
 # ===============================================
 # --------------- add_income --------------------
 # ===============================================
-def test_add_income_entry_creates_entry(full_household):
+def test_add_income_entry_creates_entry(full_household: Household) -> None:
     """Verifica que se cree una entrada de ingreso al agregar un ingreso."""
 
     last_incomes = full_household.get_total_incomes()

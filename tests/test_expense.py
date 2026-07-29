@@ -11,7 +11,7 @@ from tests.helpers import make_category
 # ====================================================
 
 
-def test_expense_creation_valid():
+def test_expense_creation_valid() -> None:
     """Test: Crear un gasto válido almacena todos los atributos correctamente"""
     expense = Expense(
         "Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler marzo"
@@ -24,7 +24,7 @@ def test_expense_creation_valid():
     assert isinstance(expense.date, datetime)
 
 
-def test_expense_creation_without_description():
+def test_expense_creation_without_description() -> None:
     """Test: Crear un gasto sin descripción usa string vacío por defecto"""
     expense = Expense("Heri", make_category("variables"), to_cents(45.50), ["heri"])
 
@@ -33,14 +33,14 @@ def test_expense_creation_without_description():
     assert expense.amount == to_cents(45.50)
 
 
-def test_expense_stores_amount_in_cents():
+def test_expense_stores_amount_in_cents() -> None:
     """Test: El monto se almacena en céntimos internamente"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
 
     assert expense.amount == 5000  # 50€ = 5000 céntimos
 
 
-def test_expense_date_is_datetime_object():
+def test_expense_date_is_datetime_object() -> None:
     """Test: La fecha es un objeto datetime, no string"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
 
@@ -55,25 +55,25 @@ def test_expense_date_is_datetime_object():
 # ====================================================
 
 
-def test_expense_member_empty_raises_error():
+def test_expense_member_empty_raises_error() -> None:
     """Test: Crear gasto con member vacío lanza ValueError"""
     with pytest.raises(ValueError, match="member no puede estar vacío"):
         Expense("", make_category("fijos"), to_cents(100.0), [""])
 
 
-def test_expense_member_whitespace_raises_error():
+def test_expense_member_whitespace_raises_error() -> None:
     """Test: Crear gasto con member solo espacios lanza ValueError"""
     with pytest.raises(ValueError, match="member no puede estar vacío"):
         Expense("   ", make_category("fijos"), to_cents(100.0), ["   "])
 
 
-def test_expense_amount_zero_raises_error():
+def test_expense_amount_zero_raises_error() -> None:
     """Test: Crear gasto con amount cero lanza ValueError"""
     with pytest.raises(ValueError, match="amount debe ser positivo"):
         Expense("Amanda", make_category("fijos"), 0, ["amanda"])
 
 
-def test_expense_amount_negative_raises_error():
+def test_expense_amount_negative_raises_error() -> None:
     """Test: Crear gasto con amount negativo lanza ValueError"""
     with pytest.raises(ValueError, match="amount debe ser positivo"):
         Expense("Amanda", make_category("fijos"), -5000, ["amanda"])
@@ -84,7 +84,7 @@ def test_expense_amount_negative_raises_error():
 # ====================================================
 
 
-def test_amount_property_returns_cents():
+def test_amount_property_returns_cents() -> None:
     """Test: Property amount retorna céntimos como int"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(75.50), ["amanda"])
 
@@ -92,7 +92,7 @@ def test_amount_property_returns_cents():
     assert isinstance(expense.amount, int)
 
 
-def test_amount_property_is_readonly():
+def test_amount_property_is_readonly() -> None:
     """Test: Property amount es de solo lectura"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
 
@@ -100,14 +100,14 @@ def test_amount_property_is_readonly():
         expense.amount = 10000
 
 
-def test_date_property_returns_datetime():
+def test_date_property_returns_datetime() -> None:
     """Test: Property date retorna objeto datetime"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
 
     assert isinstance(expense.date, datetime)
 
 
-def test_date_property_is_readonly():
+def test_date_property_is_readonly() -> None:
     """Test: Property date es de solo lectura"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
 
@@ -120,7 +120,7 @@ def test_date_property_is_readonly():
 # ====================================================
 
 
-def test_is_same_month_with_same_month_and_year():
+def test_is_same_month_with_same_month_and_year() -> None:
     """Test: is_same_month retorna True si es el mismo mes y año"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     expense._date = datetime(2026, 3, 15)
@@ -129,7 +129,7 @@ def test_is_same_month_with_same_month_and_year():
     assert expense.is_same_month(datetime(2026, 3, 31)) is True
 
 
-def test_is_same_month_with_different_month():
+def test_is_same_month_with_different_month() -> None:
     """Test: is_same_month retorna False si es diferente mes"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     expense._date = datetime(2026, 3, 15)
@@ -137,7 +137,7 @@ def test_is_same_month_with_different_month():
     assert expense.is_same_month(datetime(2026, 4, 15)) is False
 
 
-def test_is_same_month_with_different_year():
+def test_is_same_month_with_different_year() -> None:
     """Test: is_same_month retorna False si es diferente año (mismo mes)"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     expense._date = datetime(2026, 3, 15)
@@ -145,14 +145,14 @@ def test_is_same_month_with_different_year():
     assert expense.is_same_month(datetime(2025, 3, 15)) is False
 
 
-def test_is_same_month_without_parameter_uses_current_date():
+def test_is_same_month_without_parameter_uses_current_date() -> None:
     """Test: is_same_month sin parámetro compara con fecha actual"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     # La fecha del expense es datetime.now(), así que debe ser True
     assert expense.is_same_month() is True
 
 
-def test_is_same_year_with_same_year():
+def test_is_same_year_with_same_year() -> None:
     """Test: is_same_year retorna True si es el mismo año"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     expense._date = datetime(2026, 3, 15)
@@ -161,7 +161,7 @@ def test_is_same_year_with_same_year():
     assert expense.is_same_year(datetime(2026, 12, 31)) is True
 
 
-def test_is_same_year_with_different_year():
+def test_is_same_year_with_different_year() -> None:
     """Test: is_same_year retorna False si es diferente año"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     expense._date = datetime(2026, 3, 15)
@@ -169,7 +169,7 @@ def test_is_same_year_with_different_year():
     assert expense.is_same_year(datetime(2025, 3, 15)) is False
 
 
-def test_is_same_year_without_parameter_uses_current_date():
+def test_is_same_year_without_parameter_uses_current_date() -> None:
     """Test: is_same_year sin parámetro compara con fecha actual"""
     expense = Expense("Amanda", make_category("fijos"), to_cents(50.0), ["amanda"])
     # La fecha del expense es datetime.now(), así que debe ser True
@@ -181,7 +181,7 @@ def test_is_same_year_without_parameter_uses_current_date():
 # ====================================================
 
 
-def test_repr_format():
+def test_repr_format() -> None:
     """Test: __repr__ muestra formato correcto con fecha dd/mm/yyyy"""
     expense = Expense(
         "Amanda", make_category("fijos"), to_cents(900.0), ["amanda"], "Alquiler"
@@ -196,7 +196,7 @@ def test_repr_format():
     assert "15/03/2026" in repr_str
 
 
-def test_repr_without_description():
+def test_repr_without_description() -> None:
     """Test: __repr__ funciona sin descripción"""
     expense = Expense("Heri", make_category("variables"), to_cents(45.50), ["heri"])
     expense._date = datetime(2026, 3, 2)

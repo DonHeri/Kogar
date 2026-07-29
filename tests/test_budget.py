@@ -11,7 +11,7 @@ from tests.helpers import make_category
 
 
 @pytest.fixture
-def budget():
+def budget() -> Budget:
     b = Budget()
     b.set_standard_categories()
     return b
@@ -20,7 +20,7 @@ def budget():
 # ====================================================
 # TESTS: Creación de Presupuesto específico
 # ====================================================
-def test_create_valid_budget_category():
+def test_create_valid_budget_category() -> None:
     # Arrange & Act
     budget1 = BudgetCategory(make_category("Test"), 500)
 
@@ -29,7 +29,7 @@ def test_create_valid_budget_category():
     assert budget1.planned_amount == 50000
 
 
-def test_negative_budget_must_raise_error():
+def test_negative_budget_must_raise_error() -> None:
     with pytest.raises(
         ValueError, match="El monto presupuestado no puede ser negativo"
     ):
@@ -39,12 +39,12 @@ def test_negative_budget_must_raise_error():
 # ====================================================
 # TESTS: Budget: `set_budget`(self, category: str, amount: float)
 # ====================================================
-def test_set_budget_updates_category_amount(budget):
+def test_set_budget_updates_category_amount(budget: Budget) -> None:
     budget.set_planned_amount("fijos", 100000)
     assert budget.categories["fijos"].planned_amount == 100000
 
 
-def test_set_budget_updates_multiple_categories(budget):
+def test_set_budget_updates_multiple_categories(budget: Budget) -> None:
     budget.set_planned_amount("fijos", 100000)
     budget.set_planned_amount("variables", 50000)
 
@@ -52,12 +52,12 @@ def test_set_budget_updates_multiple_categories(budget):
     assert budget.categories["variables"].planned_amount == 50000
 
 
-def test_set_budget_invalid_category_raises_error(budget):
+def test_set_budget_invalid_category_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
         budget.set_planned_amount("invalida", 100)
 
 
-def test_set_budget_negative_amount_raises_error(budget):
+def test_set_budget_negative_amount_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="Monto del presupuesto debe ser superior a 0"):
         budget.set_planned_amount("fijos", -100)
 
@@ -67,18 +67,18 @@ def test_set_budget_negative_amount_raises_error(budget):
 # ====================================================
 
 
-def test_standard_categories_inherit_is_shared_from_library(budget):
+def test_standard_categories_inherit_is_shared_from_library(budget: Budget) -> None:
     assert budget.categories["fijos"].is_shared is True
     assert budget.categories["variables"].is_shared is False
     assert budget.categories["reserva"].is_shared is False
 
 
-def test_add_known_category_inherits_is_shared(budget):
+def test_add_known_category_inherits_is_shared(budget: Budget) -> None:
     budget.add_category("ocio")
     assert budget.categories["ocio"].is_shared is False
 
 
-def test_add_unknown_category_defaults_to_shared(budget):
+def test_add_unknown_category_defaults_to_shared(budget: Budget) -> None:
     budget.add_category("nueva_custom")
     assert budget.categories["nueva_custom"].is_shared is True
 
@@ -88,25 +88,25 @@ def test_add_unknown_category_defaults_to_shared(budget):
 # ====================================================
 
 
-def test_add_category_creates_new_category(budget):
+def test_add_category_creates_new_category(budget: Budget) -> None:
     budget.add_category("educacion")
 
     assert "educacion" in budget.get_category_names()
     assert budget.categories["educacion"].planned_amount == 0
 
 
-def test_add_category_normalizes_name(budget):
+def test_add_category_normalizes_name(budget: Budget) -> None:
     budget.add_category("  EDUCACIÓN  ")
 
     assert "educación" in budget.get_category_names()
 
 
-def test_add_category_already_exists_raises_error(budget):
+def test_add_category_already_exists_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría ya existe"):
         budget.add_category("fijos")
 
 
-def test_add_category_adds_to_library_if_unknown(budget):
+def test_add_category_adds_to_library_if_unknown(budget: Budget) -> None:
     budget.add_category("nueva_categoria")
 
     assert budget.library.is_known("nueva_categoria")
@@ -117,18 +117,18 @@ def test_add_category_adds_to_library_if_unknown(budget):
 # ====================================================
 
 
-def test_add_category_with_parent_sets_parent(budget):
+def test_add_category_with_parent_sets_parent(budget: Budget) -> None:
     budget.add_category("vivienda", parent="fijos")
 
     assert budget.categories["vivienda"].parent == "fijos"
 
 
-def test_add_category_with_nonexistent_parent_raises_error(budget):
+def test_add_category_with_nonexistent_parent_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
         budget.add_category("vivienda", parent="inexistente")
 
 
-def test_get_child_total_planned_sums_children(budget):
+def test_get_child_total_planned_sums_children(budget: Budget) -> None:
     budget.add_category("vivienda", parent="fijos")
     budget.add_category("suministros", parent="fijos")
     budget.set_planned_amount("vivienda", 30000)
@@ -142,18 +142,18 @@ def test_get_child_total_planned_sums_children(budget):
 # ====================================================
 
 
-def test_delete_budget_category_removes_category(budget):
+def test_delete_budget_category_removes_category(budget: Budget) -> None:
     budget.delete_budget_category("fijos")
 
     assert "fijos" not in budget.get_category_names()
 
 
-def test_delete_budget_category_not_exists_raises_error(budget):
+def test_delete_budget_category_not_exists_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
         budget.delete_budget_category("inexistente")
 
 
-def test_delete_budget_category_succeeds(budget):
+def test_delete_budget_category_succeeds(budget: Budget) -> None:
     # Cualquier categoría se puede eliminar (Budget no conoce gastos)
     budget.set_planned_amount("fijos", 100000)
     budget.delete_budget_category("fijos")
@@ -166,7 +166,7 @@ def test_delete_budget_category_succeeds(budget):
 # ====================================================
 
 
-def test_get_category_budget_is_correct(budget):
+def test_get_category_budget_is_correct(budget: Budget) -> None:
     budget.set_planned_amount("fijos", 10000)
 
     result = budget.get_planned_amount("fijos")
@@ -174,14 +174,14 @@ def test_get_category_budget_is_correct(budget):
     assert result == 10000
 
 
-def test_get_category_budget_normalizes_name(budget):
+def test_get_category_budget_normalizes_name(budget: Budget) -> None:
     budget.set_planned_amount("fijos", 50000)
 
     result = budget.get_planned_amount("  FIJOS  ")
 
     assert result == 50000
 
-def test_get_category_budget_invalid_category_raises_error(budget):
+
+def test_get_category_budget_invalid_category_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría debe estar creada"):
         budget.get_planned_amount("inexistente")
-

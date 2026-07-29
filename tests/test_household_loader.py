@@ -25,7 +25,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test."""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -36,39 +36,45 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test."""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test."""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def period_repo(conn):
+def period_repo(conn: psycopg2.extensions.connection) -> PeriodRepository:
     """Repositorio de períodos con conexión de test."""
     return PeriodRepository(conn)
 
 
 @pytest.fixture
-def expense_repo(conn):
+def expense_repo(conn: psycopg2.extensions.connection) -> ExpenseRepository:
     """Repositorio de gastos con conexión de test."""
     return ExpenseRepository(conn)
 
 
 @pytest.fixture
-def budget_categories_repo(conn):
+def budget_categories_repo(
+    conn: psycopg2.extensions.connection,
+) -> BudgetCategoryRepository:
     """Repositorio de presupuestos con conexión de test."""
     return BudgetCategoryRepository(conn)
 
 
 @pytest.fixture
 def household_loader(
-    household_repo, member_repo, period_repo, expense_repo, budget_categories_repo
-):
+    household_repo: HouseholdRepository,
+    member_repo: MemberRepository,
+    period_repo: PeriodRepository,
+    expense_repo: ExpenseRepository,
+    budget_categories_repo: BudgetCategoryRepository,
+) -> HouseholdLoader:
     """Loader bajo prueba, con repos reales apuntando a la conexión de test."""
     return HouseholdLoader(
         budget_categories_repo=budget_categories_repo,
@@ -80,13 +86,13 @@ def household_loader(
 
 
 @pytest.fixture
-def household_id(household_repo):
+def household_id(household_repo: HouseholdRepository) -> int:
     """Hogar creado en BD listo para usar en tests."""
     return household_repo.save()
 
 
 @pytest.fixture
-def member_id_heri(household_id, member_repo):
+def member_id_heri(household_id: int, member_repo: MemberRepository) -> int:
     """Miembro Heri creado en BD."""
     member = Member("Heri")
     member.add_incomes(135400)
@@ -94,7 +100,7 @@ def member_id_heri(household_id, member_repo):
 
 
 @pytest.fixture
-def member_id_amanda(household_id, member_repo):
+def member_id_amanda(household_id: int, member_repo: MemberRepository) -> int:
     """Miembro Amanda creada en BD."""
     member = Member("Amanda")
     member.add_incomes(146700)
@@ -102,13 +108,15 @@ def member_id_amanda(household_id, member_repo):
 
 
 @pytest.fixture
-def member_ids(member_id_heri, member_id_amanda):
+def member_ids(member_id_heri: int, member_id_amanda: int) -> dict[str, int]:
     """Dict {nombre_normalizado: id_bd} con los dos miembros del test."""
     return {"heri": member_id_heri, "amanda": member_id_amanda}
 
 
 @pytest.fixture
-def period_id(household_id, period_repo, member_ids):
+def period_id(
+    household_id: int, period_repo: PeriodRepository, member_ids: dict[str, int]
+) -> int:
     """Período en fase MONTH, listo para rehidratar."""
     period = Period(
         household_id=household_id,
@@ -120,11 +128,17 @@ def period_id(household_id, period_repo, member_ids):
 
 
 @pytest.fixture
-def budget_categories(period_id, budget_categories_repo):
+def budget_categories(
+    period_id: int, budget_categories_repo: BudgetCategoryRepository
+) -> dict[str, BudgetCategory]:
     """Dos categorías raíz (fijos, variables) + una hija (alquiler bajo fijos)."""
     fijos = BudgetCategory(Category("fijos", is_shared=True), 900.0, parent=None)
-    variables = BudgetCategory(Category("variables", is_shared=False), 300.0, parent=None)
-    alquiler = BudgetCategory(Category("alquiler", is_shared=True), 600.0, parent="fijos")
+    variables = BudgetCategory(
+        Category("variables", is_shared=False), 300.0, parent=None
+    )
+    alquiler = BudgetCategory(
+        Category("alquiler", is_shared=True), 600.0, parent="fijos"
+    )
 
     for budget_category in (fijos, variables, alquiler):
         budget_categories_repo.save(
@@ -135,7 +149,12 @@ def budget_categories(period_id, budget_categories_repo):
 
 
 @pytest.fixture
-def sample_expense_id(expense_repo, member_ids, period_id, budget_categories):
+def sample_expense_id(
+    expense_repo: ExpenseRepository,
+    member_ids: dict[str, int],
+    period_id: int,
+    budget_categories: dict[str, BudgetCategory],
+) -> int:
     """Gasto compartido en 'fijos' (heri paga, heri+amanda participan), guardado en BD."""
     expense = Expense(
         member="heri",
@@ -143,7 +162,9 @@ def sample_expense_id(expense_repo, member_ids, period_id, budget_categories):
         category=make_category("fijos", is_shared=True),
         participants=["heri", "amanda"],
     )
-    return expense_repo.save(expense=expense, member_ids=member_ids, period_id=period_id)
+    return expense_repo.save(
+        expense=expense, member_ids=member_ids, period_id=period_id
+    )
 
 
 # ===============================================
@@ -152,8 +173,11 @@ def sample_expense_id(expense_repo, member_ids, period_id, budget_categories):
 
 
 def test_load_base_returns_member_ids_mapping(
-    household_loader, household_id, period_id, member_ids
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
     """member_ids devuelto mapea nombre normalizado -> id de BD."""
     _, returned_member_ids, _ = household_loader.load_base(
         household_id=household_id, period_id=period_id
@@ -163,8 +187,8 @@ def test_load_base_returns_member_ids_mapping(
 
 
 def test_load_base_rehydrates_members_with_income(
-    household_loader, household_id, period_id
-):
+    household_loader: HouseholdLoader, household_id: int, period_id: int
+) -> None:
     """Los miembros rehidratados conservan su ingreso mensual en céntimos."""
     household, _, _ = household_loader.load_base(
         household_id=household_id, period_id=period_id
@@ -175,8 +199,8 @@ def test_load_base_rehydrates_members_with_income(
 
 
 def test_load_base_returns_phase_from_period_status(
-    household_loader, household_id, period_id
-):
+    household_loader: HouseholdLoader, household_id: int, period_id: int
+) -> None:
     """La fase devuelta viene del status persistido del período."""
     _, _, phase = household_loader.load_base(
         household_id=household_id, period_id=period_id
@@ -186,8 +210,11 @@ def test_load_base_returns_phase_from_period_status(
 
 
 def test_load_base_rehydrates_budget_categories_with_planned_amounts(
-    household_loader, household_id, period_id, budget_categories
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    budget_categories: dict[str, BudgetCategory],
+) -> None:
     """Cada BudgetCategory persistida se reconstruye con su planned_amount."""
     household, _, _ = household_loader.load_base(
         household_id=household_id, period_id=period_id
@@ -199,8 +226,11 @@ def test_load_base_rehydrates_budget_categories_with_planned_amounts(
 
 
 def test_load_base_rehydrates_parent_before_child_regardless_of_insertion_order(
-    household_loader, household_id, period_id, budget_categories_repo
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    budget_categories_repo: BudgetCategoryRepository,
+) -> None:
     """Regresión: si la hija se persiste antes que la madre, load_base no debe
     romper con 'La categoría debe estar creada'. El orden de hidratación no
     puede depender del orden físico de inserción en BD."""
@@ -220,8 +250,11 @@ def test_load_base_rehydrates_parent_before_child_regardless_of_insertion_order(
 
 
 def test_load_base_does_not_hydrate_expenses(
-    household_loader, household_id, period_id, sample_expense_id
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    sample_expense_id: int,
+) -> None:
     """load_base es la receta ligera: no reconstruye histórico de gastos aunque exista en BD."""
     household, _, _ = household_loader.load_base(
         household_id=household_id, period_id=period_id
@@ -236,8 +269,11 @@ def test_load_base_does_not_hydrate_expenses(
 
 
 def test_load_for_queries_keeps_member_ids_and_phase(
-    household_loader, household_id, period_id, member_ids
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
     """load_for_queries no rompe el contrato de load_base (member_ids, phase)."""
     _, returned_member_ids, phase = household_loader.load_for_queries(
         household_id=household_id, period_id=period_id
@@ -248,8 +284,11 @@ def test_load_for_queries_keeps_member_ids_and_phase(
 
 
 def test_load_for_queries_resolves_payer_by_id(
-    household_loader, household_id, period_id, sample_expense_id
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    sample_expense_id: int,
+) -> None:
     """El gasto rehidratado atribuye correctamente el pagador (payer_id -> nombre)."""
     household, _, _ = household_loader.load_for_queries(
         household_id=household_id, period_id=period_id
@@ -260,8 +299,11 @@ def test_load_for_queries_resolves_payer_by_id(
 
 
 def test_load_for_queries_rehydrates_participants(
-    household_loader, household_id, period_id, sample_expense_id
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    sample_expense_id: int,
+) -> None:
     """Los participantes del gasto se reconstruyen completos."""
     household, _, _ = household_loader.load_for_queries(
         household_id=household_id, period_id=period_id
@@ -272,8 +314,11 @@ def test_load_for_queries_rehydrates_participants(
 
 
 def test_load_for_queries_resolves_category_object(
-    household_loader, household_id, period_id, sample_expense_id
-):
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    sample_expense_id: int,
+) -> None:
     """La categoría del gasto se resuelve contra el budget ya hidratado."""
     household, _, _ = household_loader.load_for_queries(
         household_id=household_id, period_id=period_id
@@ -283,8 +328,8 @@ def test_load_for_queries_resolves_category_object(
 
 
 def test_load_for_queries_with_no_expenses_returns_empty_tracker(
-    household_loader, household_id, period_id
-):
+    household_loader: HouseholdLoader, household_id: int, period_id: int
+) -> None:
     """Sin gastos en BD, load_for_queries no rompe y el tracker queda vacío."""
     household, _, _ = household_loader.load_for_queries(
         household_id=household_id, period_id=period_id

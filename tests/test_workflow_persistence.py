@@ -24,7 +24,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test"""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -35,25 +35,29 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test"""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test"""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def period_repo(conn):
+def period_repo(conn: psycopg2.extensions.connection) -> PeriodRepository:
     """Repositorio de períodos con conexión de test"""
     return PeriodRepository(conn)
 
 
 @pytest.fixture
-def wm_with_repos(member_repo, household_repo, period_repo):
+def wm_with_repos(
+    member_repo: MemberRepository,
+    household_repo: HouseholdRepository,
+    period_repo: PeriodRepository,
+) -> WorkflowManager:
     """WorkflowManager vacío con los tres repositorios inyectados"""
     household = Household(
         budget=Budget(),
@@ -72,7 +76,7 @@ def wm_with_repos(member_repo, household_repo, period_repo):
 
 
 @pytest.fixture
-def wm_pre_registration(wm_with_repos):
+def wm_pre_registration(wm_with_repos: WorkflowManager) -> WorkflowManager:
     """WM con período abierto y dos miembros con ingresos"""
     # El período nace aquí, con su fecha de corte
     wm_with_repos.start_new_month(start_date=date(2026, 1, 6))
@@ -85,7 +89,7 @@ def wm_pre_registration(wm_with_repos):
 
 
 @pytest.fixture
-def wm_pre_planning(wm_pre_registration):
+def wm_pre_planning(wm_pre_registration: WorkflowManager) -> WorkflowManager:
     """WM en PLANNING con categorías y presupuesto al 100%, listo para finish_planning"""
     # Finish registration settea categorías standard
     categories = wm_pre_registration.get_active_categories()
@@ -97,7 +101,9 @@ def wm_pre_planning(wm_pre_registration):
 
 
 @pytest.fixture
-def wm_planning_contributions_saved(wm_pre_planning):
+def wm_planning_contributions_saved(
+    wm_pre_planning: WorkflowManager,
+) -> WorkflowManager:
     "WM en PLANNING con contribuciones del período guardadas en BD"
     contributions = wm_pre_planning.get_total_contributions_by_member()
     wm_pre_planning.period_repo.save_agreed_contributions(
@@ -108,7 +114,7 @@ def wm_planning_contributions_saved(wm_pre_planning):
 
 
 @pytest.fixture
-def wm_pre_month(wm_pre_planning):
+def wm_pre_month(wm_pre_planning: WorkflowManager) -> WorkflowManager:
     """WM en MONTH tras finish_planning, listo para finish_month"""
     wm_pre_planning.finish_planning()
 
@@ -116,7 +122,7 @@ def wm_pre_month(wm_pre_planning):
 
 
 @pytest.fixture
-def wm_finish_month(wm_pre_month):
+def wm_finish_month(wm_pre_month: WorkflowManager) -> WorkflowManager:
     """WM en CLOSED tras finish_month, listo para start_new_month"""
     wm_pre_month.finish_month()
 
@@ -128,7 +134,9 @@ def wm_finish_month(wm_pre_month):
 # ===============================================
 
 
-def test_opening_period_persists_household(wm_pre_registration):
+def test_opening_period_persists_household(
+    wm_pre_registration: WorkflowManager,
+) -> None:
     """Abrir el período crea el hogar en BD"""
     household_id = wm_pre_registration.household_id
 
@@ -137,7 +145,7 @@ def test_opening_period_persists_household(wm_pre_registration):
     assert household_id in ids
 
 
-def test_opening_period_persists_members(wm_pre_registration):
+def test_opening_period_persists_members(wm_pre_registration: WorkflowManager) -> None:
     """Registrar miembros los guarda en BD"""
     household_id = wm_pre_registration.household_id
 
@@ -150,7 +158,7 @@ def test_opening_period_persists_members(wm_pre_registration):
     assert "heri" in member_names
 
 
-def test_opening_period_persists_incomes(wm_pre_registration):
+def test_opening_period_persists_incomes(wm_pre_registration: WorkflowManager) -> None:
     """Los ingresos de cada miembro se guardan en BD"""
     household_id = wm_pre_registration.household_id
 
@@ -168,7 +176,9 @@ def test_opening_period_persists_incomes(wm_pre_registration):
 # ===============================================
 
 
-def test_period_status_is_planning_on_open(wm_pre_registration):
+def test_period_status_is_planning_on_open(
+    wm_pre_registration: WorkflowManager,
+) -> None:
     """El período nace con status=PLANNING en BD"""
     household_id = wm_pre_registration.household_id
 
@@ -177,7 +187,9 @@ def test_period_status_is_planning_on_open(wm_pre_registration):
     assert status == Phase.PLANNING
 
 
-def test_period_status_is_month_after_planning(wm_pre_planning):
+def test_period_status_is_month_after_planning(
+    wm_pre_planning: WorkflowManager,
+) -> None:
     """finish_planning actualiza el período a status=MONTH en BD"""
     wm_pre_planning.finish_planning()
 
@@ -186,7 +198,7 @@ def test_period_status_is_month_after_planning(wm_pre_planning):
     assert status == Phase.MONTH
 
 
-def test_period_status_is_closing_after_month(wm_pre_month):
+def test_period_status_is_closing_after_month(wm_pre_month: WorkflowManager) -> None:
     """finish_month actualiza el período a status=CLOSING en BD"""
     wm_pre_month.finish_month()
 
@@ -195,7 +207,9 @@ def test_period_status_is_closing_after_month(wm_pre_month):
     assert status == Phase.CLOSING
 
 
-def test_period_unique_constraint(wm_pre_registration, period_repo):
+def test_period_unique_constraint(
+    wm_pre_registration: WorkflowManager, period_repo: PeriodRepository
+) -> None:
     """No pueden existir dos períodos con el mismo (household_id, start_date)"""
     household_id = wm_pre_registration.household_id
 
@@ -209,7 +223,9 @@ def test_period_unique_constraint(wm_pre_registration, period_repo):
         period_repo.save(duplicate)
 
 
-def test_get_agreed_contributions_returns_saved_data(wm_planning_contributions_saved):
+def test_get_agreed_contributions_returns_saved_data(
+    wm_planning_contributions_saved: WorkflowManager,
+) -> None:
     "get_agreed_contributions devuelve los datos guardados con save_agreed_contributions"
     period_id = wm_planning_contributions_saved.period_id
 
@@ -225,8 +241,8 @@ def test_get_agreed_contributions_returns_saved_data(wm_planning_contributions_s
 
 
 def test_save_agreed_contributions_overwrites_existing(
-    wm_planning_contributions_saved,
-):
+    wm_planning_contributions_saved: WorkflowManager,
+) -> None:
     "save_agreed_contributions sobreescribe importes existentes para el mismo período"
     period_id = wm_planning_contributions_saved.period_id
     old_contributions = (
@@ -256,7 +272,9 @@ def test_save_agreed_contributions_overwrites_existing(
 # ===============================================
 
 
-def test_assign_distribution_method_persists_method(wm_pre_registration):
+def test_assign_distribution_method_persists_method(
+    wm_pre_registration: WorkflowManager,
+) -> None:
     """assign_distribution_method persiste method"""
     household_id = wm_pre_registration.household_id
     wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
@@ -272,7 +290,9 @@ def test_assign_distribution_method_persists_method(wm_pre_registration):
 # ===============================================
 
 
-def test_start_new_month_permite_avanzar_a_planning(wm_finish_month):
+def test_start_new_month_permite_avanzar_a_planning(
+    wm_finish_month: WorkflowManager,
+) -> None:
     wm_finish_month.start_new_month()
 
     wm_finish_month.set_member_incomes(name="heri", amount_euros=1652)

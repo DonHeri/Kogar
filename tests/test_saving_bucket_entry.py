@@ -9,29 +9,33 @@ from src.models.saving_bucket_entry import SavingBucketEntry
 # FIXTURES
 # ====================================================
 @pytest.fixture
-def positive_entry():
+def positive_entry() -> SavingBucketEntry:
     return SavingBucketEntry(member_name="default", amount_cents=30000)
 
 
 @pytest.fixture
-def negative_entry():
+def negative_entry() -> SavingBucketEntry:
     return SavingBucketEntry(member_name="default", amount_cents=-20000)
 
 
 # ====================================================
 # TESTS: Entry creation
 # ====================================================
-def test_entry_with_positive_amount_stores_fields_correctly(positive_entry):
+def test_entry_with_positive_amount_stores_fields_correctly(
+    positive_entry: SavingBucketEntry,
+) -> None:
     assert positive_entry.amount_cents == 30000
     assert positive_entry.member_name == "default"
 
 
-def test_entry_with_negative_amount_stores_fields_correctly(negative_entry):
+def test_entry_with_negative_amount_stores_fields_correctly(
+    negative_entry: SavingBucketEntry,
+) -> None:
     assert negative_entry.amount_cents == -20000
     assert negative_entry.member_name == "default"
 
 
-def test_entry_date_defaults_to_creation_time():
+def test_entry_date_defaults_to_creation_time() -> None:
     before_first = datetime.now()
     first = SavingBucketEntry(amount_cents=15000, member_name="default")
     after_first = datetime.now()
@@ -42,13 +46,13 @@ def test_entry_date_defaults_to_creation_time():
 # ====================================================
 # Validaciones (__post_init__)
 # ====================================================
-def test_zero_amount_entry_raises_error():
+def test_zero_amount_entry_raises_error() -> None:
 
     with pytest.raises(ValueError, match="amount_cents no puede ser 0"):
         zero_entry = SavingBucketEntry(amount_cents=0, member_name="default")
 
 
-def test_date_cant_be_future():
+def test_date_cant_be_future() -> None:
     specific = datetime(2027, 3, 15, 14, 30)
     with pytest.raises(ValueError, match="La fecha no puede ser futura"):
         zero_entry = SavingBucketEntry(
@@ -56,7 +60,7 @@ def test_date_cant_be_future():
         )
 
 
-def test_name_cant_be_empty():
+def test_name_cant_be_empty() -> None:
 
     with pytest.raises(ValueError, match="Nombre no puede estar vacío"):
         empty_name = SavingBucketEntry(amount_cents=15000, member_name="")

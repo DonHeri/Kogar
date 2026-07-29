@@ -17,7 +17,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test"""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -28,25 +28,25 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test"""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test"""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def household_id(household_repo):
+def household_id(household_repo: HouseholdRepository) -> int:
     """Hogar creado listo para usar en tests de miembros"""
     return household_repo.save()
 
 
 @pytest.fixture
-def member():
+def member() -> Member:
     """Miembro base para tests"""
     m = Member("Amanda")
     m.monthly_income = 133958
@@ -54,7 +54,7 @@ def member():
 
 
 @pytest.fixture
-def member_2():
+def member_2() -> Member:
     """Miembro base para tests"""
     m = Member("Heri")
     m.monthly_income = 143558
@@ -62,7 +62,7 @@ def member_2():
 
 
 @pytest.fixture
-def member_id(household_id, member, member_repo):
+def member_id(household_id: int, member: Member, member_repo: MemberRepository) -> int:
     """Miembro creado en base de datos para test"""
     member_id = member_repo.save(member=member, household_id=household_id)
     return member_id
@@ -73,7 +73,7 @@ def member_id(household_id, member, member_repo):
 # ===============================================
 
 
-def test_save_returns_correct_id(household_repo):
+def test_save_returns_correct_id(household_repo: HouseholdRepository) -> None:
     """save devuelve un id entero mayor que cero"""
     household_id = household_repo.save()
 
@@ -81,14 +81,16 @@ def test_save_returns_correct_id(household_repo):
     assert household_id > 0
 
 
-def test_del_household_removes_household(household_repo):
+def test_del_household_removes_household(household_repo: HouseholdRepository) -> None:
     household_id = household_repo.save()
     household_repo.del_household(household_id=household_id)
 
     assert household_repo.find_by_id(household_id) is None
 
 
-def test_list_households_returns_all_households(household_repo):
+def test_list_households_returns_all_households(
+    household_repo: HouseholdRepository,
+) -> None:
     household_id = household_repo.save()
     households = household_repo.list_households()
     ids = [household["id"] for household in households]
@@ -96,7 +98,9 @@ def test_list_households_returns_all_households(household_repo):
     assert household_id in ids
 
 
-def test_get_household_returns_correct_data(household_repo, household_id):
+def test_get_household_returns_correct_data(
+    household_repo: HouseholdRepository, household_id: int
+) -> None:
     household = household_repo.find_by_id(household_id)
     assert household["status"] is True
     assert household["id"] == household_id
@@ -107,7 +111,9 @@ def test_get_household_returns_correct_data(household_repo, household_id):
 # ===============================================
 
 
-def test_save_persist_data(member_repo, household_id, member):
+def test_save_persist_data(
+    member_repo: MemberRepository, household_id: int, member: Member
+) -> None:
     """save persiste nombre e ingresos correctamente"""
     member_repo.save(member=member, household_id=household_id)
     members = member_repo.list_members(household_id=household_id)
@@ -116,12 +122,16 @@ def test_save_persist_data(member_repo, household_id, member):
     assert members[0]["monthly_income"] == 133958
 
 
-def test_del_member_removes_member_from_db(member_id, member_repo):
+def test_del_member_removes_member_from_db(
+    member_id: int, member_repo: MemberRepository
+) -> None:
     member_repo.del_member(member_id=member_id)
     assert member_repo.get_member_by_id(member_id=member_id) is None
 
 
-def test_get_member_by_id_returns_correct_data(member_id, member_repo):
+def test_get_member_by_id_returns_correct_data(
+    member_id: int, member_repo: MemberRepository
+) -> None:
     member = member_repo.get_member_by_id(member_id=member_id)
 
     assert member["full_name"] == "amanda"
@@ -129,8 +139,8 @@ def test_get_member_by_id_returns_correct_data(member_id, member_repo):
 
 
 def test_list_members_returns_all_members_for_household(
-    member_repo, household_id, member, member_2
-):
+    member_repo: MemberRepository, household_id: int, member: Member, member_2: Member
+) -> None:
 
     member1_id = member_repo.save(member=member, household_id=household_id)
     member2_id = member_repo.save(member_2, household_id=household_id)
@@ -142,7 +152,9 @@ def test_list_members_returns_all_members_for_household(
     assert member2_id in ids
 
 
-def test_rename_member_changes_full_name(member_id, member_repo):
+def test_rename_member_changes_full_name(
+    member_id: int, member_repo: MemberRepository
+) -> None:
     new_name = "Maria Elena"
     member_repo.rename(member_id=member_id, new_name=new_name)
 
@@ -150,7 +162,9 @@ def test_rename_member_changes_full_name(member_id, member_repo):
     assert member["full_name"] == "maria elena"
 
 
-def test_change_incomes_updates_income(member_id, member_repo):
+def test_change_incomes_updates_income(
+    member_id: int, member_repo: MemberRepository
+) -> None:
     new_incomes = 178538
     member_repo.change_incomes(member_id=member_id, new_incomes_cents=new_incomes)
 
@@ -165,13 +179,13 @@ def test_change_incomes_updates_income(member_id, member_repo):
 
 
 @pytest.fixture
-def period_repo(conn):
+def period_repo(conn: psycopg2.extensions.connection) -> PeriodRepository:
     """Repositorio de períodos con conexión de test"""
     return PeriodRepository(conn)
 
 
 @pytest.fixture
-def period_id(period_repo, household_id):
+def period_id(period_repo: PeriodRepository, household_id: int) -> int:
     """Período creado en BD, listo para colgar pagos de deuda"""
     period = Period(
         household_id=household_id,
@@ -182,7 +196,7 @@ def period_id(period_repo, household_id):
 
 
 @pytest.fixture
-def debt_repo(conn):
+def debt_repo(conn: psycopg2.extensions.connection) -> DebtEntryRepository:
     """Repositorio de deuda con conexión de test"""
     return DebtEntryRepository(conn)
 
@@ -192,7 +206,9 @@ def debt_repo(conn):
 # ===============================================
 
 
-def test_debt_save_returns_correct_id(debt_repo, period_id, member_id):
+def test_debt_save_returns_correct_id(
+    debt_repo: DebtEntryRepository, period_id: int, member_id: int
+) -> None:
     """save devuelve un id entero mayor que cero"""
     entry_id = debt_repo.save(
         period_id=period_id,
@@ -205,7 +221,9 @@ def test_debt_save_returns_correct_id(debt_repo, period_id, member_id):
     assert entry_id > 0
 
 
-def test_debt_find_by_period_returns_saved_payment(debt_repo, period_id, member_id):
+def test_debt_find_by_period_returns_saved_payment(
+    debt_repo: DebtEntryRepository, period_id: int, member_id: int
+) -> None:
     """find_by_period devuelve el pago guardado con sus datos"""
     debt_repo.save(
         period_id=period_id,

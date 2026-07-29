@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from uuid import UUID
 
 import pytest
 import psycopg2
@@ -21,7 +22,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test."""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -32,43 +33,45 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test."""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test."""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def period_repo(conn):
+def period_repo(conn: psycopg2.extensions.connection) -> PeriodRepository:
     """Repositorio de períodos con conexión de test."""
     return PeriodRepository(conn)
 
 
 @pytest.fixture
-def bucket_repo(conn):
+def bucket_repo(conn: psycopg2.extensions.connection) -> SavingBucketRepository:
     """Repositorio de saving_buckets con conexión de test."""
     return SavingBucketRepository(conn)
 
 
 @pytest.fixture
-def bucket_entry_repo(conn):
+def bucket_entry_repo(
+    conn: psycopg2.extensions.connection,
+) -> SavingBucketEntryRepository:
     """Repositorio de bucket_entries con conexión de test."""
     return SavingBucketEntryRepository(conn)
 
 
 @pytest.fixture
-def household_id(household_repo):
+def household_id(household_repo: HouseholdRepository) -> int:
     """Hogar creado en BD listo para usar en tests."""
     return household_repo.save()
 
 
 @pytest.fixture
-def member_id(household_id, member_repo):
+def member_id(household_id: int, member_repo: MemberRepository) -> int:
     """Miembro creado en BD, único owner del bucket personal."""
     member = Member("Heri")
     member.add_incomes(135400)
@@ -76,7 +79,7 @@ def member_id(household_id, member_repo):
 
 
 @pytest.fixture
-def period_id(household_id, period_repo):
+def period_id(household_id: int, period_repo: PeriodRepository) -> int:
     """Período creado en BD listo para asociar movimientos del bucket."""
     period = Period(
         household_id=household_id,
@@ -87,7 +90,9 @@ def period_id(household_id, period_repo):
 
 
 @pytest.fixture
-def bucket_id(bucket_repo, household_id, member_id):
+def bucket_id(
+    bucket_repo: SavingBucketRepository, household_id: int, member_id: int
+) -> UUID:
     """Bucket personal persistido, listo para colgar movimientos."""
     bucket = SavingBucket(
         saving_bucket_name="colchón",
@@ -104,7 +109,12 @@ def bucket_id(bucket_repo, household_id, member_id):
 # ===============================================
 
 
-def test_save_returns_valid_id(bucket_entry_repo, bucket_id, period_id, member_id):
+def test_save_returns_valid_id(
+    bucket_entry_repo: SavingBucketEntryRepository,
+    bucket_id: UUID,
+    period_id: int,
+    member_id: int,
+) -> None:
     """save devuelve un id entero positivo tras insertar el movimiento."""
     entry_id = bucket_entry_repo.save(
         bucket_id=bucket_id,
@@ -119,8 +129,11 @@ def test_save_returns_valid_id(bucket_entry_repo, bucket_id, period_id, member_i
 
 
 def test_save_persists_negative_amount_for_withdrawal(
-    bucket_entry_repo, bucket_id, period_id, member_id
-):
+    bucket_entry_repo: SavingBucketEntryRepository,
+    bucket_id: UUID,
+    period_id: int,
+    member_id: int,
+) -> None:
     """save persiste el monto negativo tal cual se le pasa (el signo lo decide el caller)."""
     bucket_entry_repo.save(
         bucket_id=bucket_id,
@@ -141,8 +154,11 @@ def test_save_persists_negative_amount_for_withdrawal(
 
 
 def test_find_by_period_returns_saved_entry(
-    bucket_entry_repo, bucket_id, period_id, member_id
-):
+    bucket_entry_repo: SavingBucketEntryRepository,
+    bucket_id: UUID,
+    period_id: int,
+    member_id: int,
+) -> None:
     """find_by_period devuelve el movimiento guardado con los datos correctos."""
     bucket_entry_repo.save(
         bucket_id=bucket_id,

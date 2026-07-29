@@ -6,7 +6,7 @@ from src.models.constants import MetodoReparto, Phase
 # ====================================================
 
 
-def test_metodo_reparto_get_names_returns_all_names():
+def test_metodo_reparto_get_names_returns_all_names() -> None:
     """Test: get_names() retorna los nombres de todos los métodos de reparto"""
     names = MetodoReparto.get_names()
 
@@ -16,7 +16,7 @@ def test_metodo_reparto_get_names_returns_all_names():
     assert len(names) == 3
 
 
-def test_metodo_reparto_get_values_returns_all_values():
+def test_metodo_reparto_get_values_returns_all_values() -> None:
     """Test: get_values() retorna los valores de todos los métodos de reparto"""
     values = MetodoReparto.get_values()
 
@@ -26,7 +26,7 @@ def test_metodo_reparto_get_values_returns_all_values():
     assert len(values) == 3
 
 
-def test_metodo_reparto_enum_members_exist():
+def test_metodo_reparto_enum_members_exist() -> None:
     """Test: Los miembros del enum existen y tienen valores correctos"""
     assert MetodoReparto.PROPORTIONAL.value == "proportional"
     assert MetodoReparto.EQUAL.value == "equal"
@@ -38,7 +38,7 @@ def test_metodo_reparto_enum_members_exist():
 # ====================================================
 
 
-def test_phase_get_names_returns_all_names():
+def test_phase_get_names_returns_all_names() -> None:
     """Test: get_names() retorna los nombres de todas las fases"""
     names = Phase.get_names()
 
@@ -49,7 +49,7 @@ def test_phase_get_names_returns_all_names():
     assert len(names) == 4
 
 
-def test_phase_get_values_returns_all_values():
+def test_phase_get_values_returns_all_values() -> None:
     """Test: get_values() retorna los valores de todas las fases"""
     values = Phase.get_values()
 
@@ -60,7 +60,7 @@ def test_phase_get_values_returns_all_values():
     assert len(values) == 4
 
 
-def test_phase_enum_members_exist():
+def test_phase_enum_members_exist() -> None:
     """Test: Los miembros del enum existen y tienen valores correctos"""
     assert Phase.REGISTRATION.value == "registration"
     assert Phase.PLANNING.value == "planning"

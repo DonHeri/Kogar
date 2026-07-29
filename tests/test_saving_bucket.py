@@ -11,7 +11,7 @@ from src.models.saving_bucket import SavingBucket
 
 
 @pytest.fixture
-def bucket_personal():
+def bucket_personal() -> SavingBucket:
     return SavingBucket(
         saving_bucket_name="MacBook Pro",
         owners=["heri"],
@@ -20,7 +20,7 @@ def bucket_personal():
 
 
 @pytest.fixture
-def bucket_shared():
+def bucket_shared() -> SavingBucket:
     return SavingBucket(
         saving_bucket_name="Fondo de emergencia",
         owners=["amanda", "heri"],
@@ -30,7 +30,7 @@ def bucket_shared():
 
 
 @pytest.fixture
-def bucket_shared_with_deadline():
+def bucket_shared_with_deadline() -> SavingBucket:
     return SavingBucket(
         saving_bucket_name="Viaje a Japón",
         owners=["amanda", "heri"],
@@ -40,7 +40,7 @@ def bucket_shared_with_deadline():
 
 
 @pytest.fixture
-def bucket_no_goal():
+def bucket_no_goal() -> SavingBucket:
     """Colchón: bucket personal sin meta."""
     return SavingBucket(saving_bucket_name="Colchón", owners=["heri"])
 
@@ -50,7 +50,7 @@ def bucket_no_goal():
 # ====================================================
 
 
-def test_creation_personal_valid(bucket_personal):
+def test_creation_personal_valid(bucket_personal: SavingBucket) -> None:
     assert bucket_personal.bucket_name == "MacBook Pro"
     assert bucket_personal.goal == 220000
     assert bucket_personal.is_shared is False
@@ -60,28 +60,28 @@ def test_creation_personal_valid(bucket_personal):
     assert bucket_personal.description == ""
 
 
-def test_creation_shared_valid(bucket_shared):
+def test_creation_shared_valid(bucket_shared: SavingBucket) -> None:
     assert bucket_shared.bucket_name == "Fondo de emergencia"
     assert bucket_shared.is_shared is True
     assert len(bucket_shared.owners) == 2
     assert bucket_shared.description == "3 meses de gastos fijos cubiertos"
 
 
-def test_creation_without_goal(bucket_no_goal):
+def test_creation_without_goal(bucket_no_goal: SavingBucket) -> None:
     """Un bucket puede no tener meta (colchón/ahorro libre)."""
     assert bucket_no_goal.goal is None
     assert bucket_no_goal.is_shared is False
 
 
-def test_creation_with_deadline(bucket_shared_with_deadline):
+def test_creation_with_deadline(bucket_shared_with_deadline: SavingBucket) -> None:
     assert bucket_shared_with_deadline.deadline == datetime(2027, 4, 23)
 
 
-def test_id_is_uuid(bucket_personal):
+def test_id_is_uuid(bucket_personal: SavingBucket) -> None:
     assert isinstance(bucket_personal.id, UUID)
 
 
-def test_each_bucket_has_unique_id():
+def test_each_bucket_has_unique_id() -> None:
     b1 = SavingBucket("B1", ["heri"], 10000)
     b2 = SavingBucket("B2", ["heri"], 10000)
     assert b1.id != b2.id
@@ -92,28 +92,28 @@ def test_each_bucket_has_unique_id():
 # ====================================================
 
 
-def test_goal_cents_zero_raises():
+def test_goal_cents_zero_raises() -> None:
     with pytest.raises(ValueError):
         SavingBucket("B", ["heri"], 0)
 
 
-def test_goal_cents_negative_raises():
+def test_goal_cents_negative_raises() -> None:
     with pytest.raises(ValueError):
         SavingBucket("B", ["heri"], -100)
 
 
-def test_goal_cents_float_raises():
+def test_goal_cents_float_raises() -> None:
     goal: object = 100.0
     with pytest.raises(TypeError):
         SavingBucket("B", ["heri"], goal)  # type: ignore[arg-type]
 
 
-def test_goal_cents_bool_raises():
+def test_goal_cents_bool_raises() -> None:
     with pytest.raises(TypeError):
         SavingBucket("B", ["heri"], True)
 
 
-def test_empty_name_raises():
+def test_empty_name_raises() -> None:
     with pytest.raises(ValueError):
         SavingBucket("", ["heri"], 10000)
 
@@ -123,40 +123,40 @@ def test_empty_name_raises():
 # ====================================================
 
 
-def test_deposit_increases_balance(bucket_personal):
+def test_deposit_increases_balance(bucket_personal: SavingBucket) -> None:
     bucket_personal.deposit(5000, "heri")
     assert bucket_personal.balance == 5000
 
 
-def test_deposit_accumulates(bucket_personal):
+def test_deposit_accumulates(bucket_personal: SavingBucket) -> None:
     bucket_personal.deposit(3000, "heri")
     bucket_personal.deposit(2000, "heri")
     assert bucket_personal.balance == 5000
 
 
-def test_deposit_shared_by_different_members(bucket_shared):
+def test_deposit_shared_by_different_members(bucket_shared: SavingBucket) -> None:
     bucket_shared.deposit(10000, "amanda")
     bucket_shared.deposit(8000, "heri")
     assert bucket_shared.balance == 18000
 
 
-def test_deposit_with_date(bucket_personal):
+def test_deposit_with_date(bucket_personal: SavingBucket) -> None:
     date = datetime(2026, 3, 1)
     bucket_personal.deposit(5000, "heri", date=date)
     assert bucket_personal._entries[0].date == date
 
 
-def test_deposit_raises_if_member_not_in_bucket(bucket_personal):
+def test_deposit_raises_if_member_not_in_bucket(bucket_personal: SavingBucket) -> None:
     with pytest.raises(ValueError, match="no pertenece"):
         bucket_personal.deposit(5000, "amanda")
 
 
-def test_deposit_invalid_amount_zero_raises(bucket_personal):
+def test_deposit_invalid_amount_zero_raises(bucket_personal: SavingBucket) -> None:
     with pytest.raises(ValueError):
         bucket_personal.deposit(0, "heri")
 
 
-def test_deposit_invalid_amount_negative_raises(bucket_personal):
+def test_deposit_invalid_amount_negative_raises(bucket_personal: SavingBucket) -> None:
     with pytest.raises(ValueError):
         bucket_personal.deposit(-100, "heri")
 
@@ -166,19 +166,23 @@ def test_deposit_invalid_amount_negative_raises(bucket_personal):
 # ====================================================
 
 
-def test_withdraw_decreases_balance(bucket_personal):
+def test_withdraw_decreases_balance(bucket_personal: SavingBucket) -> None:
     bucket_personal.deposit(10000, "heri")
     bucket_personal.withdraw(4000, "heri")
     assert bucket_personal.balance == 6000
 
 
-def test_withdraw_raises_if_insufficient_balance_personal(bucket_personal):
+def test_withdraw_raises_if_insufficient_balance_personal(
+    bucket_personal: SavingBucket,
+) -> None:
     bucket_personal.deposit(3000, "heri")
     with pytest.raises(ValueError, match="Saldo insuficiente"):
         bucket_personal.withdraw(5000, "heri")
 
 
-def test_withdraw_shared_raises_if_member_balance_insufficient(bucket_shared):
+def test_withdraw_shared_raises_if_member_balance_insufficient(
+    bucket_shared: SavingBucket,
+) -> None:
     """En bucket compartido, el retiro se valida contra el saldo individual del miembro"""
     bucket_shared.deposit(10000, "amanda")
     bucket_shared.deposit(2000, "heri")
@@ -186,20 +190,22 @@ def test_withdraw_shared_raises_if_member_balance_insufficient(bucket_shared):
         bucket_shared.withdraw(5000, "heri")
 
 
-def test_withdraw_shared_succeeds_if_member_has_enough(bucket_shared):
+def test_withdraw_shared_succeeds_if_member_has_enough(
+    bucket_shared: SavingBucket,
+) -> None:
     bucket_shared.deposit(10000, "amanda")
     bucket_shared.deposit(8000, "heri")
     bucket_shared.withdraw(5000, "heri")
     assert bucket_shared.balance == 13000
 
 
-def test_withdraw_raises_if_member_not_in_bucket(bucket_personal):
+def test_withdraw_raises_if_member_not_in_bucket(bucket_personal: SavingBucket) -> None:
     bucket_personal.deposit(5000, "heri")
     with pytest.raises(ValueError, match="no pertenece"):
         bucket_personal.withdraw(1000, "amanda")
 
 
-def test_withdraw_with_date(bucket_personal):
+def test_withdraw_with_date(bucket_personal: SavingBucket) -> None:
     date_dep = datetime(2026, 1, 10)
     date_wit = datetime(2026, 2, 5)
     bucket_personal.deposit(10000, "heri", date=date_dep)
@@ -212,12 +218,12 @@ def test_withdraw_with_date(bucket_personal):
 # ====================================================
 
 
-def test_balance_by_member_empty(bucket_shared):
+def test_balance_by_member_empty(bucket_shared: SavingBucket) -> None:
     result = bucket_shared.balance_by_member
     assert result == {"amanda": 0, "heri": 0}
 
 
-def test_balance_by_member_after_deposits(bucket_shared):
+def test_balance_by_member_after_deposits(bucket_shared: SavingBucket) -> None:
     bucket_shared.deposit(10000, "amanda")
     bucket_shared.deposit(5000, "heri")
     result = bucket_shared.balance_by_member
@@ -225,7 +231,7 @@ def test_balance_by_member_after_deposits(bucket_shared):
     assert result["heri"] == 5000
 
 
-def test_balance_by_member_after_withdraw(bucket_shared):
+def test_balance_by_member_after_withdraw(bucket_shared: SavingBucket) -> None:
     bucket_shared.deposit(10000, "amanda")
     bucket_shared.withdraw(3000, "amanda")
     result = bucket_shared.balance_by_member
@@ -238,37 +244,39 @@ def test_balance_by_member_after_withdraw(bucket_shared):
 # ====================================================
 
 
-def test_str_contains_bucket_name(bucket_personal):
+def test_str_contains_bucket_name(bucket_personal: SavingBucket) -> None:
     assert "MacBook Pro" in str(bucket_personal)
 
 
-def test_str_contains_type_personal(bucket_personal):
+def test_str_contains_type_personal(bucket_personal: SavingBucket) -> None:
     assert "Personal" in str(bucket_personal)
 
 
-def test_str_contains_type_shared(bucket_shared):
+def test_str_contains_type_shared(bucket_shared: SavingBucket) -> None:
     assert "Compartido" in str(bucket_shared)
 
 
-def test_str_contains_description_when_present(bucket_shared):
+def test_str_contains_description_when_present(bucket_shared: SavingBucket) -> None:
     assert "meses de gastos fijos" in str(bucket_shared)
 
 
-def test_str_no_description_when_absent(bucket_personal):
+def test_str_no_description_when_absent(bucket_personal: SavingBucket) -> None:
     output = str(bucket_personal)
     assert "Desc." not in output
 
 
-def test_str_contains_deadline_when_present(bucket_shared_with_deadline):
+def test_str_contains_deadline_when_present(
+    bucket_shared_with_deadline: SavingBucket,
+) -> None:
     assert "23/04/2027" in str(bucket_shared_with_deadline)
 
 
-def test_str_no_deadline_when_absent(bucket_personal):
+def test_str_no_deadline_when_absent(bucket_personal: SavingBucket) -> None:
     output = str(bucket_personal)
     assert "Deadline" not in output
 
 
-def test_str_shows_progress(bucket_personal):
+def test_str_shows_progress(bucket_personal: SavingBucket) -> None:
     bucket_personal.deposit(110000, "heri")
     output = str(bucket_personal)
     assert "1100.00" in output
@@ -276,7 +284,7 @@ def test_str_shows_progress(bucket_personal):
     assert "50%" in output
 
 
-def test_str_no_goal_shows_sin_meta(bucket_no_goal):
+def test_str_no_goal_shows_sin_meta(bucket_no_goal: SavingBucket) -> None:
     bucket_no_goal.deposit(5000, "heri")
     output = str(bucket_no_goal)
     assert "sin meta" in output

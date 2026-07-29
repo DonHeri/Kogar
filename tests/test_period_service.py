@@ -21,7 +21,7 @@ from src.workflow.period_service import PeriodService
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test"""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -32,7 +32,7 @@ def conn():
 
 
 @pytest.fixture
-def repos(conn):
+def repos(conn: psycopg2.extensions.connection) -> dict[str, object]:
     return {
         "household": HouseholdRepository(conn),
         "member": MemberRepository(conn),
@@ -43,7 +43,7 @@ def repos(conn):
 
 
 @pytest.fixture
-def loader(repos):
+def loader(repos: dict[str, object]) -> HouseholdLoader:
     return HouseholdLoader(
         household_repo=repos["household"],
         member_repo=repos["member"],
@@ -54,24 +54,30 @@ def loader(repos):
 
 
 @pytest.fixture
-def household_service(repos, loader):
+def household_service(
+    repos: dict[str, object], loader: HouseholdLoader
+) -> HouseholdService:
     return HouseholdService(
         repos["household"], repos["member"], repos["period"], loader
     )
 
 
 @pytest.fixture
-def period_service(repos, loader):
+def period_service(repos: dict[str, object], loader: HouseholdLoader) -> PeriodService:
     return PeriodService(loader, repos["period"], repos["budget_categories"])
 
 
 @pytest.fixture
-def household_id(household_service):
+def household_id(household_service: HouseholdService) -> int:
     return household_service.create_household()
 
 
 @pytest.fixture
-def period_in_planning(period_service, household_service, household_id):
+def period_in_planning(
+    period_service: PeriodService,
+    household_service: HouseholdService,
+    household_id: int,
+) -> int:
     """Período abierto el 28-ene-2026 con dos miembros e ingresos 6000/4000."""
     period_id = period_service.start_new_month(
         household_id=household_id, start_date=date(2026, 1, 28)
@@ -94,8 +100,8 @@ def period_in_planning(period_service, household_service, household_id):
 
 
 def test_first_period_opens_without_a_previous_one(
-    period_service, repos, household_id
-):
+    period_service: PeriodService, repos: dict[str, object], household_id: int
+) -> None:
     """El primer período de un hogar se abre sin nada anterior que consultar"""
     period_id = period_service.start_new_month(
         household_id=household_id, start_date=date(2026, 1, 28)
@@ -107,7 +113,9 @@ def test_first_period_opens_without_a_previous_one(
     assert period.start_date == date(2026, 1, 28)
 
 
-def test_cannot_open_a_period_while_another_is_open(period_service, household_id):
+def test_cannot_open_a_period_while_another_is_open(
+    period_service: PeriodService, household_id: int
+) -> None:
     """Con un período en curso no se puede abrir otro"""
     period_service.start_new_month(household_id=household_id)
 
@@ -116,8 +124,8 @@ def test_cannot_open_a_period_while_another_is_open(period_service, household_id
 
 
 def test_new_period_starts_today_when_no_date_given(
-    period_service, repos, household_id
-):
+    period_service: PeriodService, repos: dict[str, object], household_id: int
+) -> None:
     """Sin fecha, empieza hoy: la fecha no se hereda del período anterior.
 
     Si el usuario cierra en marzo y no vuelve hasta mayo, heredar abriría un período
@@ -134,8 +142,8 @@ def test_new_period_starts_today_when_no_date_given(
 
 
 def test_new_period_cannot_start_before_the_previous_one_ends(
-    period_service, household_id
-):
+    period_service: PeriodService, household_id: int
+) -> None:
     """Un hueco es legítimo; un solape no: el movimiento contaría en los dos"""
     first = period_service.start_new_month(
         household_id=household_id, start_date=date(2026, 1, 28)
@@ -153,7 +161,9 @@ def test_new_period_cannot_start_before_the_previous_one_ends(
 # ===============================================
 
 
-def test_finish_month_uses_the_given_cut_off_date(period_service, repos, household_id):
+def test_finish_month_uses_the_given_cut_off_date(
+    period_service: PeriodService, repos: dict[str, object], household_id: int
+) -> None:
     """La fecha de corte la decide el usuario, no el día en que pulsa el botón"""
     period_id = period_service.start_new_month(
         household_id=household_id, start_date=date(2026, 1, 28)
@@ -167,8 +177,8 @@ def test_finish_month_uses_the_given_cut_off_date(period_service, repos, househo
 
 
 def test_finish_month_closes_a_period_that_was_never_used(
-    period_service, repos, household_id
-):
+    period_service: PeriodService, repos: dict[str, object], household_id: int
+) -> None:
     """Cerrar un período que no llegó a MONTH es legítimo, no excepcional"""
     period_id = period_service.start_new_month(household_id=household_id)
 
@@ -177,7 +187,9 @@ def test_finish_month_closes_a_period_that_was_never_used(
     assert repos["period"].find_by_id(period_id).status == Phase.CLOSING
 
 
-def test_cannot_close_a_period_twice(period_service, household_id):
+def test_cannot_close_a_period_twice(
+    period_service: PeriodService, household_id: int
+) -> None:
     """Un período cerrado es inmutable: no se le puede reescribir el fin"""
     period_id = period_service.start_new_month(household_id=household_id)
     period_service.finish_month(period_id=period_id, end_date=date(2026, 2, 28))
@@ -192,8 +204,8 @@ def test_cannot_close_a_period_twice(period_service, household_id):
 
 
 def test_finish_planning_saves_the_agreement_and_advances(
-    period_service, repos, period_in_planning
-):
+    period_service: PeriodService, repos: dict[str, object], period_in_planning: int
+) -> None:
     """Confirmar el plan guarda las contribuciones acordadas y pasa a MONTH"""
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
@@ -208,8 +220,8 @@ def test_finish_planning_saves_the_agreement_and_advances(
 
 
 def test_finish_planning_does_not_duplicate_categories(
-    period_service, repos, period_in_planning
-):
+    period_service: PeriodService, repos: dict[str, object], period_in_planning: int
+) -> None:
     """Las categorías ya se guardaron al crearlas: confirmar el plan no las reescribe"""
     before = len(repos["budget_categories"].find_by_period(period_in_planning))
     period_service.set_planned_amount(
@@ -222,13 +234,17 @@ def test_finish_planning_does_not_duplicate_categories(
     assert after == before
 
 
-def test_finish_planning_requires_a_budget(period_service, period_in_planning):
+def test_finish_planning_requires_a_budget(
+    period_service: PeriodService, period_in_planning: int
+) -> None:
     """Sin presupuesto asignado no se puede confirmar el plan"""
     with pytest.raises(ValueError, match="presupuesto"):
         period_service.finish_planning(period_id=period_in_planning)
 
 
-def test_cannot_plan_a_period_already_in_month(period_service, period_in_planning):
+def test_cannot_plan_a_period_already_in_month(
+    period_service: PeriodService, period_in_planning: int
+) -> None:
     """Con el mes en marcha, el presupuesto ya no se toca"""
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
@@ -247,8 +263,11 @@ def test_cannot_plan_a_period_already_in_month(period_service, period_in_plannin
 
 
 def test_new_period_carries_over_the_budget(
-    period_service, repos, household_id, period_in_planning
-):
+    period_service: PeriodService,
+    repos: dict[str, object],
+    household_id: int,
+    period_in_planning: int,
+) -> None:
     """El período nuevo hereda categorías y presupuesto como punto de partida"""
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
@@ -270,8 +289,11 @@ def test_new_period_carries_over_the_budget(
 
 
 def test_carry_over_can_be_turned_off(
-    period_service, repos, household_id, period_in_planning
-):
+    period_service: PeriodService,
+    repos: dict[str, object],
+    household_id: int,
+    period_in_planning: int,
+) -> None:
     """Arrastrar es un default útil, no una imposición"""
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
@@ -289,8 +311,11 @@ def test_carry_over_can_be_turned_off(
 
 
 def test_carry_over_keeps_the_distribution_method(
-    period_service, repos, household_id, period_in_planning
-):
+    period_service: PeriodService,
+    repos: dict[str, object],
+    household_id: int,
+    period_in_planning: int,
+) -> None:
     """El método de reparto también se arrastra"""
     period_service.set_distribution_method(
         method=MetodoReparto.EQUAL, period_id=period_in_planning
@@ -311,8 +336,11 @@ def test_carry_over_keeps_the_distribution_method(
 
 
 def test_carry_over_does_not_bring_the_previous_agreement(
-    period_service, repos, household_id, period_in_planning
-):
+    period_service: PeriodService,
+    repos: dict[str, object],
+    household_id: int,
+    period_in_planning: int,
+) -> None:
     """Se arrastra la configuración, no lo acordado: el nuevo plan está por confirmar"""
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
@@ -334,25 +362,27 @@ def test_carry_over_does_not_bring_the_previous_agreement(
 # ===============================================
 
 
-def test_phase_order_follows_the_cycle():
+def test_phase_order_follows_the_cycle() -> None:
     """El ciclo vivo es PLANNING -> MONTH -> CLOSING"""
     assert Phase.PLANNING.order < Phase.MONTH.order < Phase.CLOSING.order
 
 
-def test_registration_is_outside_the_cycle():
+def test_registration_is_outside_the_cycle() -> None:
     """REGISTRATION quedó en desuso: no forma parte del ciclo"""
     assert Phase.REGISTRATION not in Phase.cycle()
     assert Phase.REGISTRATION.order == -1
 
 
-def test_phase_accessible_allows_current_and_past(period_service):
+def test_phase_accessible_allows_current_and_past(
+    period_service: PeriodService,
+) -> None:
     """Una consulta de PLANNING sigue disponible con el mes en marcha"""
     period_service.validate_phase_accessible(
         required_phase=Phase.PLANNING, current_phase=Phase.MONTH
     )
 
 
-def test_phase_accessible_rejects_future_phases(period_service):
+def test_phase_accessible_rejects_future_phases(period_service: PeriodService) -> None:
     """Lo que aún no ha ocurrido no se puede consultar"""
     with pytest.raises(ValueError, match="month o posterior"):
         period_service.validate_phase_accessible(

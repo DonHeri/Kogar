@@ -21,7 +21,7 @@ from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 @pytest.fixture
-def conn():
+def conn() -> psycopg2.extensions.connection:
     """Conexión directa sin commit — rollback automático al finalizar cada test."""
     connection = psycopg2.connect(
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
@@ -32,37 +32,37 @@ def conn():
 
 
 @pytest.fixture
-def household_repo(conn):
+def household_repo(conn: psycopg2.extensions.connection) -> HouseholdRepository:
     """Repositorio de hogares con conexión de test."""
     return HouseholdRepository(conn)
 
 
 @pytest.fixture
-def member_repo(conn):
+def member_repo(conn: psycopg2.extensions.connection) -> MemberRepository:
     """Repositorio de miembros con conexión de test."""
     return MemberRepository(conn)
 
 
 @pytest.fixture
-def period_repo(conn):
+def period_repo(conn: psycopg2.extensions.connection) -> PeriodRepository:
     """Repositorio de períodos con conexión de test."""
     return PeriodRepository(conn)
 
 
 @pytest.fixture
-def expense_repo(conn):
+def expense_repo(conn: psycopg2.extensions.connection) -> ExpenseRepository:
     """Repositorio de gastos con conexión de test."""
     return ExpenseRepository(conn)
 
 
 @pytest.fixture
-def household_id(household_repo):
+def household_id(household_repo: HouseholdRepository) -> int:
     """Hogar creado en BD listo para usar en tests."""
     return household_repo.save()
 
 
 @pytest.fixture
-def member_id_heri(household_id, member_repo):
+def member_id_heri(household_id: int, member_repo: MemberRepository) -> int:
     """Miembro Heri creado en BD."""
     member = Member("Heri")
     member.add_incomes(135400)
@@ -70,7 +70,7 @@ def member_id_heri(household_id, member_repo):
 
 
 @pytest.fixture
-def member_id_amanda(household_id, member_repo):
+def member_id_amanda(household_id: int, member_repo: MemberRepository) -> int:
     """Miembro Amanda creada en BD."""
     member = Member("Amanda")
     member.add_incomes(146700)
@@ -78,7 +78,7 @@ def member_id_amanda(household_id, member_repo):
 
 
 @pytest.fixture
-def period_id(household_id, period_repo):
+def period_id(household_id: int, period_repo: PeriodRepository) -> int:
     """Período creado en BD listo para asociar gastos."""
     period = Period(
         household_id=household_id,
@@ -90,13 +90,15 @@ def period_id(household_id, period_repo):
 
 
 @pytest.fixture
-def member_ids(member_id_heri, member_id_amanda):
+def member_ids(member_id_heri: int, member_id_amanda: int) -> dict[str, int]:
     """Dict {nombre_normalizado: id_bd} con los dos miembros del test."""
     return {"heri": member_id_heri, "amanda": member_id_amanda}
 
 
 @pytest.fixture
-def sample_expense_id(expense_repo, member_ids, period_id) -> int:
+def sample_expense_id(
+    expense_repo: ExpenseRepository, member_ids: dict[str, int], period_id: int
+) -> int:
     """Gasto compartido (heri + amanda) guardado en BD. Devuelve su id."""
     expense = Expense(
         member="heri",
@@ -104,7 +106,9 @@ def sample_expense_id(expense_repo, member_ids, period_id) -> int:
         category=make_category("fijos", is_shared=True),
         participants=["heri", "amanda"],
     )
-    return expense_repo.save(expense=expense, member_ids=member_ids, period_id=period_id)
+    return expense_repo.save(
+        expense=expense, member_ids=member_ids, period_id=period_id
+    )
 
 
 # ===============================================
@@ -112,7 +116,9 @@ def sample_expense_id(expense_repo, member_ids, period_id) -> int:
 # ===============================================
 
 
-def test_save_returns_valid_id(expense_repo, member_ids, period_id):
+def test_save_returns_valid_id(
+    expense_repo: ExpenseRepository, member_ids: dict[str, int], period_id: int
+) -> None:
     """save devuelve un entero positivo tras insertar el gasto."""
     expense = Expense(
         member="heri",
@@ -133,8 +139,11 @@ def test_save_returns_valid_id(expense_repo, member_ids, period_id):
 
 
 def test_find_by_period_returns_saved_expense(
-    sample_expense_id, expense_repo, period_id, member_id_heri
-):
+    sample_expense_id: int,
+    expense_repo: ExpenseRepository,
+    period_id: int,
+    member_id_heri: int,
+) -> None:
     """find_by_period devuelve el gasto guardado con los datos correctos."""
     expense = expense_repo.find_by_period(period_id=period_id)[0]
 
@@ -149,8 +158,11 @@ def test_find_by_period_returns_saved_expense(
 
 
 def test_find_with_participants_returns_participant_names(
-    sample_expense_id, expense_repo, period_id, member_id_heri
-):
+    sample_expense_id: int,
+    expense_repo: ExpenseRepository,
+    period_id: int,
+    member_id_heri: int,
+) -> None:
     """find_with_participants devuelve el gasto con la lista de participantes."""
     expense = expense_repo.find_with_participants(period_id)[0]
 
