@@ -184,6 +184,7 @@ class WorkflowManager:
         owner: str,
         installment_euros: float,
         start_date=None,
+        description: str = "",
     ) -> UUID:
         """Declara una deuda personal (PLANNING+). Convierte euros→céntimos en el borde."""
         self.validate_phase_accessible(Phase.PLANNING)
@@ -194,6 +195,7 @@ class WorkflowManager:
             owner=owner,
             installment_cents=to_cents(installment_euros),
             start_date=start_date,
+            description=description.strip(),
         )
         return self.household.add_debt_bucket(bucket)
 

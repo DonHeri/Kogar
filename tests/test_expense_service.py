@@ -16,6 +16,10 @@ from src.storage.expense_repository import ExpenseRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
+from src.storage.debt_bucket_repository import DebtBucketRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
+from src.storage.saving_bucket_repository import SavingBucketRepository
+from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.workflow.household_loader import HouseholdLoader
 from src.workflow.expense_service import ExpenseService
 from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
@@ -69,12 +73,42 @@ def budget_categories_repo(
 
 
 @pytest.fixture
+def debt_bucket_repo(conn: psycopg2.extensions.connection) -> DebtBucketRepository:
+    """Repositorio de debt_buckets con conexión de test."""
+    return DebtBucketRepository(conn)
+
+
+@pytest.fixture
+def debt_entry_repo(conn: psycopg2.extensions.connection) -> DebtEntryRepository:
+    """Repositorio de debt_entries con conexión de test."""
+    return DebtEntryRepository(conn)
+
+
+@pytest.fixture
+def saving_bucket_repo(conn: psycopg2.extensions.connection) -> SavingBucketRepository:
+    """Repositorio de saving_buckets con conexión de test."""
+    return SavingBucketRepository(conn)
+
+
+@pytest.fixture
+def saving_bucket_entry_repo(
+    conn: psycopg2.extensions.connection,
+) -> SavingBucketEntryRepository:
+    """Repositorio de bucket_entries con conexión de test."""
+    return SavingBucketEntryRepository(conn)
+
+
+@pytest.fixture
 def household_loader(
     household_repo: HouseholdRepository,
     member_repo: MemberRepository,
     period_repo: PeriodRepository,
     expense_repo: ExpenseRepository,
     budget_categories_repo: BudgetCategoryRepository,
+    debt_bucket_repo: DebtBucketRepository,
+    debt_entry_repo: DebtEntryRepository,
+    saving_bucket_repo: SavingBucketRepository,
+    saving_bucket_entry_repo: SavingBucketEntryRepository,
 ) -> HouseholdLoader:
     """Loader bajo prueba, con repos reales apuntando a la conexión de test."""
     return HouseholdLoader(
@@ -83,6 +117,10 @@ def household_loader(
         household_repo=household_repo,
         member_repo=member_repo,
         period_repo=period_repo,
+        debt_bucket_repository=debt_bucket_repo,
+        debt_entry_repository=debt_entry_repo,
+        saving_bucket_repository=saving_bucket_repo,
+        saving_bucket_entry_repository=saving_bucket_entry_repo,
     )
 
 

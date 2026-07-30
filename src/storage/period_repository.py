@@ -32,7 +32,8 @@ class PeriodRepository:
             "SELECT * FROM household_periods WHERE id = %s", (period_id,)
         )
         row = self.cursor.fetchone()
-        return self._to_period(row) if row else None
+        if row:
+            return self._to_period(row)
 
     def get_current(self, household_id: int) -> Period | None:
         """Devuelve período actual"""

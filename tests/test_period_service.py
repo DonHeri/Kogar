@@ -10,6 +10,10 @@ from src.storage.expense_repository import ExpenseRepository
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
+from src.storage.debt_bucket_repository import DebtBucketRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
+from src.storage.saving_bucket_repository import SavingBucketRepository
+from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.workflow.household_loader import HouseholdLoader
 from src.workflow.household_service import HouseholdService
 from src.workflow.period_service import PeriodService
@@ -39,6 +43,10 @@ def repos(conn: psycopg2.extensions.connection) -> dict[str, object]:
         "period": PeriodRepository(conn),
         "budget_categories": BudgetCategoryRepository(conn),
         "expense": ExpenseRepository(conn),
+        "debt_bucket": DebtBucketRepository(conn),
+        "debt_entry": DebtEntryRepository(conn),
+        "saving_bucket": SavingBucketRepository(conn),
+        "saving_bucket_entry": SavingBucketEntryRepository(conn),
     }
 
 
@@ -50,6 +58,10 @@ def loader(repos: dict[str, object]) -> HouseholdLoader:
         period_repo=repos["period"],
         budget_categories_repo=repos["budget_categories"],
         expense_repository=repos["expense"],
+        debt_bucket_repository=repos["debt_bucket"],
+        debt_entry_repository=repos["debt_entry"],
+        saving_bucket_repository=repos["saving_bucket"],
+        saving_bucket_entry_repository=repos["saving_bucket_entry"],
     )
 
 
