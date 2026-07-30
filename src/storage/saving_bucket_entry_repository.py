@@ -43,3 +43,11 @@ class SavingBucketEntryRepository:
             (bucket_id,),
         )
         return self.cursor.fetchall()
+
+    def find_by_buckets(self, bucket_ids: list[UUID]) -> list[dict]:
+        """Todas las entries de varios buckets en una sola consulta (evita N+1 al rehidratar)."""
+        self.cursor.execute(
+            """ SELECT * FROM bucket_entries WHERE bucket_id = ANY(%s) """,
+            (bucket_ids,),
+        )
+        return self.cursor.fetchall()

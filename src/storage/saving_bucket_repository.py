@@ -1,5 +1,6 @@
 import psycopg2
 import psycopg2.extras
+from uuid import UUID
 from datetime import datetime
 from src.models.saving_bucket import SavingBucket
 
@@ -15,7 +16,7 @@ class SavingBucketRepository:
         saving_bucket: SavingBucket,
         household_id: int,
         member_ids: dict[str, int],
-    ) -> int:
+    ) -> UUID:
         """Inserta en saving_buckets y devuelve el id del bucket insertado."""
         id = saving_bucket.id
         bucket_name: str = saving_bucket.bucket_name
@@ -23,10 +24,11 @@ class SavingBucketRepository:
         owners: list = saving_bucket.owners
         deadline: datetime | None = saving_bucket.deadline
         description: str = saving_bucket.description
+        is_default: bool = saving_bucket.is_default
         self.cursor.execute(
             """
-            INSERT INTO saving_buckets (id, household_id, bucket_name, goal_cents, deadline, description)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO saving_buckets (id, household_id, bucket_name, goal_cents, deadline, description, is_default)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -36,9 +38,10 @@ class SavingBucketRepository:
                 goal_cents,
                 deadline,
                 description,
+                is_default,
             ),
         )
-        bucket_id = self.cursor.fetchone()["id"]
+        bucket_id = id
 
         for member in owners:
             self.cursor.execute(

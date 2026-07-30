@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from math import ceil
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from src.models.saving_bucket_entry import SavingBucketEntry
 
@@ -23,13 +23,16 @@ class SavingBucket:
         deadline: datetime | None = None,
         is_default: bool = False,
         description: str = "",
+        id: UUID | None = None,
     ) -> None:
 
         if goal_cents is not None:
             self._validate_valid_amount(goal_cents, "goal_cents")
         self._validate_non_empty_string(saving_bucket_name, "bucket_name")
+        if id is None:
+            id = uuid4()
 
-        self._id = uuid4()
+        self._id = id
         self.bucket_name = saving_bucket_name
         self._goal_cents = goal_cents  # Un bucket puede ser de meta indefinida.
 
