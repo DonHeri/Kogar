@@ -74,7 +74,7 @@ class DebtBucketTracker:
         for id, bucket in self.get_bucket_by_member(member_name).items():
             period = bucket.get_period_balance(start_date=start_date, end_date=end_date)
             buckets[id] = {
-                "name": bucket.name,
+                "name": bucket.bucket_name,
                 "principal": bucket.principal_cents,
                 "installment": bucket.installment_cents,
                 "total_paid": bucket.total_paid,

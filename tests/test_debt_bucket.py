@@ -26,7 +26,7 @@ def car_bucket() -> DebtBucket:
 
 
 def test_creation_valid(car_bucket: DebtBucket) -> None:
-    assert car_bucket.name == "Deuda Coche"
+    assert car_bucket.bucket_name == "Deuda Coche"
     assert car_bucket.principal_cents == 2000000
     assert car_bucket.owner == "heri"
     assert car_bucket.installment_cents == 100000

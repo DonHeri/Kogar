@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from math import ceil
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from src.models.debt_entry import DebtEntry
 
@@ -22,22 +22,27 @@ class DebtBucket:
         principal_cents: int,
         owner: str,
         installment_cents: int,
+        id: UUID | None = None,
         start_date: datetime | None = None,
         term_months: int | None = None,  # Meses de cuota
+        description: str = "",
     ):
         self._validate_non_empty_string(debt_bucket_name, "bucket_name")
         self._validate_valid_amount(principal_cents, "principal_cents")
         self._validate_non_empty_string(owner, "owner")
         self._validate_valid_amount(installment_cents, "installment_cents")
+        if id is None:
+            id = uuid4()
 
-        self._id = uuid4()
-        self.name = debt_bucket_name
+        self._id = id
+        self.bucket_name = debt_bucket_name
         self.principal_cents = principal_cents
         self._owner = owner
         self._installment_cents = installment_cents
         self.start_date = start_date if start_date else datetime.today()
         self._entries: list[DebtEntry] = []
         self.term_months = term_months
+        self.description = description
 
     @property
     def id(self):
@@ -107,7 +112,14 @@ class DebtBucket:
         self._validate_valid_amount(months, "months")
         self.term_months = months
 
-    def pay(self, amount_cents: int, member_name: str, date: datetime | None = None):
+    def pay(
+        self,
+        amount_cents: int,
+        member_name: str,
+        description:str|None=None,
+        date: datetime | None = None,
+        id: UUID | None = None,
+    ):
         """
         Registra dinero contra la deuda. Un pago normal y adelantar dinero son lo mismo:
         cualquier importe positivo reduce el saldo (y con él las cuotas restantes). No hay
@@ -126,6 +138,7 @@ class DebtBucket:
                 member_name=member_name,
                 amount_cents=amount_cents,
                 date=date or datetime.now(),
+                id=id,
             )
         )
 
