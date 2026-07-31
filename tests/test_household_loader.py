@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import date
 
 import pytest
@@ -192,7 +193,7 @@ def sample_expense_id(
     member_ids: dict[str, int],
     period_id: int,
     budget_categories: dict[str, BudgetCategory],
-) -> int:
+) -> UUID:
     """Gasto compartido en 'fijos' (heri paga, heri+amanda participan), guardado en BD."""
     expense = Expense(
         member="heri",
@@ -291,7 +292,7 @@ def test_load_base_does_not_hydrate_expenses(
     household_loader: HouseholdLoader,
     household_id: int,
     period_id: int,
-    sample_expense_id: int,
+    sample_expense_id: UUID,
 ) -> None:
     """load_base es la receta ligera: no reconstruye histórico de gastos aunque exista en BD."""
     household, _, _ = household_loader.load_base(
@@ -325,7 +326,7 @@ def test_load_for_queries_resolves_payer_by_id(
     household_loader: HouseholdLoader,
     household_id: int,
     period_id: int,
-    sample_expense_id: int,
+    sample_expense_id: UUID,
 ) -> None:
     """El gasto rehidratado atribuye correctamente el pagador (payer_id -> nombre)."""
     household, _, _ = household_loader.load_for_queries(
@@ -340,7 +341,7 @@ def test_load_for_queries_rehydrates_participants(
     household_loader: HouseholdLoader,
     household_id: int,
     period_id: int,
-    sample_expense_id: int,
+    sample_expense_id: UUID,
 ) -> None:
     """Los participantes del gasto se reconstruyen completos."""
     household, _, _ = household_loader.load_for_queries(
@@ -355,7 +356,7 @@ def test_load_for_queries_resolves_category_object(
     household_loader: HouseholdLoader,
     household_id: int,
     period_id: int,
-    sample_expense_id: int,
+    sample_expense_id: UUID,
 ) -> None:
     """La categoría del gasto se resuelve contra el budget ya hidratado."""
     household, _, _ = household_loader.load_for_queries(
@@ -363,6 +364,21 @@ def test_load_for_queries_resolves_category_object(
     )
 
     assert household.get_category_spent("fijos") == 34600
+
+
+def test_load_for_queries_preserves_the_expense_id(
+    household_loader: HouseholdLoader,
+    household_id: int,
+    period_id: int,
+    sample_expense_id: UUID,
+) -> None:
+    """El gasto rehidratado conserva su id, no recibe uno nuevo."""
+    household, _, _ = household_loader.load_for_queries(
+        household_id=household_id, period_id=period_id
+    )
+
+    expense = household.expense_tracker.get_all_expenses()[0]
+    assert expense.id == sample_expense_id
 
 
 def test_load_for_queries_with_no_expenses_returns_empty_tracker(

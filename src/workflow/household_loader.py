@@ -215,6 +215,7 @@ class HouseholdLoader:
             description: str = row["description"]
             date: datetime = row["expense_date"]
             expense = Expense(
+                id=row["id"],
                 amount_cents=amount_cents,
                 category=category,
                 date=date,

@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import date
 
 import pytest
@@ -98,7 +99,7 @@ def member_ids(member_id_heri: int, member_id_amanda: int) -> dict[str, int]:
 @pytest.fixture
 def sample_expense_id(
     expense_repo: ExpenseRepository, member_ids: dict[str, int], period_id: int
-) -> int:
+) -> UUID:
     """Gasto compartido (heri + amanda) guardado en BD. Devuelve su id."""
     expense = Expense(
         member="heri",
@@ -116,10 +117,10 @@ def sample_expense_id(
 # ===============================================
 
 
-def test_save_returns_valid_id(
+def test_save_returns_the_expense_own_id(
     expense_repo: ExpenseRepository, member_ids: dict[str, int], period_id: int
 ) -> None:
-    """save devuelve un entero positivo tras insertar el gasto."""
+    """save persiste el id que ya trae el gasto y lo devuelve tal cual."""
     expense = Expense(
         member="heri",
         amount_cents=34600,
@@ -129,8 +130,25 @@ def test_save_returns_valid_id(
 
     id = expense_repo.save(expense=expense, member_ids=member_ids, period_id=period_id)
 
-    assert isinstance(id, int)
-    assert id > 0
+    assert isinstance(id, UUID)
+    assert id == expense.id
+
+
+def test_save_persists_the_expense_id(
+    expense_repo: ExpenseRepository, member_ids: dict[str, int], period_id: int
+) -> None:
+    """El id guardado en BD es el mismo que lleva el objeto de dominio."""
+    expense = Expense(
+        member="heri",
+        amount_cents=34600,
+        category=make_category("fijos", is_shared=True),
+        participants=["heri", "amanda"],
+    )
+    expense_repo.save(expense=expense, member_ids=member_ids, period_id=period_id)
+
+    saved = expense_repo.find_by_period(period_id=period_id)[0]
+
+    assert saved["id"] == expense.id
 
 
 # ===============================================
@@ -139,7 +157,7 @@ def test_save_returns_valid_id(
 
 
 def test_find_by_period_returns_saved_expense(
-    sample_expense_id: int,
+    sample_expense_id: UUID,
     expense_repo: ExpenseRepository,
     period_id: int,
     member_id_heri: int,
@@ -158,7 +176,7 @@ def test_find_by_period_returns_saved_expense(
 
 
 def test_find_with_participants_returns_participant_names(
-    sample_expense_id: int,
+    sample_expense_id: UUID,
     expense_repo: ExpenseRepository,
     period_id: int,
     member_id_heri: int,

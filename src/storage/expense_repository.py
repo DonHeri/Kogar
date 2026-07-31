@@ -1,33 +1,45 @@
 import psycopg2
 import psycopg2.extras
+from uuid import UUID
+
 from src.models.expense import Expense
 
 
 class ExpenseRepository:
     def __init__(self, db) -> None:
+        psycopg2.extras.register_uuid()
         self.db = db
         self.cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def save(self, expense: Expense, period_id: int, member_ids: dict[str, int]) -> int:
+    def save(
+        self, expense: Expense, period_id: int, member_ids: dict[str, int]
+    ) -> UUID:
         """Inserta en expenses y luego por cada nombre en expense.participants busca su member_id e inserta en expense_participants. Devuelve el expense_id."""
+        expense_id = expense.id
         amount_cents = expense.amount
         payer_id = member_ids[expense.member]
         category = expense.category.name
         description = expense.description
         expense_date = expense.date
         self.cursor.execute(
-            """ 
-            INSERT INTO expenses (period_id, payer_id, amount_cents, category, description, expense_date)
-            VALUES (%s,%s,%s,%s,%s,%s)
-            RETURNING id
+            """
+            INSERT INTO expenses (id, period_id, payer_id, amount_cents, category, description, expense_date)
+            VALUES (%s,%s,%s,%s,%s,%s,%s)
             """,
-            (period_id, payer_id, amount_cents, category, description, expense_date),
+            (
+                expense_id,
+                period_id,
+                payer_id,
+                amount_cents,
+                category,
+                description,
+                expense_date,
+            ),
         )
-        expense_id = self.cursor.fetchone()["id"]
 
-        for member in expense.participants:  
+        for member in expense.participants:
             self.cursor.execute(
-                """ 
+                """
                 INSERT INTO expense_participants (expense_id,member_id)
                 VALUES (%s,%s)
                 """,

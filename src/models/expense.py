@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from src.models.category import Category
 from src.utils.currency import to_euros
@@ -16,6 +17,7 @@ class Expense:
         participants: list[str],
         description: str = "",
         date: datetime | None = None,
+        id: UUID | None = None,
     ) -> None:
         """
         Crea un gasto con validaciones básicas
@@ -25,6 +27,9 @@ class Expense:
             category: Objeto Category del gasto (ya resuelto por WorkflowManager)
             amount_cents: Monto en céntimos (int)
             description: Descripción opcional del gasto
+            id: identidad propia del gasto, para poder seleccionarlo, corregirlo
+                o borrarlo. None = se genera al crear; un valor recibido se
+                respeta tal cual (caso de rehidratación desde BD).
 
         Raises:
             ValueError: Si member está vacío, o amount no es positivo
@@ -32,6 +37,7 @@ class Expense:
         self._validate_non_empty_string(member, "member")
         self._validate_positive_amount(amount_cents, "amount")
 
+        self.id: UUID = id if id is not None else uuid4()
         self._date: datetime = date or datetime.now()
         self.member = normalize_name(member)  # stored as lowercase
         self.category = category

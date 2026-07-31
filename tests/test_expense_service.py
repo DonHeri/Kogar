@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import date
 
 import pytest
@@ -211,7 +212,7 @@ def sample_expense_id(
     member_ids: dict[str, int],
     period_id_month: int,
     budget_categories: dict[str, BudgetCategory],
-) -> int:
+) -> UUID:
     """Gasto compartido en 'fijos' (heri paga, heri+amanda participan), guardado en BD."""
     expense = Expense(
         member="heri",
