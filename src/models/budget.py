@@ -8,18 +8,25 @@ class Budget:
     """Orquesta la gestión de categorías de presupuesto"""
 
     def __init__(self) -> None:
-        self.categories = {}
+        self.categories: dict[str, BudgetCategory] = {}
+        self._children: dict[str, list[str]] = {}
         self.library = CategoryLibrary()
 
     # ====== INITIALIZATION ======
     def set_standard_categories(self):
-        """Establece las categorías estándar predefinidas"""
+        """Establece las categorías estándar predefinidas('fijos','variables';
+        'reserva' como almacén del sobrante para ahorro/deuda/otras categorías)"""
+
         for name in CategoryLibrary.get_standards_categories().keys():
-            category = self.library.create_category(name)
-            self.categories[name] = BudgetCategory(category, 0, parent=None)
+            if name in self.categories:
+                continue
+            self.add_category(name=name)
 
     # ====== CATEGORY MANAGEMENT ======
-    def add_category(self, name: str, parent: str | None = None):
+
+    def add_category(
+        self, name: str, parent: str | None = None, is_shared: bool | None = None
+    ):
         """Agrega una nueva categoría al presupuesto"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_active_category(normalized)
@@ -31,7 +38,19 @@ class Budget:
             parent = CategoryLibrary.normalize(parent)
             self._validate_category_exists(parent)
 
-        category = self.library.create_category(normalized)
+            if self.validate_category_is_child(parent):
+                raise ValueError(
+                    "Solo se permiten 2 niveles de profundidad: "
+                    "una categoría hija no puede ser padre"
+                )
+            is_shared = self.categories[parent].is_shared
+            category = self.library.create_category(normalized, is_shared=is_shared)
+
+            self._children.setdefault(parent, []).append(normalized)
+
+        else:
+            category = self.library.create_category(normalized, is_shared=is_shared)
+
         self.categories[normalized] = BudgetCategory(category, 0, parent=parent)
 
     # ====== BUDGET ASSIGNMENT ======
@@ -98,20 +117,20 @@ class Budget:
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)
 
-        if self.category_is_child(normalized):
-            parent = self.categories[normalized].parent
-        else:
-            parent = normalized
+        own_parent = self.categories[normalized].parent
+        parent = own_parent if own_parent is not None else normalized
 
         child_planned_amount = sum(
-            cat.planned_amount
-            for cat in self.categories.values()
-            if cat.parent == parent
+            self.categories[child].planned_amount
+            for child in self._children.get(parent, [])
         )
 
         return child_planned_amount
 
     # ====== VALIDATORS ======
+    def validate_category_is_child(self, name: str) -> bool:
+        normalized = CategoryLibrary.normalize(name)
+        return self.categories[normalized].parent is not None
 
     def _validate_active_category(self, name: str) -> None:
         """Valida que la categoría no existe (para agregar nueva)"""

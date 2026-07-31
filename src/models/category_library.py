@@ -81,14 +81,18 @@ class CategoryLibrary:
 
     # ====== API PÚBLICA ======
 
-    def create_category(self, name: str) -> Category:
+    def create_category(self, name: str, is_shared: bool | None = None) -> Category:
         """Fabrica el objeto Category a partir de su nombre.
         reserva → AutoCalculatedCategory. El resto → Category con su is_shared por defecto."""
         normalized = self.normalize(name)
         info = self._get_info(normalized)
+        if is_shared is None:
+            is_shared = info.is_shared
         if info.auto_calculated:
-            return AutoCalculatedCategory(normalized, is_shared=info.is_shared)
-        return Category(normalized, is_shared=info.is_shared)
+            return AutoCalculatedCategory(normalized, is_shared=is_shared)
+        return Category(
+            normalized, is_shared=is_shared
+        )  # NOTE se puede inyectar is_shared para la creación de category
 
     def add_category(self, name: str, is_shared: bool = True) -> None:
         """Registra una categoría custom en esta instancia"""
