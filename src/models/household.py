@@ -94,8 +94,35 @@ class Household:
         self.budget.add_category(name, parent=parent)
 
     def remove_category(self, name: str):
-        """Elimina categoría"""
-        self.budget.delete_budget_category(name)
+        """Elimina una categoría y resuelve el destino de sus gastos.
+
+        Los gastos de una hija suben a su padre: es neutro, porque ya contaban
+        dentro de su techo. Una raíz no tiene a quién subirlos, así que con
+        gastos no se puede borrar.
+
+        Que la categoría tenga hijas lo vigila Budget, que es quien es dueño
+        del árbol.
+        """
+        normalized = normalize_name(name)
+        parent = self.budget.get_budget_category(name=normalized).parent
+
+        if parent is not None:
+            self._reassign_expenses(from_category=normalized, to_category=parent)
+        elif self.get_category_spent(category_name=normalized) > 0:
+            raise ValueError(
+                f"No se puede borrar la categoría {normalized} porque tiene gastos "
+                "asociados. Muévelos a otra categoría antes de borrar."
+            )
+
+        self.budget.delete_budget_category(normalized)
+
+    def _reassign_expenses(self, from_category: str, to_category: str) -> None:
+        """Mueve los gastos de una categoría a otra"""
+        destination = self.budget.get_category(to_category)
+        for expense in self.expense_tracker.get_expenses_by_category(
+            category_name=from_category
+        ):
+            expense.category = destination
 
     def set_standard_categories(self):
         self.budget.set_standard_categories()
@@ -270,6 +297,7 @@ class Household:
         return {name: member.monthly_income for name, member in self.members.items()}
 
     # ====== QUERIES — PLANNING ======
+
     def get_budget_categories(self) -> dict[str, BudgetCategory]:
         """Retorna todas las categoría con presupuesto activas"""
         return self.budget.get_budget_categories()
@@ -351,7 +379,7 @@ class Household:
 
         return percentages
 
-    def preview_budget_contribution_summary(self, method: MetodoReparto):
+    def preview_budget_contribution_summary(self, method: MetodoReparto) -> dict:
         """
         Calcula contribuciones por categoría con método de reparto inyectado.
 
@@ -364,35 +392,38 @@ class Household:
         income_map = self.get_incomes()
 
         summary = {}
+        billable = {}
 
         for cat_name, category in self.budget.categories.items():
+            billable[cat_name] = self.budget.get_billable_amount(category_name=cat_name)
+
             if method == MetodoReparto.CUSTOM:
                 contributions = (
                     FinanceCalculator.calculate_contribution_from_custom_splits(
-                        self._custom_splits, category.planned_amount
+                        self._custom_splits, billable[cat_name]
                     )
                 )
 
             elif method == MetodoReparto.EQUAL:
                 equal_income_map = {name: 1 for name in income_map}
                 contributions = FinanceCalculator.calculate_contribution_from_incomes(
-                    equal_income_map, category.planned_amount
+                    equal_income_map, billable[cat_name]
                 )
 
             else:
                 contributions = FinanceCalculator.calculate_contribution_from_incomes(
-                    income_map, category.planned_amount
+                    income_map, billable[cat_name]
                 )
 
             summary[cat_name] = {
-                "planned": category.planned_amount,
+                "planned": billable[cat_name],
                 "contributions": contributions,
                 "total_assigned": sum(contributions.values()),
             }
 
         return summary
 
-    def get_current_contributions(self):
+    def get_current_contributions(self) -> dict:
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
 
@@ -401,7 +432,7 @@ class Household:
         contributions = self.get_current_contributions()
 
         totals = {member: 0 for member in self.members}
-
+        # TODO aquí debo devolver solo el total entre categorías raíz // No es igual a get_total_budgeted?
         for cat in contributions:
             for member, amount in contributions[cat]["contributions"].items():
                 totals[member] += amount
@@ -466,9 +497,9 @@ class Household:
 
         return paid - owed
 
-    def get_category_spent(self, category: str) -> int:
+    def get_category_spent(self, category_name: str) -> int:
         """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
-        return self.expense_tracker.get_total_spent_by_category(category)
+        return self.expense_tracker.get_total_spent_by_category(category_name)
 
     def get_total_spent(self) -> int:
         """Obtiene total gastado (consulta ExpenseTracker)"""
@@ -476,6 +507,7 @@ class Household:
 
     def get_category_remaining(self, category: str) -> int:
         """Calcula presupuesto restante de una categoría: planificado - gastado"""
+        # TODO El gasto sí puede superar el techo.Remaining de un padre puede salir negativo
         budgeted = self.budget.get_planned_amount(category)
         spent = self.get_category_spent(category)
         return budgeted - spent

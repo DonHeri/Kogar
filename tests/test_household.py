@@ -641,6 +641,21 @@ def test_set_budget_over_ceiling_raises_error(
         _set_budget(household_with_members_and_child_categories, "suministros", 30000)
 
 
+def test_get_total_contributions_must_be_equal_to_total_incomes(
+    household_with_members: Household,
+):
+    """El total contributions debe sumar solo el total asignado a su categoría padre que es el techo"""
+
+    _set_budget(household_with_members, "fijos", 40000)
+    household_with_members.add_category("vivienda", parent="fijos")
+
+    _set_budget(household_with_members, "vivienda", 30000)
+
+    contributions = household_with_members.get_total_contributions_by_member()
+
+    assert sum(contributions.values()) == household_with_members.get_total_budgeted()
+
+
 # ====================================================
 # TESTS: PLANNING - Planning Summary
 # ====================================================

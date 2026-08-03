@@ -75,6 +75,7 @@ class HouseholdLoader:
 
         period = self._period_repo.find_by_id(period_id)
         phase = period.status
+
         category_rows = sorted(
             self._budget_categories_repo.find_by_period(period_id),
             key=lambda row: row["parent_name"] is not None,
@@ -129,8 +130,8 @@ class HouseholdLoader:
         # 1. Leer filas
         period = self._period_repo.find_by_id(period_id)
         phase = period.status
-        saving_buckets_rows: list[dict] = self._saving_bucket_repository.find_with_owners(
-            household_id=household_id
+        saving_buckets_rows: list[dict] = (
+            self._saving_bucket_repository.find_with_owners(household_id=household_id)
         )
 
         # 2. Construir Household base (trackers vacíos)

@@ -19,9 +19,9 @@ class ExpenseTracker:
         return self.expenses.copy()
 
     # ====== FILTERS ======
-    def get_expenses_by_category(self, category: str) -> list[Expense]:
+    def get_expenses_by_category(self, category_name: str) -> list[Expense]:
         """Filtra por categoría"""
-        return [e for e in self.expenses if e.category.name == category]
+        return [e for e in self.expenses if e.category.name == category_name]
 
     def get_expenses_by_member(self, member: str) -> list[Expense]:
         """Filtra por miembro"""

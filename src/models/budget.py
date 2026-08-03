@@ -61,11 +61,34 @@ class Budget:
         self._validate_amount_cents(amount_cents)
         self.categories[normalized].planned_amount = amount_cents
 
-    def delete_budget_category(self, category: str) -> None:
-        """Elimina una categoría del presupuesto"""
-        normalized = CategoryLibrary.normalize(category)
+    def delete_budget_category(self, category_name: str) -> None:
+        """Elimina una categoría del presupuesto.
+
+        Lanza si tiene hijas: promoverlas a raíz metería su importe a competir
+        contra el ingreso y le cambiaría el presupuesto al usuario sin que lo
+        pida. Se borran o se mueven ellas primero.
+
+        El destino de los gastos no se decide aquí — Budget no los conoce. Eso
+        lo resuelve Household antes de llamar.
+        """
+        normalized = CategoryLibrary.normalize(category_name)
         self._validate_category_exists(normalized)
+        self._validate_has_no_children(normalized)
+
+        parent = self.categories[normalized].parent
         del self.categories[normalized]
+        self._detach_from_parent(name=normalized, parent=parent)
+
+    def _detach_from_parent(self, name: str, parent: str | None) -> None:
+        """Saca el nombre del índice de  hijas de su padre"""
+        if parent is None:
+            return
+
+        siblings = self._children.get(parent, [])
+        if name in siblings:
+            siblings.remove(name)
+        if not siblings:
+            self._children.pop(parent, None)
 
     # ====== QUERIES ======
     def get_budget_categories(self) -> dict[str, BudgetCategory]:
@@ -108,24 +131,35 @@ class Budget:
                 return budget_category.category
         raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
-    def category_is_child(self, name: str) -> bool:
-        normalized = CategoryLibrary.normalize(name)
-        return self.categories[normalized].parent is not None
-
     def get_child_total_planned(self, category: str) -> int:
         """Calcula el total planificado entre categorías hijas"""
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)
 
-        own_parent = self.categories[normalized].parent
-        parent = own_parent if own_parent is not None else normalized
-
         child_planned_amount = sum(
             self.categories[child].planned_amount
-            for child in self._children.get(parent, [])
+            for child in self._children.get(normalized, [])
         )
 
         return child_planned_amount
+
+    def get_children(self, name: str) -> list[str]:
+        """Nombres de las categorías hija que cuelgan de esta"""
+        normalized = CategoryLibrary.normalize(name)
+        self._validate_category_exists(normalized)
+        return list(self._children.get(normalized, []))
+
+    def get_billable_amount(self, category_name: str) -> int:
+        """Parte del presupuesto que se reparte entre los miembros: el planificado
+        menos lo delegado a sus hijas. En una hoja, su planificado entero."""
+        normalized = CategoryLibrary.normalize(category_name)
+        self._validate_category_exists(normalized)
+
+        billable = self.get_planned_amount(normalized) - self.get_child_total_planned(
+            normalized
+        )
+
+        return billable
 
     # ====== VALIDATORS ======
     def validate_category_is_child(self, name: str) -> bool:
@@ -136,6 +170,15 @@ class Budget:
         """Valida que la categoría no existe (para agregar nueva)"""
         if name in self.categories:
             raise ValueError(f"La categoría ya existe")
+
+    def _validate_has_no_children(self, name: str) -> None:
+        """Valida que la categoría no deja hijas colgando (para borrar)"""
+        children = self._children.get(name, [])
+        if children:
+            raise ValueError(
+                f"La categoría {name} tiene subcategorías ({', '.join(children)}). "
+                "Bórralas o muévelas antes de borrarla."
+            )
 
     def _validate_category_exists(self, name: str) -> None:
         """Valida que la categoría existe (para modificar)"""
