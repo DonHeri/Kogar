@@ -83,7 +83,7 @@ class SummaryService:
         member_income = household.members[member_name].monthly_income
 
         owed = household.get_member_owed_total(member_name)
-        paid = household.expense_tracker.get_total_spent_by_member(member_name)
+        paid = household.expense_tracker.get_total_spent(member=member_name)
         balance = household.get_member_balance(member_name)
 
         # Acordado vs pagado
@@ -92,10 +92,8 @@ class SummaryService:
 
         for cat_name, cat_data in agreed_contributions.items():
             contribution = cat_data["contributions"][member_name]
-            paid_in_category = (
-                household.expense_tracker.get_total_spent_by_member_and_category(
-                    member=member_name, category=cat_name
-                )
+            paid_in_category = household.expense_tracker.get_total_spent(
+                member=member_name, categories=[cat_name]
             )
 
             by_category[cat_name] = {
@@ -127,11 +125,19 @@ class SummaryService:
                 "total_spent":      95000,   # céntimos gastados
                 "total_remaining": 205000    # céntimos restantes
             },
-            "by_category": {
+            "by_category": {                 # solo raíces; las hijas van dentro
                 "fijos": {
-                    "budget":    150000,
-                    "spent":      80000,
-                    "remaining":  70000
+                    "ceiling":     159000,   # techo de la raíz
+                    "spent":        80000,   # gasto de todo su subárbol
+                    "remaining":    79000,   # techo - gasto; puede ser negativo
+                    "unallocated":  65000,   # lo que no está desglosado en hijas
+                    "children": {
+                        "alquiler": {
+                            "ceiling":   80000,
+                            "spent":     80000,
+                            "remaining":     0
+                        }
+                    }
                 }
             },
             "by_member": {
@@ -161,7 +167,6 @@ class SummaryService:
         }
         """
 
-        categories = household.get_active_categories()
         members = household.members.keys()
         total_budgeted = household.get_total_budgeted()
 
@@ -175,20 +180,33 @@ class SummaryService:
         total_remaining = household.get_total_remaining()
 
         # Total presupuestado + total gastado + total restante
-        total = {
+        totals = {
             "total_budgeted": total_budgeted,
             "total_spent": total_spent,
             "total_remaining": total_remaining,
         }
 
-        # Categoría {Presupuestado + Gastado + faltante por pagar} + {missing_money}
+        # Solo raíces en el primer nivel: sus hijas van dentro, en "children".
+        # Así sumar el primer nivel siempre cuadra con los totales, y una hija
+        # llamada "spent" no puede pisar un campo del padre.
         by_category = {}
-        for cat in categories:
-            by_category[cat] = {
-                "budget": household.budget.get_planned_amount(cat),
-                "spent": household.get_category_spent(cat),
-                "remaining": household.get_category_remaining(cat),
+
+        for cat_name in household.get_root_categories():
+            by_category[cat_name] = {
+                "ceiling": household.get_category_planned_amount(cat_name),
+                "spent": household.get_category_spent(cat_name),
+                "remaining": household.get_category_remaining(cat_name),
+                "unallocated": household.get_category_billable(cat_name),
+                "children": {
+                    child: {
+                        "ceiling": household.get_category_planned_amount(child),
+                        "spent": household.get_category_spent(child),
+                        "remaining": household.get_category_remaining(child),
+                    }
+                    for child in household.get_children(cat_name)
+                },
             }
+
         by_member = {
             member: SummaryService.get_member_status(
                 household=household, member_name=member
@@ -197,7 +215,7 @@ class SummaryService:
         }
 
         return {
-            "totals": total,
+            "totals": totals,
             "by_category": by_category,
             "by_member": by_member,
             "missing_money": {

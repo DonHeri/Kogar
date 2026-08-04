@@ -119,9 +119,7 @@ class Household:
     def _reassign_expenses(self, from_category: str, to_category: str) -> None:
         """Mueve los gastos de una categoría a otra"""
         destination = self.budget.get_category(to_category)
-        for expense in self.expense_tracker.get_expenses_by_category(
-            category_name=from_category
-        ):
+        for expense in self.expense_tracker.filter_expenses(categories=[from_category]):
             expense.category = destination
 
     def set_standard_categories(self):
@@ -395,7 +393,9 @@ class Household:
         billable = {}
 
         for cat_name, category in self.budget.categories.items():
-            billable[cat_name] = self.budget.get_billable_amount(category_name=cat_name)
+            billable[cat_name] = self.budget.get_category_billable(
+                category_name=cat_name
+            )
 
             if method == MetodoReparto.CUSTOM:
                 contributions = (
@@ -423,6 +423,18 @@ class Household:
 
         return summary
 
+    def get_category_billable(self, category_name: str) -> int:
+        """Obtiene el monto billable de una categoría (planificado - planificado de hijas)"""
+        return self.budget.get_category_billable(category_name=category_name)
+
+    def get_children(self, category_name: str) -> list[str]:
+        """Obtiene nombres de categorías hijas de una categoría padre"""
+        return self.budget.get_children(category_name)
+
+    def get_root_categories(self) -> list[str]:
+        """Obtiene nombres de categorías raíz (sin padre)"""
+        return self.budget.get_root_categories()
+
     def get_current_contributions(self) -> dict:
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
@@ -432,7 +444,7 @@ class Household:
         contributions = self.get_current_contributions()
 
         totals = {member: 0 for member in self.members}
-        # TODO aquí debo devolver solo el total entre categorías raíz // No es igual a get_total_budgeted?
+
         for cat in contributions:
             for member, amount in contributions[cat]["contributions"].items():
                 totals[member] += amount
@@ -486,7 +498,7 @@ class Household:
     def get_member_paid_total(self, member_name: str) -> int:
         """Total gastado por un miembro"""
         member_name = normalize_name(member_name)
-        return self.expense_tracker.get_total_spent_by_member(member_name)
+        return self.expense_tracker.get_total_spent(member=member_name)
 
     def get_member_balance(self, member_name: str) -> int:
         """Balance: pagado - acordado (negativo = debe, positivo = pagó de más)"""
@@ -498,18 +510,25 @@ class Household:
         return paid - owed
 
     def get_category_spent(self, category_name: str) -> int:
-        """Obtiene total gastado en una categoría (consulta ExpenseTracker)"""
-        return self.expense_tracker.get_total_spent_by_category(category_name)
+        """Total gastado en una categoría y en las que cuelgan de ella.
+
+        En una hoja no hay hijas, así que es su propio gasto.
+        """
+        subtree = [category_name] + self.get_children(category_name)
+        return self.expense_tracker.get_total_spent(categories=subtree)
 
     def get_total_spent(self) -> int:
         """Obtiene total gastado (consulta ExpenseTracker)"""
         return self.expense_tracker.get_total_spent()
 
-    def get_category_remaining(self, category: str) -> int:
-        """Calcula presupuesto restante de una categoría: planificado - gastado"""
-        # TODO El gasto sí puede superar el techo.Remaining de un padre puede salir negativo
-        budgeted = self.budget.get_planned_amount(category)
-        spent = self.get_category_spent(category)
+    def get_category_remaining(self, category_name: str) -> int:
+        """Presupuesto restante: planificado menos gastado, contando el subárbol.
+
+        Puede salir negativo: gastar por encima del techo es información, no un
+        error, así que no se limita.
+        """
+        budgeted = self.budget.get_planned_amount(category_name)
+        spent = self.get_category_spent(category_name)
         return budgeted - spent
 
     def get_total_remaining(self) -> int:

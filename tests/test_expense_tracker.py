@@ -161,7 +161,7 @@ def test_get_expenses_by_category_returns_matching_expenses(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Filtra gastos por categoría correctamente"""
-    fijos = tracker_with_expenses.get_expenses_by_category("fijos")
+    fijos = tracker_with_expenses.filter_expenses(categories=["fijos"])
 
     assert len(fijos) == 2
     assert all(e.category.name == "fijos" for e in fijos)
@@ -171,14 +171,14 @@ def test_get_expenses_by_category_returns_empty_if_no_match(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Retorna lista vacía si no hay gastos en esa categoría"""
-    inexistente = tracker_with_expenses.get_expenses_by_category("inexistente")
+    inexistente = tracker_with_expenses.filter_expenses(categories=["inexistente"])
 
     assert inexistente == []
 
 
 def test_get_expenses_by_category_empty_tracker(tracker: ExpenseTracker) -> None:
     """Test: Retorna vacío en tracker sin gastos"""
-    result = tracker.get_expenses_by_category("fijos")
+    result = tracker.filter_expenses(categories=["fijos"])
 
     assert result == []
 
@@ -192,7 +192,7 @@ def test_get_expenses_by_member_returns_matching_expenses(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Filtra gastos por miembro correctamente"""
-    amanda_expenses = tracker_with_expenses.get_expenses_by_member("Amanda")
+    amanda_expenses = tracker_with_expenses.filter_expenses(member="Amanda")
 
     assert len(amanda_expenses) == 2
     assert all(e.member == "amanda" for e in amanda_expenses)  # stored as lowercase
@@ -202,14 +202,14 @@ def test_get_expenses_by_member_returns_empty_if_no_match(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Retorna lista vacía si el miembro no tiene gastos"""
-    inexistente = tracker_with_expenses.get_expenses_by_member("Inexistente")
+    inexistente = tracker_with_expenses.filter_expenses(member="Inexistente")
 
     assert inexistente == []
 
 
 def test_get_expenses_by_member_empty_tracker(tracker: ExpenseTracker) -> None:
     """Test: Retorna vacío en tracker sin gastos"""
-    result = tracker.get_expenses_by_member("Amanda")
+    result = tracker.filter_expenses(member="Amanda")
 
     assert result == []
 
@@ -256,7 +256,7 @@ def test_get_total_spent_by_category_sums_matching_expenses(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Suma solo gastos de la categoría especificada"""
-    fijos_total = tracker_with_expenses.get_total_spent_by_category("fijos")
+    fijos_total = tracker_with_expenses.get_total_spent(categories=["fijos"])
 
     # 900 + 80 = 980€ = 98000 céntimos
     assert fijos_total == 98000
@@ -266,14 +266,14 @@ def test_get_total_spent_by_category_returns_zero_if_no_match(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Retorna 0 si no hay gastos en esa categoría"""
-    inexistente = tracker_with_expenses.get_total_spent_by_category("inexistente")
+    inexistente = tracker_with_expenses.get_total_spent(categories=["inexistente"])
 
     assert inexistente == 0
 
 
 def test_get_total_spent_by_category_empty_tracker(tracker: ExpenseTracker) -> None:
     """Test: Retorna 0 en tracker sin gastos"""
-    result = tracker.get_total_spent_by_category("fijos")
+    result = tracker.get_total_spent(categories=["fijos"])
 
     assert result == 0
 
@@ -287,7 +287,7 @@ def test_get_total_spent_by_member_sums_matching_expenses(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Suma solo gastos del miembro especificado"""
-    amanda_total = tracker_with_expenses.get_total_spent_by_member("Amanda")
+    amanda_total = tracker_with_expenses.get_total_spent(member="Amanda")
 
     # 900 + 80 = 980€ = 98000 céntimos
     assert amanda_total == 98000
@@ -297,14 +297,14 @@ def test_get_total_spent_by_member_returns_zero_if_no_match(
     tracker_with_expenses: ExpenseTracker,
 ) -> None:
     """Test: Retorna 0 si el miembro no tiene gastos"""
-    inexistente = tracker_with_expenses.get_total_spent_by_member("Inexistente")
+    inexistente = tracker_with_expenses.get_total_spent(member="Inexistente")
 
     assert inexistente == 0
 
 
 def test_get_total_spent_by_member_empty_tracker(tracker: ExpenseTracker) -> None:
     """Test: Retorna 0 en tracker sin gastos"""
-    result = tracker.get_total_spent_by_member("Amanda")
+    result = tracker.get_total_spent(member="Amanda")
 
     assert result == 0
 
@@ -420,7 +420,7 @@ def test_tracker_handles_many_expenses_for_same_category(
         Expense("Amanda", make_category("fijos"), to_cents(300.0), ["amanda", "heri"])
     )
 
-    total = tracker.get_total_spent_by_category("fijos")
+    total = tracker.get_total_spent(categories=["fijos"])
 
     assert total == 60000  # 600€
 
@@ -446,7 +446,7 @@ def test_tracker_handles_same_member_multiple_categories(
         )
     )
 
-    amanda_total = tracker.get_total_spent_by_member("Amanda")
+    amanda_total = tracker.get_total_spent(member="Amanda")
 
     assert amanda_total == 18000  # 180€
 
@@ -457,7 +457,7 @@ def test_filters_do_not_modify_original_list(
     """Test: Los filtros no modifican la lista original"""
     original_count = len(tracker_with_expenses.expenses)
 
-    fijos = tracker_with_expenses.get_expenses_by_category("fijos")
+    fijos = tracker_with_expenses.filter_expenses(categories=["fijos"])
     fijos.clear()
 
     assert len(tracker_with_expenses.expenses) == original_count

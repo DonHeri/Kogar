@@ -211,7 +211,7 @@ class PeriodService:
         # Dominio valida (techo, reserva, etc.) y puede recalcular más de una categoría
         # (p. ej. asignar la raíz recalcula la reserva) — por eso persistimos todas.
         BudgetDistributionService.set_budget_for_category(
-            household, category=category, amount_cents=amount_cents
+            household, category_name=category, amount_cents=amount_cents
         )
 
         for name, budget_category in household.get_budget_categories().items():

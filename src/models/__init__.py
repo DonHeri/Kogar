@@ -5,6 +5,7 @@ from src.models.budget_category import BudgetCategory
 from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
 from src.models.constants import MetodoReparto, Phase, SavingScope
+from src.models.exceptions import CeilingBelowChildrenError, DomainError
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator

@@ -7,31 +7,33 @@ from src.utils.text import normalize_name
 class BudgetDistributionService:
     @staticmethod
     def set_budget_for_category(
-        household: Household, category: str, amount_cents: int
+        household: Household, category_name: str, amount_cents: int
     ) -> None:
         """Asigna presupuesto a una categoría en PLANNING. La reserva se ajusta sola."""
-        if isinstance(household.budget.get_category(category), AutoCalculatedCategory):
+        if isinstance(
+            household.budget.get_category(category_name), AutoCalculatedCategory
+        ):
             raise ValueError("Reserva se autocalcula")
 
-        category = normalize_name(category)
+        category_name = normalize_name(category_name)
 
-        if household.budget.categories[category].parent is None:
+        if household.budget.categories[category_name].parent is None:
             BudgetDistributionService._set_root_budget(
-                household, category, amount_cents
+                household, category_name, amount_cents
             )
         else:
             BudgetDistributionService._set_child_budget(
-                household, category, amount_cents
+                household, category_name, amount_cents
             )
 
     @staticmethod
     def _set_root_budget(
-        household: Household, category: str, amount_cents: int
+        household: Household, category_name: str, amount_cents: int
     ) -> None:
         """Raíz: cuenta contra los ingresos y recalcula la reserva."""
         reserve_cat = household.budget.get_auto_calculated_category()
         total_incomes = household.get_total_incomes()
-        current_amount = household.get_category_planned_amount(category)
+        current_amount = household.get_category_planned_amount(category_name)
         current_reserve = household.get_category_planned_amount(reserve_cat.name)
 
         other_budgeted = (
@@ -44,7 +46,8 @@ class BudgetDistributionService:
                 "No se puede superar el total de ingresos en los presupuestos"
             )
 
-        household.budget.set_planned_amount(category, amount_cents)
+        # Que el techo siga cubriendo a sus hijas lo valida Budget, dueño del árbol.
+        household.budget.set_planned_amount(category_name, amount_cents)
         household.budget.set_planned_amount(
             reserve_cat.name,
             reserve_cat.calculate_own_budget(total_incomes, new_budgeted),
@@ -52,12 +55,12 @@ class BudgetDistributionService:
 
     @staticmethod
     def _set_child_budget(
-        household: Household, category: str, amount_cents: int
+        household: Household, category_name: str, amount_cents: int
     ) -> None:
         """Hija: se mueve dentro del techo de su raíz, sin tocar la reserva."""
-        parent_name = household.budget.categories[category].parent
+        parent_name = household.budget.categories[category_name].parent
         ceiling = household.get_category_planned_amount(parent_name)
-        current_amount = household.get_category_planned_amount(category)
+        current_amount = household.get_category_planned_amount(category_name)
 
         siblings_total = (
             household.budget.get_child_total_planned(parent_name) - current_amount
@@ -68,7 +71,7 @@ class BudgetDistributionService:
                 f"No se puede superar el techo de la categoría raíz: {parent_name.title()}"
             )
 
-        household.budget.set_planned_amount(category, amount_cents)
+        household.budget.set_planned_amount(category_name, amount_cents)
 
     @staticmethod
     def set_budget_by_percentages(household: Household, percentages: dict[str, int]):
@@ -86,5 +89,5 @@ class BudgetDistributionService:
 
             household.validate_category_exist(category=category)
             BudgetDistributionService.set_budget_for_category(
-                household, category=category, amount_cents=amount_cents
+                household, category_name=category, amount_cents=amount_cents
             )

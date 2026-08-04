@@ -6,6 +6,7 @@ from src.models.budget import Budget
 from src.models.constants import MetodoReparto
 from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.debt_bucket import DebtBucket
+from src.models.exceptions import CeilingBelowChildrenError
 from src.models.expense import Expense
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
@@ -641,10 +642,45 @@ def test_set_budget_over_ceiling_raises_error(
         _set_budget(household_with_members_and_child_categories, "suministros", 30000)
 
 
-def test_get_total_contributions_must_be_equal_to_total_incomes(
+def test_set_root_budget_below_children_raises_error(
+    household_with_members_and_child_categories: Household,
+) -> None:
+    """Bajar el techo por debajo de lo repartido en sus hijas lanza error."""
+    hh = household_with_members_and_child_categories
+    _set_budget(hh, "fijos", 50000)
+    _set_budget(hh, "vivienda", 30000)
+    _set_budget(hh, "suministros", 10000)
+
+    with pytest.raises(CeilingBelowChildrenError) as excinfo:
+        _set_budget(hh, "fijos", 35000)
+
+    assert excinfo.value.category == "fijos"
+    assert excinfo.value.children_total_cents == 40000
+
+
+def test_set_root_budget_equal_to_children_is_allowed(
+    household_with_members_and_child_categories: Household,
+) -> None:
+    """El techo puede bajar hasta justo lo repartido: el facturable queda en 0."""
+    hh = household_with_members_and_child_categories
+    _set_budget(hh, "fijos", 50000)
+    _set_budget(hh, "vivienda", 30000)
+    _set_budget(hh, "suministros", 10000)
+
+    _set_budget(hh, "fijos", 40000)
+
+    assert hh.get_category_planned_amount("fijos") == 40000
+    assert hh.budget.get_category_billable("fijos") == 0
+
+
+def test_contributions_sum_matches_total_budgeted(
     household_with_members: Household,
-):
-    """El total contributions debe sumar solo el total asignado a su categoría padre que es el techo"""
+) -> None:
+    """Con hijas, lo repartido entre miembros sigue siendo lo presupuestado.
+
+    Una hija se reparte por su cuenta, pero el padre solo reparte lo que no ha
+    delegado, así que nadie paga dos veces por el mismo dinero.
+    """
 
     _set_budget(household_with_members, "fijos", 40000)
     household_with_members.add_category("vivienda", parent="fijos")
@@ -1458,7 +1494,7 @@ def test_get_month_summary_calculates_correctly(
 def test_get_month_summary_by_category_has_correct_structure(
     household_with_members: Household,
 ) -> None:
-    """Cada categoría en 'by_category' debe tener budget, spent, remaining"""
+    """Cada raíz en 'by_category' lleva ceiling, spent, remaining, unallocated y children"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.prepare_period()
@@ -1475,17 +1511,90 @@ def test_get_month_summary_by_category_has_correct_structure(
     assert "fijos" in by_category
     assert "variables" in by_category
 
-    assert "budget" in by_category["fijos"]
-    assert "spent" in by_category["fijos"]
-    assert "remaining" in by_category["fijos"]
+    assert set(by_category["fijos"]) == {
+        "ceiling",
+        "spent",
+        "remaining",
+        "unallocated",
+        "children",
+    }
 
-    assert by_category["fijos"]["budget"] == 100000
+    assert by_category["fijos"]["ceiling"] == 100000
     assert by_category["fijos"]["spent"] == 25000
     assert by_category["fijos"]["remaining"] == 75000
+    assert by_category["fijos"]["unallocated"] == 100000
+    assert by_category["fijos"]["children"] == {}
 
-    assert by_category["variables"]["budget"] == 50000
+    assert by_category["variables"]["ceiling"] == 50000
     assert by_category["variables"]["spent"] == 0
     assert by_category["variables"]["remaining"] == 50000
+
+
+def test_get_month_summary_nests_children_under_their_root(
+    household_with_members: Household,
+) -> None:
+    """Las hijas viven dentro de 'children' y no ensucian el primer nivel"""
+
+    household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
+    household_with_members.prepare_period()
+    _set_budget(household_with_members, "fijos", 100000)
+    household_with_members.add_category("alquiler", parent="fijos")
+    _set_budget(household_with_members, "alquiler", 80000)
+    household_with_members.freeze_planning_state()
+
+    expense = Expense(
+        "member1",
+        household_with_members.budget.get_category("alquiler"),
+        80000,
+        ["member1"],
+    )
+    household_with_members.register_expense(expense)
+
+    by_category = SummaryService.get_month_summary(household_with_members)[
+        "by_category"
+    ]
+
+    assert "alquiler" not in by_category
+    assert by_category["fijos"]["children"]["alquiler"]["spent"] == 80000
+
+    # El gasto de la hija cuenta contra el techo del padre
+    assert by_category["fijos"]["spent"] == 80000
+    assert by_category["fijos"]["remaining"] == 20000
+    assert by_category["fijos"]["unallocated"] == 20000
+
+
+def test_get_month_summary_by_category_matches_totals(
+    household_with_members: Household,
+) -> None:
+    """Sumar el primer nivel cuadra con los totales: nada se cuenta dos veces"""
+
+    household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
+    household_with_members.prepare_period()
+    _set_budget(household_with_members, "fijos", 100000)
+    _set_budget(household_with_members, "variables", 50000)
+    household_with_members.add_category("alquiler", parent="fijos")
+    _set_budget(household_with_members, "alquiler", 80000)
+    household_with_members.freeze_planning_state()
+
+    expense = Expense(
+        "member1",
+        household_with_members.budget.get_category("alquiler"),
+        80000,
+        ["member1"],
+    )
+    household_with_members.register_expense(expense)
+
+    summary = SummaryService.get_month_summary(household_with_members)
+    by_category = summary["by_category"]
+
+    assert (
+        sum(row["ceiling"] for row in by_category.values())
+        == (summary["totals"]["total_budgeted"])
+    )
+    assert (
+        sum(row["spent"] for row in by_category.values())
+        == (summary["totals"]["total_spent"])
+    )
 
 
 # ====================================================

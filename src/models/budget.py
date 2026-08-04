@@ -1,7 +1,7 @@
 from src.models.budget_category import BudgetCategory
 from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
-from src.utils.currency import to_cents
+from src.models.exceptions import CeilingBelowChildrenError
 
 
 class Budget:
@@ -55,10 +55,16 @@ class Budget:
 
     # ====== BUDGET ASSIGNMENT ======
     def set_planned_amount(self, category: str, amount_cents: int) -> None:
-        """Establece el monto presupuestado para una categoría (céntimos)"""
+        """Establece el monto presupuestado para una categoría (céntimos).
+
+        Lanza si el importe deja por debajo lo que ya han repartido sus hijas:
+        un techo menor que sus hijas daría un facturable negativo y volvería a
+        descuadrar el reparto entre miembros.
+        """
         normalized = CategoryLibrary.normalize(category)
         self._validate_category_exists(normalized)
         self._validate_amount_cents(amount_cents)
+        self._validate_covers_children(normalized, amount_cents)
         self.categories[normalized].planned_amount = amount_cents
 
     def delete_budget_category(self, category_name: str) -> None:
@@ -131,9 +137,9 @@ class Budget:
                 return budget_category.category
         raise ValueError("No hay categoría auto-calculada en el presupuesto")
 
-    def get_child_total_planned(self, category: str) -> int:
+    def get_child_total_planned(self, category_name: str) -> int:
         """Calcula el total planificado entre categorías hijas"""
-        normalized = CategoryLibrary.normalize(category)
+        normalized = CategoryLibrary.normalize(category_name)
         self._validate_category_exists(normalized)
 
         child_planned_amount = sum(
@@ -143,13 +149,17 @@ class Budget:
 
         return child_planned_amount
 
+    def get_root_categories(self) -> list[str]:
+        """Nombres de las categorías raíz (sin padre)"""
+        return [name for name, cat in self.categories.items() if cat.parent is None]
+
     def get_children(self, name: str) -> list[str]:
         """Nombres de las categorías hija que cuelgan de esta"""
         normalized = CategoryLibrary.normalize(name)
         self._validate_category_exists(normalized)
         return list(self._children.get(normalized, []))
 
-    def get_billable_amount(self, category_name: str) -> int:
+    def get_category_billable(self, category_name: str) -> int:
         """Parte del presupuesto que se reparte entre los miembros: el planificado
         menos lo delegado a sus hijas. En una hoja, su planificado entero."""
         normalized = CategoryLibrary.normalize(category_name)
@@ -170,6 +180,14 @@ class Budget:
         """Valida que la categoría no existe (para agregar nueva)"""
         if name in self.categories:
             raise ValueError(f"La categoría ya existe")
+
+    def _validate_covers_children(self, name: str, amount_cents: int) -> None:
+        """Valida que el techo no baja por debajo de lo repartido en sus hijas"""
+        children_total = self.get_child_total_planned(name)
+        if amount_cents < children_total:
+            raise CeilingBelowChildrenError(
+                category=name, children_total_cents=children_total
+            )
 
     def _validate_has_no_children(self, name: str) -> None:
         """Valida que la categoría no deja hijas colgando (para borrar)"""
