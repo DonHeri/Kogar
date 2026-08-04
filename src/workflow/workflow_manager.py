@@ -734,8 +734,21 @@ class WorkflowManager:
         return self.household.get_total_incomes()
 
     def get_active_categories(self) -> list[str]:
-        """Obtiene lista de categorías activas"""
+        """Obtiene lista de categorías activas, en plano y sin jerarquía"""
         return self.household.get_active_categories()
+
+    def get_root_categories(self) -> list[str]:
+        """Obtiene las categorías raíz, las que cuentan contra el ingreso"""
+        return self.household.get_root_categories()
+
+    def get_category_children(self, category_name: str) -> list[str]:
+        """Obtiene las categorías que cuelgan de una raíz"""
+        return self.household.get_children(category_name)
+
+    def get_category_billable(self, category_name: str) -> int:
+        """Obtiene lo que una categoría reparte entre los miembros: su
+        presupuesto menos lo que ya ha delegado en sus hijas"""
+        return self.household.get_category_billable(category_name)
 
     # ====== QUERIES - Phase Summaries ======
     def get_registration_summary(self):

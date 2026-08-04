@@ -14,7 +14,7 @@ Caso real:
 Flujo: REGISTRATION → PLANNING → MONTH → CLOSING
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
@@ -24,6 +24,7 @@ from src.models.household import Household
 from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.utils.currency import format_percentage, to_cents, to_euros, to_euros_float
 from src.workflow.workflow_manager import WorkflowManager
+from src.workflow.summary_service import SummaryService
 
 # Persistencia
 from src.storage.connection import DatabaseConnection
@@ -114,8 +115,8 @@ with DatabaseConnection(
     # (hay que incluir reserva para que los porcentajes sumen 100%)
     wm.set_budget_by_percentages({"fijos": 53.0, "variables": 20.0, "reserva": 27.0})
 
-    print("Presupuestos asignados:")
-    for cat in wm.get_active_categories():
+    print("Presupuestos asignados (solo las raíces cuentan contra el ingreso):")
+    for cat in wm.get_root_categories():
         budget = wm.get_category_budget(cat)
         pct = wm.get_budget_as_percentage(cat)
         print(f"  {cat.title():<12} {to_euros(budget):>10}  ({format_percentage(pct)})")
@@ -127,21 +128,44 @@ with DatabaseConnection(
     wm.set_budget_for_category("alquiler", 800.0)
     wm.set_budget_for_category("luz", 90.0)
     wm.set_budget_for_category("internet", 50.0)
-    print("\nSubcategorías de 'fijos' (reparten su techo):")
-    for child in ("alquiler", "luz", "internet"):
-        print(f"  {child.title():<12} {to_euros(wm.get_category_budget(child)):>10}")
+
+    print("\nEl techo de 'fijos' repartido en subcategorías:")
+    for child in wm.get_category_children("fijos"):
+        print(
+            f"    · {child.title():<12} {to_euros(wm.get_category_budget(child)):>10}"
+        )
+    print(
+        f"    · {'Sin desglosar':<12} {to_euros(wm.get_category_billable('fijos')):>10}"
+    )
+    print(f"  {'TECHO':<14} {to_euros(wm.get_category_budget('fijos')):>10}")
 
     # --- Método de reparto ---
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     print("\nMétodo de reparto: PROPORCIONAL")
 
     # --- Contribuciones por categoría ---
+    # Cada categoría reparte solo lo suyo: una raíz con hijas reparte lo que no
+    # les ha delegado, así que nadie aporta dos veces por el mismo dinero.
     contributions = wm.get_current_contributions()
     print("\nContribuciones (lo que aporta cada miembro por categoría):")
-    for cat, data in contributions.items():
-        print(f"  {cat.title()}: {to_euros(data['planned'])}")
-        for member, amount in data["contributions"].items():
-            print(f"    {member.title()}: {to_euros(amount)}")
+    for root in wm.get_root_categories():
+        children = wm.get_category_children(root)
+        print(f"\n  {root.title()} — techo {to_euros(wm.get_category_budget(root))}")
+
+        if not children:
+            for member, amount in contributions[root]["contributions"].items():
+                print(f"      {member.title():<12} {to_euros(amount):>10}")
+            continue
+
+        # Las hijas y, al final, lo que la raíz no ha delegado en ellas
+        group = [(child.title(), child) for child in children]
+        group.append(("Sin desglosar", root))
+
+        for label, cat in group:
+            data = contributions[cat]
+            print(f"    · {label:<14} reparte {to_euros(data['planned']):>10}")
+            for member, amount in data["contributions"].items():
+                print(f"        {member.title():<12} {to_euros(amount):>10}")
 
     # --- Compromisos personales (se descuentan de la cuota de reserva) ---
     coche_debt_id = wm.add_debt_bucket(
@@ -316,14 +340,17 @@ with DatabaseConnection(
     total_shared = wm.get_savings_total_shared()
     print(f"Total en buckets compartidos (todo el hogar): {to_euros(total_shared)}")
 
+    # El rango es semiabierto [inicio, fin): para incluir hoy, el fin es mañana.
     today = date.today()
-    shared_movements = wm.get_savings_shared_by_period(today, today)
+    shared_movements = wm.get_savings_shared_by_period(today, today + timedelta(days=1))
     print("Movimientos compartidos de hoy, por miembro:")
+    if not shared_movements:
+        print("  (ninguno)")
     for member, entries in shared_movements.items():
-        if not entries:
-            continue
         neto = sum(e.amount_cents for e in entries)
-        print(f"  {member.title()}: {len(entries)} movimiento(s), neto {to_euros(neto)}")
+        print(
+            f"  {member.title()}: {len(entries)} movimiento(s), neto {to_euros(neto)}"
+        )
 
     # --- Agregar un ingreso extra ---
     wm.add_income_entry("Amanda", 200.0, "Venta de bicicleta")
@@ -347,16 +374,114 @@ with DatabaseConnection(
     print("ESTADO DEL MES")
     print("=" * 60)
 
-    # --- Presupuesto vs gasto real por categoría ---
-    print("\nPRESUPUESTOS vs GASTO REAL:")
-    for cat in wm.get_active_categories():
-        budgeted = wm.get_category_budget(cat)
-        spent = wm.get_category_spent(cat)
-        remaining = wm.get_category_remaining(cat)
+    # --- Presupuesto vs gasto real: del total al detalle ---
+    month_summary = SummaryService.get_month_summary(household=household)
+    totals = month_summary["totals"]
+    by_category = month_summary["by_category"]
+    by_member = month_summary["by_member"]
+
+    LABEL_WIDTH = 30
+
+    def print_row(label: str, indent: int, planned: int, spent: int, left: int) -> None:
+        """Una fila del árbol: etiqueta sangrada y las tres columnas alineadas."""
+        text = " " * indent + label
         print(
-            f"  {cat.title():<12} {to_euros(budgeted):>10} presup. | "
-            f"{to_euros(spent):>10} gastado | {to_euros(remaining):>10} restante"
+            f"  {text:<{LABEL_WIDTH}}"
+            f"{to_euros(planned):>13}{to_euros(spent):>13}{to_euros(left):>13}"
         )
+
+    def member_share(member: str, categories: list[str]) -> tuple[int, int]:
+        """Lo acordado y lo pagado por un miembro sumando esas categorías."""
+        rows = by_member[member]["by_category"]
+        agreed = sum(rows[c]["contribution"] for c in categories if c in rows)
+        paid = sum(rows[c]["paid"] for c in categories if c in rows)
+        return agreed, paid
+
+    members = list(by_member)
+
+    print("\nPRESUPUESTO vs GASTO REAL")
+    print()
+    print("  CÓMO SE LEE")
+    print("    Cada bloque baja de lo general a lo concreto:")
+    print("      TOTAL DEL HOGAR, luego cada categoría raíz, luego sus subcategorías.")
+    print("    Bajo cada línea, quién pone ese dinero.")
+    print()
+    print("    En una CATEGORÍA:  presupuestado · gastado · lo que queda por gastar.")
+    print(
+        "    En un MIEMBRO:     lo que acordó poner · lo que ya pagó · lo que le falta."
+    )
+    print()
+    print("    RESTANTE en negativo:")
+    print("      en una categoría, se ha gastado más de lo presupuestado.")
+    print("      en un miembro, ha pagado de más y el hogar se lo debe.")
+    print()
+    print("    'Sin desglosar' es la parte del techo que no está repartida en")
+    print("    subcategorías. El techo de la raíz ya incluye a sus hijas, así que")
+    print("    sumar la raíz y sus hijas contaría el mismo dinero dos veces.")
+    print()
+    print(f"  {'':<{LABEL_WIDTH}}{'PRESUP.':>13}{'GASTADO':>13}{'RESTANTE':>13}")
+    print("  " + "-" * (LABEL_WIDTH + 39))
+
+    print_row(
+        "TOTAL DEL HOGAR",
+        0,
+        totals["total_budgeted"],
+        totals["total_spent"],
+        totals["total_remaining"],
+    )
+
+    for root_name, root in by_category.items():
+        children = root["children"]
+        subtree = [root_name] + list(children)
+
+        print()
+        print_row(
+            root_name.title(), 2, root["ceiling"], root["spent"], root["remaining"]
+        )
+
+        # Quién sostiene esta raíz, contando también lo que cuelga de ella
+        agreed_total = 0
+        for member in members:
+            agreed, paid = member_share(member, subtree)
+            agreed_total += agreed
+            print_row(member.title(), 4, agreed, paid, agreed - paid)
+
+        # Lo acordado se congeló en finish_planning; el presupuesto sigue vivo.
+        # Si se han movido después (p. ej. un ingreso extra sube la reserva),
+        # las dos cifras dejan de coincidir y conviene decirlo, no esconderlo.
+        if agreed_total != root["ceiling"]:
+            print(
+                f"      (lo acordado suma {to_euros(agreed_total)}: el presupuesto "
+                f"cambió después de congelar el acuerdo)"
+            )
+
+        for child_name, child in children.items():
+            print()
+            print_row(
+                f"· {child_name.title()}",
+                4,
+                child["ceiling"],
+                child["spent"],
+                child["remaining"],
+            )
+            for member in members:
+                agreed, paid = member_share(member, [child_name])
+                print_row(member.title(), 8, agreed, paid, agreed - paid)
+
+        # Lo que la raíz no ha desglosado en hijas
+        if children:
+            own_spent = root["spent"] - sum(c["spent"] for c in children.values())
+            print()
+            print_row(
+                "· Sin desglosar",
+                4,
+                root["unallocated"],
+                own_spent,
+                root["unallocated"] - own_spent,
+            )
+            for member in members:
+                agreed, paid = member_share(member, [root_name])
+                print_row(member.title(), 8, agreed, paid, agreed - paid)
 
     # --- Estado personal de cada miembro ---
     print("\nESTADO POR MIEMBRO:")
@@ -393,7 +518,9 @@ with DatabaseConnection(
     for bid, bkt in wm.get_all_buckets().items():
         if bkt.goal:
             pct = int(bkt.balance / bkt.goal * 100)
-            print(f"  '{bkt.bucket_name}': {to_euros(bkt.balance)} / {to_euros(bkt.goal)} ({pct}%)")
+            print(
+                f"  '{bkt.bucket_name}': {to_euros(bkt.balance)} / {to_euros(bkt.goal)} ({pct}%)"
+            )
         else:
             print(f"  '{bkt.bucket_name}': {to_euros(bkt.balance)} (sin meta)")
 
@@ -417,7 +544,11 @@ with DatabaseConnection(
     print("FASE 4: CIERRE DEL MES")
     print("=" * 60)
 
-    wm.finish_month()
+    # La ventana del período es [inicio, fin): el día de cierre es exclusivo, para
+    # que el día de corte pertenezca solo al mes que empieza. Aquí todo se ha
+    # registrado hoy, así que el cierre va a mañana o los movimientos de hoy
+    # quedarían fuera de su propio mes.
+    wm.finish_month(end_date=date.today() + timedelta(days=1))
 
     month_summary = wm.get_month_summary()
     print("\nRESUMEN FINAL:")

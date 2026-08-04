@@ -197,6 +197,8 @@ class SummaryService:
                 "spent": household.get_category_spent(cat_name),
                 "remaining": household.get_category_remaining(cat_name),
                 "unallocated": household.get_category_billable(cat_name),
+                # Siempre presente, vacío si la raíz no tiene hijas: quien lo
+                # recorra no necesita comprobar si la clave existe.
                 "children": {
                     child: {
                         "ceiling": household.get_category_planned_amount(child),
