@@ -24,7 +24,7 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - Planifica presupuesto por categorías (fijos, variables, reserva, o las que añadas), _asignable por monto o por porcentaje de ingreso_.
 
-- Organiza las categorías en árbol: una raíz actúa de techo y sus subcategorías reparten ese importe dentro del límite (p. ej. "fijos" → alquiler, luz, internet).
+- Organiza las categorías en árbol: una raíz actúa de techo y sus subcategorías reparten ese importe dentro del límite (p. ej. "fijos" → alquiler, luz, internet). Cada categoría solo reparte entre los miembros lo que no ha delegado en sus hijas, así que nadie aporta dos veces por el mismo dinero, y el gasto de una subcategoría cuenta contra el techo de su raíz.
 
 - Reparte cada presupuesto entre miembros según el método elegido, con precisión de céntimo.
 
@@ -40,11 +40,11 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - No hay interfaz de usuario (solo API de Python).
 
-- Persistencia por escritura: se guardan miembros, períodos, gastos, deuda, categorías de presupuesto y ahorro. Falta el lado de lectura — reconstruir el `Household` en memoria desde BD entre requests (necesario para una API stateless).
+- Lectura desde BD a medias: `HouseholdLoader` ya reconstruye miembros, período, categorías, gastos, y los buckets de deuda y ahorro con sus movimientos. Falta llevar esa reconstrucción a todos los servicios para que una API stateless pueda apoyarse en ella sin mantener el `Household` en memoria.
 
 - No hay histórico multi-mes ni comparativas.
 
-- No hay gestión de ingresos extra ni transferencias internas entre miembros.
+- No hay transferencias internas entre miembros. Los ingresos extra sí se registran, y caen en la reserva.
 
 ---
 
@@ -165,14 +165,16 @@ src/
 │   ├── finance_calculator.py  ← Matemática pura (sin estado). Reparto de céntimos.
 │   │
 │   ├── member.py              ← Persona con ingreso
-│   ├── budget.py              ← Plan: dict de BudgetCategory
+│   ├── budget.py              ← Plan: dict plano de BudgetCategory + índice de hijas.
+│   │                            Dueño del árbol: techo, facturable y reglas de borrado.
 │   ├── category.py            ← Category / AutoCalculatedCategory (objeto con is_shared)
-│   ├── budget_category.py     ← Una categoría con su planned_amount
+│   ├── budget_category.py     ← Una categoría con su planned_amount y su parent
 │   ├── category_library.py    ← Fábrica string→Category + estándar/extendidas/custom
 │   ├── subcategory_library.py ← Sugerencias de subcategorías (display only)
+│   ├── exceptions.py          ← Errores de dominio con datos (heredan de ValueError)
 │   │
-│   ├── expense.py             ← Gasto registrado
-│   ├── expense_tracker.py     ← Colección de gastos del mes actual
+│   ├── expense.py             ← Gasto registrado, con id propio (UUID)
+│   ├── expense_tracker.py     ← Colección de gastos del mes actual (filtro + suma)
 │   │
 │   ├── saving_entry.py        ← Movimiento de ahorro (dataclass inmutable)
 │   ├── saving_account.py      ← Cuenta de ahorro de UN miembro

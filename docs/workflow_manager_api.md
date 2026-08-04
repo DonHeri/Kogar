@@ -1,6 +1,6 @@
 # WorkflowManager — Referencia de API
 
-El usuario interactúa **únicamente** con `WorkflowManager`. Las clases internas (`Household`, `SavingTracker`, `DebtTracker`, etc.) son detalles de implementación. Los servicios de `src/workflow/` (`BudgetDistributionService`, `SettlementCalculator`, `SummaryService`, `IncomeEntryService`) tampoco se usan directamente — `WorkflowManager` delega en ellos.
+El usuario interactúa **únicamente** con `WorkflowManager`. Las clases internas (`Household`, `SavingBucketTracker`, `DebtBucketTracker`, etc.) son detalles de implementación. Los servicios de `src/workflow/` (`BudgetDistributionService`, `SettlementCalculator`, `SummaryService`, `IncomeEntryService`) tampoco se usan directamente — `WorkflowManager` delega en ellos.
 
 ---
 
@@ -38,6 +38,37 @@ reserva = total_ingresos - sum(resto_de_categorías)
 ```
 
 Intentar asignar presupuesto a `"reserva"` directamente lanza `ValueError`.
+
+### El techo de una categoría raíz
+
+Una raíz con hijas es un **techo**, no la suma de sus hijas. Las hijas reparten dentro de ese
+importe y no se suman aparte al total del hogar.
+
+De ahí salen dos reglas que se validan en los dos sentidos:
+
+- `Σ hijas ≤ techo` — asignar a una hija por encima de lo que queda lanza `ValueError`.
+- `techo ≥ Σ hijas` — bajar el techo por debajo de lo ya repartido lanza
+  `CeilingBelowChildrenError`.
+
+El techo **no crece solo**: mientras `reserva` absorba el remanente, subirlo automáticamente
+sería bajarle la reserva al usuario sin decírselo.
+
+### Errores del dominio
+
+Los errores viven en `src/models/exceptions.py` y **heredan de `ValueError`**, así que quien ya
+capturaba `ValueError` los sigue capturando. Lo que añaden es tipo y datos, para que el borde
+pueda formatear el importe en euros sin leer el texto del mensaje.
+
+- `DomainError` — raíz de la jerarquía. Nada la lanza directamente; sirve para capturar todos.
+- `CeilingBelowChildrenError` — lleva `category` y `children_total_cents`, el mínimo al que
+  puede bajar ese techo.
+
+```python
+try:
+    wm.set_budget_for_category("fijos", 500.0)
+except CeilingBelowChildrenError as e:
+    print(f"{e.category} no puede bajar de {to_euros(e.children_total_cents)}")
+```
 
 ### Persistencia (opcional)
 
@@ -83,36 +114,33 @@ wm.set_member_incomes("Amanda", 2000.0)
 wm.set_member_incomes("Heri", 1000.0)
 ```
 
-### `finish_registration(start_date: date | None = None) → int | None`
-
-Valida que hay al menos un miembro con ingresos, congela los datos y avanza a PLANNING.
-Las categorías estándar (`fijos`, `variables`, `reserva`) se crean automáticamente en este paso.
-
-Si hay `period_repo` inyectado, `start_date` es obligatorio (lanza `ValueError` si falta). Si además hay `household_repo`/`member_repo`, persiste el household y sus miembros y devuelve el `household_id`; sin repos devuelve `None`.
-
-```python
-wm.finish_registration()                       # en memoria
-wm.finish_registration(start_date=date.today()) # con persistencia
-```
+> **`finish_registration()` ya no existe.** El período se abre con `start_new_month()`, que es
+> el único punto de apertura y deja el hogar directamente en PLANNING. Ahí se crean las
+> categorías estándar y los buckets de ahorro personal de cada miembro. Registrar miembros e
+> ingresos se hace ya dentro de PLANNING. Ver "Fase CLOSING — Nuevo mes".
 
 ---
 
 ## Fase PLANNING — Categorías
 
-Las categorías estándar (`fijos`, `variables`, `reserva`) **ya existen** tras `finish_registration()`. Solo usa estos métodos si necesitas categorías extra o modificar las existentes.
+Las categorías estándar (`fijos`, `variables`, `reserva`) **ya existen** tras `start_new_month()`. Solo usa estos métodos si necesitas categorías extra o modificar las existentes.
 
 ### `add_category(name: str, parent: str | None = None)`
 
-Crea una categoría personalizada adicional. Si se pasa `parent`, la categoría cuelga como hija de una raíz existente (jerarquía de dos niveles): el presupuesto de las hijas se reparte dentro del techo de la categoría padre, no se suma aparte al total.
+Crea una categoría personalizada adicional. Si se pasa `parent`, la categoría cuelga como hija de una raíz existente: el presupuesto de las hijas se reparte dentro del techo de la categoría padre, no se suma aparte al total.
+
+Una hija hereda el `is_shared` de su padre. El árbol tiene dos niveles: pasar como `parent` una categoría que ya es hija lanza `ValueError`.
+
+**Nace con presupuesto 0**, y a una hija no se le puede asignar importe hasta que su raíz tenga techo — si no, no cabe dentro de 0. Para presupuestar de abajo arriba (recoger los gastos concretos y deducir el techo), quien llama recoge los importes primero, fija el techo de la raíz y después crea las hijas.
 
 ```python
-wm.add_category("ocio")                      # categoría raíz
+wm.add_category("ocio")                       # categoría raíz
 wm.add_category("alquiler", parent="fijos")   # hija de "fijos"
 ```
 
 ### `set_standard_categories()`
 
-Resetea las categorías a las estándar (`fijos`, `variables`, `reserva`), eliminando cualquier categoría personalizada. Útil si se quiere volver al estado inicial de planificación.
+Asegura que existen las tres estándar (`fijos`, `variables`, `reserva`). Las que ya estén se dejan como están; solo crea las que falten. **No borra nada** ni resetea importes, así que llamarlo dos veces es inofensivo.
 
 ```python
 wm.set_standard_categories()
@@ -120,10 +148,33 @@ wm.set_standard_categories()
 
 ### `remove_category(name: str)`
 
-Elimina una categoría. Solo elimina categorías que hayas añadido con `add_category()` — eliminar una estándar puede romper el flujo.
+Elimina una categoría y resuelve qué pasa con sus gastos.
+
+- **Con hijas:** lanza. Promoverlas a raíz metería su importe a competir contra el ingreso y cambiaría el presupuesto sin que nadie lo pida. Hay que borrarlas o moverlas antes.
+- **Hija con gastos:** los gastos suben a su padre. Es neutro para los totales, porque ya contaban dentro de su techo.
+- **Raíz con gastos:** lanza. No hay a quién subirlos.
 
 ```python
 wm.remove_category("ocio")
+```
+
+### `get_root_categories() → list[str]` *(PLANNING+)*
+
+Las categorías raíz, las únicas que cuentan contra el ingreso.
+
+### `get_category_children(category_name: str) → list[str]` *(PLANNING+)*
+
+Los nombres de las categorías que cuelgan de una raíz.
+
+### `get_category_billable(category_name: str) → int (¢)` *(PLANNING+)*
+
+Lo que una categoría reparte entre los miembros: su presupuesto menos lo que ya ha delegado en sus hijas. En una hoja es su presupuesto entero.
+
+Es el número que evita el doble cobro: la suma de los facturables de todas las categorías es exactamente la suma de las raíces. En una raíz con hijas equivale a "lo que aún no está desglosado".
+
+```python
+wm.get_category_budget("fijos")     # 159000¢ — el techo
+wm.get_category_billable("fijos")   #  65000¢ — lo no desglosado, si las hijas suman 94000¢
 ```
 
 ### Comportamiento de una categoría (`is_shared`)
@@ -242,12 +293,16 @@ totals = wm.get_total_contributions_by_member()
 
 La deuda representa el compromiso mensual de pago de deuda personal de cada miembro (hipoteca, préstamo, etc.). Se descuenta de la cuota de `reserva` de ese miembro.
 
-### `set_member_debt(member: str, amount_euros: float)`
+### `add_debt_bucket(name, principal_euros, owner, installment_euros, start_date=None, description="") → UUID`
 
-Declara cuánto pagará el miembro en concepto de deuda durante el mes.
+Declara una deuda personal: cuánto se debe en total, de quién es y qué cuota mensual tiene. Devuelve el `UUID` del bucket, que hace falta para registrar los pagos.
+
+Sustituye al antiguo `set_member_debt(member, amount_euros)`, que solo guardaba la cuota del mes y no seguía el saldo pendiente.
 
 ```python
-wm.set_member_debt("Amanda", 200.0)  # Amanda pagará 200€ de deuda este mes
+coche = wm.add_debt_bucket(
+    name="coche", principal_euros=6000, owner="amanda", installment_euros=200.0
+)
 ```
 
 ### `get_debt_status(member_name: str) → dict (valores en ¢)` *(PLANNING+)*
@@ -259,68 +314,46 @@ status = wm.get_debt_status("Amanda")
 # {"committed": 20000, "paid": 0, "remaining": 20000}
 ```
 
-### `get_all_debts() → dict[str, int] (¢)` *(PLANNING+)*
+### `get_all_debts_summary() → dict` *(PLANNING+)*
 
-Deuda comprometida de todos los miembros.
+Resumen de deuda de todos los miembros: sus buckets, la cuota comprometida y lo pagado en el período.
 
 ```python
-debts = wm.get_all_debts()
-# {"amanda": 20000, "heri": 10000}
+debts = wm.get_all_debts_summary()
 ```
 
 ---
 
 ## Fase PLANNING — Ahorro
 
-El ahorro representa el objetivo mensual de ahorro de cada miembro. Se descuenta de la cuota de `reserva` junto con la deuda.
+El ahorro dejó de ser un objetivo suelto por miembro y pasó a vivir en **buckets** con meta y
+fecha límite opcionales. Ver "Fase MONTH — Saving Buckets": se crean en PLANNING con
+`create_saving_bucket()`.
 
-### `set_member_saving_goal(member: str, amount_euros: float) → None`
+> **Métodos retirados.** `set_member_saving_goal`, `auto_assign_saving_goals`,
+> `get_saving_goal_status` y `get_all_saving_goals` ya no existen. El equivalente de hoy es
+> `get_saving_requirement_by_member(member)`, que devuelve cuánto exigirían este mes las metas
+> con fecha límite.
 
-Declara manualmente el objetivo de ahorro mensual de un miembro.
+### `get_saving_requirement_by_member(member: str) → int (¢)` *(PLANNING+)*
 
-```python
-wm.set_member_saving_goal("Amanda", 300.0)
-```
-
-### `auto_assign_saving_goals()`
-
-Calcula y asigna automáticamente el objetivo de ahorro de cada miembro según:
-
-```text
-saving_goal[m] = cuota_reserva[m] - deuda[m]
-```
-
-Llámalo después de `set_member_debt()` y antes de `finish_planning()`.
+Cuánto pedirían este mes las metas del miembro para llegar a tiempo. **Es informativo**: el
+ahorro es una elección, no una obligación, y nada se valida contra él.
 
 ```python
-wm.set_member_debt("Amanda", 200.0)
-wm.auto_assign_saving_goals()
+wm.get_saving_requirement_by_member("Amanda")
 ```
 
-### `get_saving_goal_status(member_name: str) → dict (valores en ¢)` *(PLANNING+)*
+### `validate_debt_doesnt_exceed_capacity()`
 
-Estado del objetivo de ahorro: comprometido, depositado y pendiente.
+Valida que la cuota de deuda de cada miembro no supera su parte de `reserva`. Lanza `ValueError`
+si alguien se excede. Se llama sola dentro de `finish_planning()`.
 
-```python
-status = wm.get_saving_goal_status("Amanda")
-# {"committed": 30000, "paid": 15000, "remaining": 15000}
-```
-
-### `get_all_saving_goals() → dict[str, int] (¢)` *(PLANNING+)*
-
-Objetivo de ahorro comprometido de todos los miembros.
+Sustituye a `validate_debt_and_saving_dont_exceed_capacity()`: **el ahorro salió de la
+validación**, porque comprometerse a ahorrar no es una deuda con nadie.
 
 ```python
-goals = wm.get_all_saving_goals()
-# {"amanda": 30000, "heri": 15000}
-```
-
-### `validate_debt_and_saving_dont_exceed_capacity()`
-
-Valida que `deuda + ahorro` de cada miembro no supera su cuota de `reserva`. Lanza `ValueError` si algún miembro se excede. Se llama automáticamente dentro de `finish_planning()`, pero puede invocarse manualmente durante la planificación para detectar problemas antes.
-
-```python
-wm.validate_debt_and_saving_dont_exceed_capacity()
+wm.validate_debt_doesnt_exceed_capacity()
 ```
 
 ---
@@ -384,40 +417,13 @@ history = wm.get_debt_history("Amanda")
 
 ---
 
-## Fase MONTH — Ahorro en cuenta
+## Fase MONTH — Ahorro
 
-### `register_savings_deposit(member, amount_euros, scope, description="", date=None)`
-
-Registra un depósito en la cuenta de ahorro. `scope` indica si es `PERSONAL` o `SHARED`.
-
-```python
-from src.models.constants import SavingScope
-wm.register_savings_deposit("Amanda", 300.0, SavingScope.PERSONAL, "ahorro mensual")
-wm.register_savings_deposit("Heri", 150.0, SavingScope.SHARED, "fondo común")
-```
-
-### `register_savings_withdrawal(member, amount_euros, scope, description="", date=None)`
-
-Registra un retiro de la cuenta de ahorro. No puede superar el saldo disponible.
-
-```python
-wm.register_savings_withdrawal("Amanda", 100.0, SavingScope.PERSONAL)
-```
-
-### `get_member_savings_summary(member: str) → dict (valores en ¢)` *(PLANNING+)*
-
-Resumen de ahorro de un miembro: balances total/personal/shared, historial completo y movimientos del mes actual.
-
-```python
-summary = wm.get_member_savings_summary("Amanda")
-# {
-#   "balance_total":    30000,   # ¢
-#   "balance_personal": 20000,   # ¢
-#   "balance_shared":   10000,   # ¢
-#   "history": [...],
-#   "actual_month": {"personal": 20000, "shared": 10000}  # ¢
-# }
-```
+> **La "cuenta de ahorro" con `scope` PERSONAL/SHARED ya no existe.** Todo el ahorro vive en
+> buckets: se depositan y se retiran con `deposit_to_saving_bucket()` y
+> `withdraw_from_saving_bucket()`, y que un bucket sea personal o compartido se deriva de sus
+> `owners`. Retirados: `register_savings_deposit`, `register_savings_withdrawal` y
+> `get_member_savings_summary`. El resumen por miembro es hoy `get_saving_status(member)`.
 
 ### `get_savings_total_shared() → int (¢)` *(MONTH+)*
 
@@ -461,20 +467,20 @@ bucket_id = wm.create_saving_bucket(
 )
 ```
 
-### `deposit_to_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
+### `deposit_to_saving_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
 
 Registra un depósito en un bucket. El miembro debe ser uno de los `owners` del bucket.
 
 ```python
-wm.deposit_to_bucket(bucket_id, "Amanda", 200.0)
+wm.deposit_to_saving_bucket(bucket_id, "Amanda", 200.0)
 ```
 
-### `withdraw_from_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
+### `withdraw_from_saving_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
 
 Registra un retiro de un bucket. No puede superar el saldo disponible del miembro.
 
 ```python
-wm.withdraw_from_bucket(bucket_id, "Amanda", 50.0)
+wm.withdraw_from_saving_bucket(bucket_id, "Amanda", 50.0)
 ```
 
 ### `get_bucket_by_id(bucket_id: UUID) → SavingBucket` *(PLANNING+)*
@@ -553,10 +559,11 @@ status = wm.get_member_status("Amanda")
 
 ### `get_category_spent(category_name: str) → int (¢)` *(MONTH+)*
 
-Total de gastos registrados en una categoría.
+Total gastado en una categoría **y en las que cuelgan de ella**. En una hoja no hay hijas, así que es su propio gasto.
 
 ```python
-spent = wm.get_category_spent("variables")
+wm.get_category_spent("alquiler")  #  80000¢ — lo suyo
+wm.get_category_spent("fijos")     #  93050¢ — lo suyo más el de sus hijas
 ```
 
 ### `get_total_spent() → int (¢)` *(MONTH+)*
@@ -569,7 +576,9 @@ total = wm.get_total_spent()
 
 ### `get_category_remaining(category_name: str) → int (¢)` *(MONTH+)*
 
-Presupuesto restante en una categoría: `presupuestado - gastado`.
+Presupuesto restante en una categoría: `presupuestado - gastado`, contando el gasto de todo su subárbol.
+
+**Puede salir negativo.** Gastar por encima del techo no se limita, se reporta: es información, no un error.
 
 ```python
 remaining = wm.get_category_remaining("variables")
@@ -594,18 +603,34 @@ transfers = wm.get_settlement()
 
 ### `get_month_summary() → dict (valores en ¢)` *(MONTH+)*
 
-Resumen financiero completo del mes: totales globales, desglose por categoría, estado de cada miembro (incluye `by_category`) y `missing_money` (total y por miembro).
+Resumen financiero completo del mes: totales globales, desglose por categoría, estado de cada miembro (incluye su propio `by_category`) y `missing_money` (total y por miembro).
+
+En `by_category` **solo aparecen las raíces**; sus hijas van dentro, en `children`. Así, sumar el primer nivel cuadra siempre con `totals` — con las hijas al mismo nivel se contaría dos veces el mismo dinero. `children` está siempre presente, vacío si la raíz no tiene hijas.
 
 ```python
 summary = wm.get_month_summary()
+# "by_category": {
+#   "fijos": {
+#     "ceiling":     159000,   # ¢ — techo de la raíz
+#     "spent":        93050,   # ¢ — gasto de todo su subárbol
+#     "remaining":    65950,   # ¢ — techo menos gasto; puede ser negativo
+#     "unallocated":  65000,   # ¢ — lo que no está desglosado en hijas
+#     "children": {
+#       "alquiler": {"ceiling": 80000, "spent": 80000, "remaining": 0}
+#     }
+#   }
+# }
 ```
 
-### `finish_month()`
+### `finish_month(end_date: date | None = None)`
 
-Avanza de MONTH a CLOSING. Si hay `period_repo`, persiste el cambio de estado y la fecha de fin.
+Avanza de MONTH a CLOSING y fija la fecha de fin del período (por defecto, hoy). Si hay `period_repo`, persiste el cambio de estado y la fecha.
+
+La ventana del período es **semiabierta `[inicio, fin)`**: el día de cierre es exclusivo, para que el día de corte pertenezca solo al mes que empieza y no se cuente en los dos. Consecuencia práctica: cerrar con la fecha de hoy deja fuera los movimientos de hoy, y las consultas por período (deuda pagada, ahorro depositado) no los verán.
 
 ```python
-wm.finish_month()
+wm.finish_month()                      # cierra hoy: lo de hoy queda fuera
+wm.finish_month(end_date=date(2026, 6, 6))
 ```
 
 ---
@@ -645,6 +670,25 @@ entries = wm.get_extra_income_entries()
 ---
 
 ## Consultas generales (cualquier fase)
+
+### `get_reserve_contribution_by_member(member: str) → int (¢)` *(PLANNING+)*
+
+La parte de `reserva` que le toca a un miembro según el método de reparto. Es el número que
+`validate_debt_doesnt_exceed_capacity()` usa como techo de su deuda, y el que aparece como
+`missing_money` en los resúmenes.
+
+### `get_saving_status(member: str) → dict` *(PLANNING+)*
+
+Estado de ahorro de un miembro en el período: sus buckets y los totales (depositado, exigido por
+las metas). Informativo — nada aquí es una obligación.
+
+### `get_shared_buckets() → dict` *(PLANNING+)*
+
+Los buckets con más de un propietario.
+
+### `set_debt_bucket_installment(bucket_id: UUID, amount_euros: float)` *(PLANNING+)*
+
+Cambia la cuota mensual de un bucket de deuda ya declarado.
 
 ### `get_registered_members() → list[str]`
 
@@ -693,12 +737,12 @@ summary = wm.get_registration_summary()
 # {"members": [...], "member_incomes": {"amanda": 200000}, "total_household_income": 300000}
 ```
 
-### `get_registered_incomes() → dict[str, int] (¢)` *(PLANNING+)*
+### `get_incomes() → dict[str, int] (¢)` *(PLANNING+)*
 
-Ingresos tal como quedaron congelados al cerrar el registro.
+Ingreso mensual de cada miembro. Mientras el período sigue abierto manda el ingreso vivo: ya no se congela al abrir, solo el acuerdo del mes se congela en `finish_planning()`.
 
 ```python
-incomes = wm.get_registered_incomes()  # {"amanda": 200000, "heri": 100000}
+incomes = wm.get_incomes()  # {"amanda": 200000, "heri": 100000}
 ```
 
 ### `get_agreed_percentages() → dict[str, int] (basis points)` *(MONTH+)*
@@ -721,48 +765,75 @@ contribs = wm.get_agreed_contributions()
 
 ## Flujo completo de ejemplo
 
+Ciclo completo en memoria. Ejecutable tal cual: no necesita base de datos.
+
 ```python
+from datetime import date, timedelta
+
 from src.models.budget import Budget
-from src.models.constants import MetodoReparto, SavingScope
-from src.models.debt_tracker import DebtTracker
+from src.models.constants import MetodoReparto
+from src.models.debt_bucket_tracker import DebtBucketTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
-from src.models.saving_tracker import SavingTracker
+from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.workflow.workflow_manager import WorkflowManager
 
-# Inicializar (en memoria, sin repos)
-household = Household(Budget(), ExpenseTracker(), SavingTracker(), DebtTracker())
-wm = WorkflowManager(household)
+# Inicializar en memoria: sin repositorios, nada toca la base de datos
+household = Household(
+    budget=Budget(),
+    expense_tracker=ExpenseTracker(),
+    saving_bucket_tracker=SavingBucketTracker(),
+    debt_bucket_tracker=DebtBucketTracker(),
+    method=MetodoReparto.PROPORTIONAL,
+)
+wm = WorkflowManager(household=household)
 
-# REGISTRATION
+# El período nace aquí, y con él las categorías estándar
+wm.start_new_month(start_date=date(2026, 5, 6))
+
 wm.register_member("Amanda")
+wm.set_member_incomes("Amanda", 2000.0)
 wm.register_member("Heri")
-wm.set_member_incomes("Amanda", 2000.0)   # 2000€
-wm.set_member_incomes("Heri", 1000.0)    # 1000€
-wm.finish_registration()
-# → categorías fijos/variables/reserva creadas automáticamente
+wm.set_member_incomes("Heri", 1000.0)
 
-# PLANNING
+# PLANNING — presupuesto por porcentaje; reserva se autocalcula
 wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
-wm.set_budget_for_category("fijos", 1500.0)      # 1500€
-wm.set_budget_for_category("variables", 900.0)   # 900€
-# reserva = 3000 - 1500 - 900 = 600€ (automático)
+wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
-wm.set_member_debt("Amanda", 200.0)   # Amanda pagará 200€ de deuda
-wm.auto_assign_saving_goals()
-# Amanda: saving_goal = cuota_reserva_amanda - 20000¢
-# Heri:   saving_goal = cuota_reserva_heri   - 0¢
+# Desglosar el techo de fijos: las hijas reparten dentro, no se suman aparte
+wm.add_category("alquiler", parent="fijos")
+wm.set_budget_for_category("alquiler", 1200.0)
+print("techo fijos     ", wm.get_category_budget("fijos"))
+print("sin desglosar   ", wm.get_category_billable("fijos"))
+
+# Compromisos personales
+coche = wm.add_debt_bucket(
+    name="coche", principal_euros=6000, owner="amanda", installment_euros=200.0
+)
+vacaciones = wm.create_saving_bucket(
+    bucket_name="vacaciones", owners=["amanda", "heri"], goal_euros=1200.0
+)
 
 wm.finish_planning()
 
 # MONTH
-wm.register_expense("Amanda", "fijos", 1500.0, "alquiler")
-wm.register_expense("Heri", "variables", 300.0, "supermercado", participants=["Amanda", "Heri"])
-wm.register_debt_payment("Amanda", 200.0, "hipoteca")
-wm.register_savings_deposit("Heri", 150.0, SavingScope.PERSONAL, "ahorro mensual")
+wm.register_expense("Amanda", "alquiler", 1200.0, "alquiler de mayo")
+wm.register_expense("Heri", "variables", 300.0, "supermercado")
+wm.register_debt_payment("Amanda", coche, 200.0)
+wm.deposit_to_saving_bucket(vacaciones, "Heri", 150.0)
 
-print(wm.get_settlement())
-# [{"from": "heri", "to": "amanda", "amount": 30000}]  # Heri debe 300€ a Amanda
+print("gasto en fijos  ", wm.get_category_spent("fijos"))
+print("settlement      ", wm.get_settlement())
 
-wm.finish_month()
+# CLOSING — el fin es exclusivo, así que va después del último movimiento
+wm.finish_month(end_date=date.today() + timedelta(days=1))
+print("total gastado   ", wm.get_month_summary()["totals"]["total_spent"])
+```
+
+```
+techo fijos      150000
+sin desglosar    30000
+gasto en fijos   120000
+settlement       [{'from': 'heri', 'to': 'amanda', 'amount': 40000}]
+total gastado    150000
 ```
