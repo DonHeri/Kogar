@@ -403,21 +403,8 @@ def test_registration_is_outside_the_cycle() -> None:
     assert Phase.REGISTRATION.order == -1
 
 
-def test_phase_accessible_allows_current_and_past(
-    period_service: PeriodService,
-) -> None:
-    """Una consulta de PLANNING sigue disponible con el mes en marcha"""
-    period_service.validate_phase_accessible(
-        required_phase=Phase.PLANNING, current_phase=Phase.MONTH
-    )
-
-
-def test_phase_accessible_rejects_future_phases(period_service: PeriodService) -> None:
-    """Lo que aún no ha ocurrido no se puede consultar"""
-    with pytest.raises(ValueError, match="month o posterior"):
-        period_service.validate_phase_accessible(
-            required_phase=Phase.MONTH, current_phase=Phase.PLANNING
-        )
+# Los tests de require/require_at_least viven en test_constants.py: validar una
+# fase es una pregunta sobre el enum, y allí no hace falta levantar un servicio.
 
 
 # ===============================================

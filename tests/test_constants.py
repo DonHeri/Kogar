@@ -1,4 +1,6 @@
 # tests/test_constants.py
+
+import pytest
 from src.models.constants import MetodoReparto, Phase
 
 # ====================================================
@@ -66,3 +68,35 @@ def test_phase_enum_members_exist() -> None:
     assert Phase.PLANNING.value == "planning"
     assert Phase.MONTH.value == "month"
     assert Phase.CLOSING.value == "closed"
+
+
+# ===============================================
+# TESTS — Validación de fase
+# ===============================================
+
+
+def test_require_accepts_the_exact_phase() -> None:
+    """Una mutación de PLANNING pasa si el período está en PLANNING"""
+    Phase.PLANNING.require(Phase.PLANNING)
+
+
+def test_require_rejects_any_other_phase() -> None:
+    """La validación estricta no acepta una fase posterior"""
+    with pytest.raises(ValueError, match="solo permitida en fase planning"):
+        Phase.MONTH.require(Phase.PLANNING)
+
+
+def test_require_at_least_allows_current_and_past() -> None:
+    """Una consulta de PLANNING sigue disponible con el mes en marcha"""
+    Phase.MONTH.require_at_least(Phase.PLANNING)
+
+
+def test_require_at_least_allows_a_closed_period() -> None:
+    """Cerrar el mes no puede dejar sus resúmenes inaccesibles"""
+    Phase.CLOSING.require_at_least(Phase.MONTH)
+
+
+def test_require_at_least_rejects_future_phases() -> None:
+    """Lo que aún no ha ocurrido no se puede consultar"""
+    with pytest.raises(ValueError, match="month o posterior"):
+        Phase.PLANNING.require_at_least(Phase.MONTH)

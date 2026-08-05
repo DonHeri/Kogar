@@ -34,7 +34,7 @@ class ExpenseService:
         )
 
         # Validar fase
-        self.validate_phase(required_phase=Phase.MONTH, current_phase=period.status)
+        period.status.require(Phase.MONTH)
 
         # Normalizar datos
         member_normalized = normalize_name(member)
@@ -68,14 +68,6 @@ class ExpenseService:
             expense=expense, member_ids=members_id, period_id=period_id
         )
 
-    # ====== VALIDATORS ======
-    def validate_phase(self, required_phase: Phase, current_phase: Phase):
-        """Valida que la fase actual sea exactamente la requerida"""
-        if current_phase != required_phase:
-            raise ValueError(
-                f"Operación solo permitida en fase {required_phase.value}. "
-                f"Fase actual: {current_phase.value}"
-            )
 
     def _resolve_category(self, household: Household, name: str) -> Category:
         """Traduce el nombre (string del exterior) al objeto Category vivo del presupuesto."""

@@ -117,7 +117,7 @@ class PeriodService:
         household, _, period = self.household_loader.load_base(period_id=period_id)
 
         # Validar que estamos en fase para settear el método
-        self.validate_phase(required_phase=Phase.PLANNING, current_phase=period.status)
+        period.status.require(Phase.PLANNING)
 
         household.assign_distribution_method(method=method)
 
@@ -126,7 +126,7 @@ class PeriodService:
     def set_custom_splits(self, splits: dict[str, float], period_id: int):
         """Recibe porcentajes 0-100 y los convierte: este es el borde."""
         household, _, period = self.household_loader.load_base(period_id=period_id)
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         splits_basis_points = {
             name: to_percentage_basis(pct) for name, pct in splits.items()
@@ -144,7 +144,7 @@ class PeriodService:
         """ """
         household, _, period = self.household_loader.load_base(period_id=period_id)
 
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         name = normalize_name(name)
         parent = normalize_name(parent) if parent else None
@@ -161,7 +161,7 @@ class PeriodService:
     def set_standard_categories(self, period_id: int):
         household, _, period = self.household_loader.load_base(period_id=period_id)
 
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         household.set_standard_categories()
 
@@ -172,7 +172,7 @@ class PeriodService:
 
     def remove_category(self, period_id: int, name: str):
         household, _, period = self.household_loader.load_base(period_id=period_id)
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         name = normalize_name(name)
         # Pasar validaciones dominio (existe, sin gastos huérfanos, etc.)
@@ -184,7 +184,7 @@ class PeriodService:
 
     def set_planned_amount(self, period_id: int, category: str, amount_euros: float):
         household, _, period = self.household_loader.load_base(period_id=period_id)
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         amount_cents = to_cents(amount_euros)
         # Dominio valida (techo, reserva, etc.) y puede recalcular más de una categoría
@@ -204,7 +204,7 @@ class PeriodService:
         self, period_id: int, percentages_floats: dict[str, float]
     ):
         household, _, period = self.household_loader.load_base(period_id=period_id)
-        self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
+        period.status.require(Phase.PLANNING)
 
         total_pct = sum(percentages_floats.values())
         if total_pct > 100:
@@ -252,7 +252,7 @@ class PeriodService:
         """
         household, _, period = self.household_loader.load_base(period_id=period_id)
 
-        self.validate_phase(required_phase=Phase.PLANNING, current_phase=period.status)
+        period.status.require(Phase.PLANNING)
         household.validate_has_members()
         household.validate_total_incomes_positive()
 
@@ -285,25 +285,7 @@ class PeriodService:
     # QUERIES
     # ============================================================
 
-    def validate_phase(self, required_phase: Phase, current_phase: Phase):
-        """Valida que la fase actual sea exactamente la requerida. Para mutaciones."""
-        if current_phase != required_phase:
-            raise ValueError(
-                f"Operación solo permitida en fase {required_phase.value}. "
-                f"Fase actual: {current_phase.value}"
-            )
 
-    def validate_phase_accessible(self, required_phase: Phase, current_phase: Phase):
-        """Valida que la fase sea la actual o una ya superada. Para consultas.
-
-        Sin estado en memoria no hay lista de fases completadas: se deduce del orden
-        del ciclo. Si el período está en MONTH, PLANNING ya pasó necesariamente.
-        """
-        if not current_phase.is_at_least(required_phase):
-            raise ValueError(
-                f"Operación solo permitida en fase {required_phase.value} o posterior. "
-                f"Fase actual: {current_phase.value}"
-            )
 
     def _load_period(self, period_id: int) -> Period:
         period = self.period_repo.find_by_id(period_id=period_id)
