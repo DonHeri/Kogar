@@ -400,3 +400,67 @@ def test_phase_accessible_rejects_future_phases(period_service: PeriodService) -
         period_service.validate_phase_accessible(
             required_phase=Phase.MONTH, current_phase=Phase.PLANNING
         )
+
+
+# ===============================================
+# TESTS — Miembros e ingresos congelados
+# ===============================================
+
+
+def test_members_are_editable_before_any_period_exists(
+    household_service: HouseholdService, household_id: int
+) -> None:
+    """Dar de alta el hogar es anterior al primer período: sin período no hay acuerdo
+    que proteger, así que registrar y poner ingreso tiene que seguir funcionando."""
+    household_service.register_member(household_id=household_id, name="Amanda")
+    household_service.set_member_income(
+        household_id=household_id, name="Amanda", amount_euros=6000
+    )
+
+
+def test_cannot_change_income_once_the_plan_is_confirmed(
+    period_service: PeriodService,
+    household_service: HouseholdService,
+    household_id: int,
+    period_in_planning: int,
+) -> None:
+    """finish_planning congela las contribuciones contra los ingresos de ese momento.
+    Cambiar un ingreso después dejaría el acuerdo persistido apuntando a números
+    que ya no existen."""
+    period_service.set_planned_amount(
+        period_id=period_in_planning, category="fijos", amount_euros=5000
+    )
+    period_service.finish_planning(period_id=period_in_planning)
+
+    with pytest.raises(ValueError, match="planning"):
+        household_service.set_member_income(
+            household_id=household_id, name="Amanda", amount_euros=9000
+        )
+
+
+def test_cannot_register_a_member_once_the_plan_is_confirmed(
+    period_service: PeriodService,
+    household_service: HouseholdService,
+    household_id: int,
+    period_in_planning: int,
+) -> None:
+    """Un miembro nuevo con el mes en marcha no aparece en el acuerdo ya guardado:
+    el reparto quedaría repartido entre dos y cobrado a tres."""
+    period_service.set_planned_amount(
+        period_id=period_in_planning, category="fijos", amount_euros=5000
+    )
+    period_service.finish_planning(period_id=period_in_planning)
+
+    with pytest.raises(ValueError, match="planning"):
+        household_service.register_member(household_id=household_id, name="Nuria")
+
+
+def test_income_still_editable_while_planning(
+    household_service: HouseholdService,
+    household_id: int,
+    period_in_planning: int,
+) -> None:
+    """Mientras el plan sigue abierto el ingreso se ajusta con normalidad"""
+    household_service.set_member_income(
+        household_id=household_id, name="Amanda", amount_euros=7000
+    )
