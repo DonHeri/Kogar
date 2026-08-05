@@ -169,7 +169,7 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member)
         start_date, end_date = self._current_period_range()
-        return self.household.get_saving_status(member, start_date, end_date)
+        return self.household.get_saving_status_by_member(member, start_date, end_date)
 
     def get_saving_requirement_by_member(self, member: str) -> int:
         """Cuánto exigirían las metas del miembro este mes (informativo, snapshot de hoy)."""
@@ -232,7 +232,7 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         member = normalize_name(member)
         start_date, end_date = self._current_period_range()
-        return self.household.get_debt_status(member, start_date, end_date)
+        return self.household.get_debt_status_by_member(member, start_date, end_date)
 
     def get_all_debts_summary(self) -> dict:
         """Resumen de deuda de todos los miembros del hogar (PLANNING+)."""

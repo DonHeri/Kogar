@@ -75,7 +75,7 @@ class SavingBucketTracker:
         return total
 
     def member_saving_summary(
-        self, member_name: str, start_date: date, end_date: date
+        self, member_name: str, start_date: date, end_date: date | None = None
     ) -> dict:
         """Resumen de ahorro de un miembro: detalle por bucket (meta, deadline, cuota
         informativa, lo depositado este período) + totales. Espeja member_debt_summary,
@@ -90,6 +90,9 @@ class SavingBucketTracker:
               "totals": {"paid_this_period": int, "required_this_month": int},
             }
         """
+        if end_date is None:
+            end_date = date.today()
+
         buckets = {}
         total_paid = 0
         total_required = 0
