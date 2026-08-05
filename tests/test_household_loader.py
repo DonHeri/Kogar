@@ -305,6 +305,38 @@ def test_load_base_does_not_hydrate_expenses(
     assert household.get_total_spent() == 0
 
 
+def test_load_base_rehydrates_custom_splits_in_basis_points(
+    household_loader: HouseholdLoader,
+    period_repo: PeriodRepository,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
+    """Los splits vuelven de BD en basis points y entran tal cual.
+
+    La conversión desde 0-100 vive en los servicios, no en Household, así que la
+    BD y el usuario entran por la misma puerta. Cuando el dominio convertía, 5299
+    volvía como 529900 sin que nada lanzara.
+    """
+    period_repo.save_custom_splits(
+        period_id=period_id, splits={"heri": 5299, "amanda": 4701}
+    )
+
+    household, _, _ = household_loader.load_base(period_id=period_id)
+
+    assert household.get_custom_splits() == {"heri": 5299, "amanda": 4701}
+
+
+def test_load_base_leaves_splits_empty_when_the_period_has_none(
+    household_loader: HouseholdLoader,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
+    """Un período PROPORTIONAL no guarda splits, y cargarlo no puede exigirlos."""
+    household, _, _ = household_loader.load_base(period_id=period_id)
+
+    assert household.get_custom_splits() == {}
+
+
 # ===============================================
 # TESTS — load_for_queries
 # ===============================================

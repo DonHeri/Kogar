@@ -98,6 +98,7 @@ class HouseholdLoader:
 
         # 3. Repoblar lo que el gasto necesita
         self._hydrate_budget(household, category_rows)
+        self._hydrate_custom_splits(household=household, period_id=period_id)
 
         return (household, member_ids, period)
 
@@ -383,5 +384,18 @@ class HouseholdLoader:
                         date=entry_row["entry_date"],
                     )
 
-    def _hydrate_custom_splits(self):
-        pass
+    def _hydrate_custom_splits(self, household: Household, period_id: int):
+        """Repone los porcentajes personalizados del período, si los tiene.
+
+        La BD ya guarda basis points, que es la unidad que espera el dominio: no
+        hay conversión que hacer aquí, igual que _hydrate_budget pasa céntimos.
+
+        Un período con método PROPORTIONAL o EQUAL no guarda ninguno, y eso es
+        normal: se sale sin tocar nada en vez de exigir un split por miembro.
+        """
+        custom_splits = self._period_repo.get_custom_splits(period_id=period_id)
+
+        if not custom_splits:
+            return
+
+        household.set_custom_splits(custom_splits)

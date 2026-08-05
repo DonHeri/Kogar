@@ -90,9 +90,12 @@ class WorkflowManager:
             self.period_repo.update_method(self.period_id, method)
 
     def set_custom_splits(self, splits: dict[str, float]):
-        """Define porcentajes personalizados (solo para método CUSTOM)"""
+        """Define porcentajes personalizados 0-100 (solo para método CUSTOM)"""
         self.validate_phase(Phase.PLANNING)
-        self.household.set_custom_splits(splits)
+        splits_basis_points = {
+            name: to_percentage_basis(pct) for name, pct in splits.items()
+        }
+        self.household.set_custom_splits(splits_basis_points)
 
     # ====== PLANNING PHASE - Category Management ======
     def add_category(self, name: str, parent: str | None = None):

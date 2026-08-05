@@ -116,11 +116,14 @@ class PeriodService:
         self.period_repo.update_method(method=method, period_id=period_id)
 
     def set_custom_splits(self, splits: dict[str, float], period_id: int):
-
+        """Recibe porcentajes 0-100 y los convierte: este es el borde."""
         household, _, period = self.household_loader.load_base(period_id=period_id)
         self.validate_phase(current_phase=period.status, required_phase=Phase.PLANNING)
 
-        household.set_custom_splits(splits=splits)
+        splits_basis_points = {
+            name: to_percentage_basis(pct) for name, pct in splits.items()
+        }
+        household.set_custom_splits(splits=splits_basis_points)
 
         self.period_repo.save_custom_splits(
             period_id=period_id, splits=household.get_custom_splits()

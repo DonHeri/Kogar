@@ -16,7 +16,6 @@ from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.models.debt_bucket import DebtBucket
 
 from src.models.debt_bucket_tracker import DebtBucketTracker
-from src.utils.currency import to_percentage_basis
 from src.utils.text import normalize_name
 
 
@@ -131,14 +130,24 @@ class Household:
         """Establece método de reparto"""
         self.method = method
 
-    def set_custom_splits(self, splits: dict[str, float]):
-        """Define porcentajes de reparto personalizados (0-100)"""
+    def set_custom_splits(self, splits: dict[str, int]):
+        """Define porcentajes de reparto personalizados, en basis points.
+
+        52.99% entra como 5299. La conversión desde 0-100 la hacen los bordes,
+        que es donde vive to_percentage_basis: el dominio no habla en floats.
+        Así el usuario y la BD entran por la misma puerta, sin que rehidratar
+        vuelva a multiplicar por 100.
+
+        Definirlos deja el método en CUSTOM. Es la única razón para definirlos,
+        y separarlo permitía guardar unos porcentajes que el reparto ignoraba
+        sin avisar. Como invariante vive aquí: si lo hiciera cada cliente, basta
+        que uno se olvide para volver a los datos muertos.
+        """
         self.validate_has_members()
         self._validate_all_members_have_split(splits)
 
-        self._custom_splits = {
-            name: to_percentage_basis(pct) for name, pct in splits.items()
-        }
+        self._custom_splits = dict(splits)
+        self.method = MetodoReparto.CUSTOM
 
     def get_custom_splits(self):
         return self._custom_splits
@@ -391,7 +400,10 @@ class Household:
                 percentages = FinanceCalculator.calculate_equal_percentage(income_map)
 
             case MetodoReparto.CUSTOM:
-                if not hasattr(self, "_custom_splits"):
+                # El guard mira si el dict tiene contenido, no si el atributo
+                # existe: __init__ ya lo crea vacío, así que un hasattr aquí
+                # nunca salta y CUSTOM devolvía {} en silencio.
+                if not self._custom_splits:
                     raise ValueError(
                         "Método CUSTOM requiere llamar a set_custom_splits() primero"
                     )
@@ -466,7 +478,7 @@ class Household:
         contributions = self.get_current_contributions()
 
         totals = {member: 0 for member in self.members}
-    
+
         for cat in contributions:
             for member, amount in contributions[cat]["contributions"].items():
                 totals[member] += amount
@@ -588,7 +600,7 @@ class Household:
         if total <= 0:
             raise ValueError("Al menos un miembro debe tener ingresos > 0")
 
-    def _validate_all_members_have_split(self, splits: dict[str, float]):
+    def _validate_all_members_have_split(self, splits: dict[str, int]):
         """Valida que todos los miembros tienen asignado un porcentaje"""
         for name in self.members:
             if name not in splits:

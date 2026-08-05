@@ -330,7 +330,7 @@ def test_get_percentages_custom_returns_set_splits(
     household_with_members: Household,
 ) -> None:
     """Método CUSTOM devuelve los splits definidos previamente"""
-    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
+    household_with_members.set_custom_splits({"member1": 7000, "member2": 3000})
 
     percentages = household_with_members.get_percentages_by_method(
         method=MetodoReparto.CUSTOM
@@ -343,9 +343,12 @@ def test_get_percentages_custom_returns_set_splits(
 def test_get_percentages_custom_raises_if_splits_not_set(
     household_with_members: Household,
 ) -> None:
-    """Método CUSTOM lanza error si no se llamó set_custom_splits() antes"""
-    if hasattr(household_with_members, "_custom_splits"):
-        del household_with_members._custom_splits
+    """Método CUSTOM lanza error si no se llamó set_custom_splits() antes.
+
+    El hogar nace con el dict vacío, así que la condición real es que esté vacío,
+    no que el atributo falte: borrarlo a mano probaba un estado imposible.
+    """
+    assert household_with_members.get_custom_splits() == {}
 
     with pytest.raises(
         ValueError,
@@ -365,11 +368,15 @@ def test_get_percentages_custom_raises_if_no_members(base_household: Household) 
 # ====================================================
 
 
-def test_set_custom_splits_converts_to_basis_points(
+def test_set_custom_splits_stores_basis_points_as_given(
     household_with_members: Household,
 ) -> None:
-    """Convierte porcentajes float a basis points correctamente"""
-    household_with_members.set_custom_splits({"member1": 55.55, "member2": 44.45})
+    """El dominio recibe basis points y no los toca.
+
+    Convertir aquí obligaba a que la BD, que ya guarda basis points, entrara por
+    otra puerta: rehidratar por esta los multiplicaba por 100 otra vez.
+    """
+    household_with_members.set_custom_splits({"member1": 5555, "member2": 4445})
 
     assert household_with_members._custom_splits["member1"] == 5555
     assert household_with_members._custom_splits["member2"] == 4445
@@ -379,7 +386,7 @@ def test_set_custom_splits_stores_all_members(
     household_with_members: Household,
 ) -> None:
     """Almacena splits para todos los miembros del hogar"""
-    household_with_members.set_custom_splits({"member1": 60.0, "member2": 40.0})
+    household_with_members.set_custom_splits({"member1": 6000, "member2": 4000})
 
     assert "member1" in household_with_members._custom_splits
     assert "member2" in household_with_members._custom_splits
@@ -388,7 +395,7 @@ def test_set_custom_splits_stores_all_members(
 def test_set_custom_splits_raises_if_no_members(base_household: Household) -> None:
     """Lanza error si no hay miembros registrados"""
     with pytest.raises(ValueError, match="No hay miembros registrados"):
-        base_household.set_custom_splits({"member1": 50.0, "member2": 50.0})
+        base_household.set_custom_splits({"member1": 5000, "member2": 5000})
 
 
 def test_set_custom_splits_raises_if_member_missing_from_splits(
@@ -398,18 +405,34 @@ def test_set_custom_splits_raises_if_member_missing_from_splits(
     with pytest.raises(
         ValueError, match="Falta el porcentaje para el miembro: member2"
     ):
-        household_with_members.set_custom_splits({"member1": 100.0})
+        household_with_members.set_custom_splits({"member1": 10000})
 
 
 def test_set_custom_splits_overwrites_previous(
     household_with_members: Household,
 ) -> None:
     """Una segunda llamada sobreescribe los splits anteriores"""
-    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
-    household_with_members.set_custom_splits({"member1": 40.0, "member2": 60.0})
+    household_with_members.set_custom_splits({"member1": 7000, "member2": 3000})
+    household_with_members.set_custom_splits({"member1": 4000, "member2": 6000})
 
     assert household_with_members._custom_splits["member1"] == 4000
     assert household_with_members._custom_splits["member2"] == 6000
+
+
+def test_set_custom_splits_switches_the_method_to_custom(
+    household_with_members: Household,
+) -> None:
+    """Definir porcentajes propios activa CUSTOM.
+
+    Separarlo permitía guardar unos splits con el método en PROPORTIONAL: el
+    reparto los ignoraba y el usuario no se enteraba de que su ajuste no hacía
+    nada.
+    """
+    assert household_with_members.method != MetodoReparto.CUSTOM
+
+    household_with_members.set_custom_splits({"member1": 7000, "member2": 3000})
+
+    assert household_with_members.method == MetodoReparto.CUSTOM
 
 
 # ====================================================
@@ -1779,7 +1802,7 @@ def test_get_reserve_contribution_by_member_with_custom_method(
     household_with_members: Household,
 ) -> None:
     """Reserva (100000) se reparte según los splits CUSTOM (70/30)"""
-    household_with_members.set_custom_splits({"member1": 70.0, "member2": 30.0})
+    household_with_members.set_custom_splits({"member1": 7000, "member2": 3000})
     household_with_members.assign_distribution_method(MetodoReparto.CUSTOM)
     _set_budget(household_with_members, "fijos", 200000)
     # reserva autocalcula a 100000 → CUSTOM 70/30 → 70000 / 30000
