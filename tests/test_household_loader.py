@@ -219,7 +219,7 @@ def test_load_base_returns_member_ids_mapping(
 ) -> None:
     """member_ids devuelto mapea nombre normalizado -> id de BD."""
     _, returned_member_ids, _ = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert returned_member_ids == member_ids
@@ -230,22 +230,25 @@ def test_load_base_rehydrates_members_with_income(
 ) -> None:
     """Los miembros rehidratados conservan su ingreso mensual en céntimos."""
     household, _, _ = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.members["heri"].monthly_income == 135400
     assert household.members["amanda"].monthly_income == 146700
 
 
-def test_load_base_returns_phase_from_period_status(
+def test_load_base_returns_the_period_with_its_status_and_dates(
     household_loader: HouseholdLoader, household_id: int, period_id: int
 ) -> None:
-    """La fase devuelta viene del status persistido del período."""
-    _, _, phase = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+    """El loader devuelve el Period entero: quien orquesta necesita la fase para
+    validar y el rango de fechas para las consultas de deuda."""
+    _, _, period = household_loader.load_base(
+        period_id=period_id
     )
 
-    assert phase == Phase.MONTH
+    assert period.status == Phase.MONTH
+    assert period.start_date == date(2026, 2, 6)
+    assert period.household_id == household_id
 
 
 def test_load_base_rehydrates_budget_categories_with_planned_amounts(
@@ -256,7 +259,7 @@ def test_load_base_rehydrates_budget_categories_with_planned_amounts(
 ) -> None:
     """Cada BudgetCategory persistida se reconstruye con su planned_amount."""
     household, _, _ = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.budget.get_planned_amount("fijos") == 90000
@@ -281,7 +284,7 @@ def test_load_base_rehydrates_parent_before_child_regardless_of_insertion_order(
     budget_categories_repo.save(household_period_id=period_id, budget_category=parent)
 
     household, _, _ = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.budget.get_planned_amount("fijos") == 90000
@@ -296,7 +299,7 @@ def test_load_base_does_not_hydrate_expenses(
 ) -> None:
     """load_base es la receta ligera: no reconstruye histórico de gastos aunque exista en BD."""
     household, _, _ = household_loader.load_base(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.get_total_spent() == 0
@@ -313,13 +316,13 @@ def test_load_for_queries_keeps_member_ids_and_phase(
     period_id: int,
     member_ids: dict[str, int],
 ) -> None:
-    """load_for_queries no rompe el contrato de load_base (member_ids, phase)."""
-    _, returned_member_ids, phase = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+    """load_for_queries no rompe el contrato de load_base (member_ids, period)."""
+    _, returned_member_ids, period = household_loader.load_for_queries(
+        period_id=period_id
     )
 
     assert returned_member_ids == member_ids
-    assert phase == Phase.MONTH
+    assert period.status == Phase.MONTH
 
 
 def test_load_for_queries_resolves_payer_by_id(
@@ -330,7 +333,7 @@ def test_load_for_queries_resolves_payer_by_id(
 ) -> None:
     """El gasto rehidratado atribuye correctamente el pagador (payer_id -> nombre)."""
     household, _, _ = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.get_member_paid_total("heri") == 34600
@@ -345,7 +348,7 @@ def test_load_for_queries_rehydrates_participants(
 ) -> None:
     """Los participantes del gasto se reconstruyen completos."""
     household, _, _ = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     expense = household.expense_tracker.get_all_expenses()[0]
@@ -360,7 +363,7 @@ def test_load_for_queries_resolves_category_object(
 ) -> None:
     """La categoría del gasto se resuelve contra el budget ya hidratado."""
     household, _, _ = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.get_category_spent("fijos") == 34600
@@ -374,7 +377,7 @@ def test_load_for_queries_preserves_the_expense_id(
 ) -> None:
     """El gasto rehidratado conserva su id, no recibe uno nuevo."""
     household, _, _ = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     expense = household.expense_tracker.get_all_expenses()[0]
@@ -386,7 +389,7 @@ def test_load_for_queries_with_no_expenses_returns_empty_tracker(
 ) -> None:
     """Sin gastos en BD, load_for_queries no rompe y el tracker queda vacío."""
     household, _, _ = household_loader.load_for_queries(
-        household_id=household_id, period_id=period_id
+        period_id=period_id
     )
 
     assert household.get_total_spent() == 0

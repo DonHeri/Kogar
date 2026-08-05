@@ -67,14 +67,24 @@ class HouseholdLoader:
 
         return (household, member_ids)
 
-    def load_base(
-        self, household_id: int, period_id: int
-    ) -> tuple[Household, dict[str, int], Phase]:
+    def load_base(self, period_id: int) -> tuple[Household, dict[str, int], Period]:
+        """Miembros + presupuesto del período.
+
+        Basta el period_id: el household_id vive en el propio Period, así que pedir
+        los dos obligaba al llamador a leer el período antes solo para reenviarlo,
+        y el loader lo volvía a leer por dentro. Dos viajes idénticos por llamada.
+
+        Devuelve el Period entero, no solo su fase: quien orquesta necesita también
+        el rango de fechas, y así no tiene que volver a pedirlo al repositorio.
+
+        Raises:
+            ValueError: si el período no existe
+        """
 
         # 1. Leer filas
 
-        period = self._period_repo.find_by_id(period_id)
-        phase = period.status
+        period = self._require_period(period_id)
+        household_id = period.household_id
 
         category_rows = sorted(
             self._budget_categories_repo.find_by_period(period_id),
@@ -89,25 +99,28 @@ class HouseholdLoader:
         # 3. Repoblar lo que el gasto necesita
         self._hydrate_budget(household, category_rows)
 
-        return (household, member_ids, phase)
+        return (household, member_ids, period)
 
-    def load_for_queries(self, household_id: int, period_id: int):
+    def load_for_queries(
+        self, period_id: int
+    ) -> tuple[Household, dict[str, int], Period]:
         """load_base + histórico de gastos del período (para lecturas)"""
-        household, member_ids, phase = self.load_base(
-            household_id=household_id, period_id=period_id
-        )
+        household, member_ids, period = self.load_base(period_id=period_id)
 
         expense_rows = self._expense_repository.find_with_participants(period_id)
         self._hydrate_expenses(
             household, expense_rows=expense_rows, member_ids=member_ids
         )
 
-        return (household, member_ids, phase)
+        return (household, member_ids, period)
 
-    def load_with_debts(self, household_id: int, period_id: int):
+    def load_with_debts(
+        self, period_id: int
+    ) -> tuple[Household, dict[str, int], Period]:
         # 1. Leer filas
-        period = self._period_repo.find_by_id(period_id)
-        phase = period.status
+        period = self._require_period(period_id)
+        household_id = period.household_id
+
         debt_buckets_rows: list[dict] = self._debt_bucket_respository.find_by_household(
             household_id=household_id
         )
@@ -124,12 +137,15 @@ class HouseholdLoader:
             member_ids=member_ids,
         )
 
-        return (household, member_ids, phase)
+        return (household, member_ids, period)
 
-    def load_with_savings(self, household_id: int, period_id: int):
+    def load_with_savings(
+        self, period_id: int
+    ) -> tuple[Household, dict[str, int], Period]:
         # 1. Leer filas
-        period = self._period_repo.find_by_id(period_id)
-        phase = period.status
+        period = self._require_period(period_id)
+        household_id = period.household_id
+
         saving_buckets_rows: list[dict] = (
             self._saving_bucket_repository.find_with_owners(household_id=household_id)
         )
@@ -146,11 +162,48 @@ class HouseholdLoader:
             member_ids=member_ids,
         )
 
-        return (household, member_ids, phase)
+        return (household, member_ids, period)
+
+    def load_full(self, period_id: int) -> tuple[Household, dict[str, int], Period]:
+        """load_for_queries + buckets de deuda y ahorro del hogar (carga completa)."""
+        household, member_ids, period = self.load_for_queries(period_id=period_id)
+
+        household_id = period.household_id
+
+        debt_buckets_rows: list[dict] = self._debt_bucket_respository.find_by_household(
+            household_id=household_id
+        )
+        saving_buckets_rows: list[dict] = (
+            self._saving_bucket_repository.find_with_owners(household_id=household_id)
+        )
+
+        self._hydrate_debt_buckets(
+            household=household,
+            debt_buckets_rows=debt_buckets_rows,
+            member_ids=member_ids,
+        )
+        self._hydrate_saving_buckets(
+            household=household,
+            saving_buckets_rows=saving_buckets_rows,
+            member_ids=member_ids,
+        )
+
+        return (household, member_ids, period)
 
     # ============================================================
     # helpers privados (las piezas)
     # ============================================================
+
+    def _require_period(self, period_id: int) -> Period:
+        """El período existe o no hay nada que cargar.
+
+        Se valida aquí y no en cada servicio: el loader es el único que lo lee, así
+        que es el único sitio donde el fallo se puede detectar una sola vez.
+        """
+        period = self._period_repo.find_by_id(period_id)
+        if period is None:
+            raise ValueError(f"Período {period_id} no encontrado")
+        return period
 
     def _build_base(self, period: Period | None) -> Household:
         budget = Budget()

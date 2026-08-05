@@ -29,13 +29,12 @@ class ExpenseService:
     ):
         """Registrar un gasto cargando todos los datos desde bd"""
         # Primero debo cargar los datos
-        household, members_id, phase = self.household_loader.load_base(
-            household_id=household_id,
-            period_id=period_id,
+        household, members_id, period = self.household_loader.load_base(
+            period_id=period_id
         )
 
         # Validar fase
-        self.validate_phase(required_phase=Phase.MONTH, current_phase=phase)
+        self.validate_phase(required_phase=Phase.MONTH, current_phase=period.status)
 
         # Normalizar datos
         member_normalized = normalize_name(member)
