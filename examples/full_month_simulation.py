@@ -34,7 +34,6 @@ from src.storage.period_repository import PeriodRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
 from src.storage.budget_categories_repository import BudgetCategoryRepository
 from src.storage.expense_repository import ExpenseRepository
-from src.storage.income_entry_repository import IncomeEntryRepository
 from src.storage.saving_bucket_repository import SavingBucketRepository
 from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
@@ -52,7 +51,6 @@ with DatabaseConnection(
     debt_repo = DebtEntryRepository(conn)
     budget_categories_repo = BudgetCategoryRepository(conn)
     expense_repo = ExpenseRepository(conn)
-    income_entry_repo = IncomeEntryRepository(conn)
     saving_bucket_repo = SavingBucketRepository(conn)
     saving_bucket_entry_repo = SavingBucketEntryRepository(conn)
     # =============================================
@@ -75,7 +73,6 @@ with DatabaseConnection(
         budget_categories_repository=budget_categories_repo,
         expense_repo=expense_repo,
         saving_bucket_repo=saving_bucket_repo,
-        income_entry_repo=income_entry_repo,
         saving_bucket_entry_repo=saving_bucket_entry_repo,
     )
 
@@ -350,20 +347,6 @@ with DatabaseConnection(
         neto = sum(e.amount_cents for e in entries)
         print(
             f"  {member.title()}: {len(entries)} movimiento(s), neto {to_euros(neto)}"
-        )
-
-    # --- Agregar un ingreso extra ---
-    wm.add_income_entry("Amanda", 200.0, "Venta de bicicleta")
-    extra_incomes = wm.get_extra_income_entries()
-    print(
-        f"\nIngreso extra registrado: {extra_incomes[0].member_name.title()} - {to_euros(extra_incomes[0].amount_cents)} - {extra_incomes[0].description}"
-    )
-    print("\nReserva recalculada tras el ingreso extra:")
-    print(f"  Total: {to_euros(wm.get_category_budget('reserva'))}")
-    for member in ["amanda", "heri"]:
-        print(
-            f"  {member.title()}: "
-            f"{to_euros(wm.get_reserve_contribution_by_member(member))}"
         )
 
     # =============================================

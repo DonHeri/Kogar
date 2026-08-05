@@ -62,8 +62,15 @@ def full_household_with_child_categories(full_household: Household) -> Household
 # ===============================================
 # --------------- add_income --------------------
 # ===============================================
-def test_add_income_entry_creates_entry(full_household: Household) -> None:
-    """Verifica que se cree una entrada de ingreso al agregar un ingreso."""
+def test_add_income_entry_records_it_without_touching_the_plan(
+    full_household: Household,
+) -> None:
+    """Un ingreso extra se registra como hecho del mes y no mueve el presupuesto.
+
+    Antes suba la reserva, y con ella cambiaba lo que debía cada miembro: el extra
+    que cobraba uno se repartía entre todos. Este test es la red que impide que
+    vuelva a colarse si alguien reconecta el servicio.
+    """
 
     last_incomes = full_household.get_total_incomes()
     entry = IncomeEntry(
@@ -77,16 +84,16 @@ def test_add_income_entry_creates_entry(full_household: Household) -> None:
     }
 
     IncomeEntryService.add_income_entry(income_entry=entry, household=full_household)
-    new_reserve = full_household.get_category_planned_amount("reserva")
 
-    assert new_reserve == last_reserve + 50000
+    # El hecho queda registrado
     assert len(full_household._income_entries) == 1
     entry = full_household._income_entries[0]
     assert entry.amount_cents == 50000
     assert entry.member_name == "member1"
-    assert full_household.get_total_incomes() == last_incomes + 50000
 
-    # Cambia total, pero no cambia la distribución de los presupuestos de las categorías
+    # Y el plan no se entera: ni el ingreso total ni ninguna categoría se mueven
+    assert full_household.get_total_incomes() == last_incomes
+    assert full_household.get_category_planned_amount("reserva") == last_reserve
     assert categories_budgets["fijos"] == full_household.get_category_planned_amount(
         "fijos"
     )

@@ -327,12 +327,16 @@ class Household:
         return self.budget.get_planned_amount(category)
 
     def get_total_incomes(self):
-        """Calcula el ingreso total mensual, más los ingresos extra del período"""
+        """Calcula el ingreso total mensual del hogar.
+
+        Los ingresos extra quedaron fuera del cálculo al retirarse: sumarlos aquí
+        movía el presupuesto a mitad de mes y repartía entre todos el extra que
+        cobraba uno solo. Vuelven cuando el presupuesto sepa de dueños.
+        """
         self.validate_has_members()
         self.validate_total_incomes_positive()
 
-        extra_incomes = [e.amount_cents for e in self._income_entries]
-        incomes = list(self.get_incomes().values()) + extra_incomes
+        incomes = list(self.get_incomes().values())
 
         total = FinanceCalculator.sum_values(incomes)
         return total
@@ -486,10 +490,6 @@ class Household:
         return self._agreed_contributions.copy()
 
     # ====== QUERIES — MONTH ======
-    def get_extra_income_entries(self):
-        """Obtiene ingresos extra registrados en MONTH"""
-        return self._income_entries.copy()
-
     def recalculate_reserve(self):
         """Recalcula la categoría auto-calculada (reserva) según ingresos y presupuestos actuales"""
         reserve_cat = self.budget.get_auto_calculated_category()

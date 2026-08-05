@@ -6,7 +6,6 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.expense_repository import ExpenseRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
-from src.storage.income_entry_repository import IncomeEntryRepository
 from src.storage.saving_bucket_repository import SavingBucketRepository
 from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
 from src.storage.budget_categories_repository import BudgetCategoryRepository
@@ -26,8 +25,6 @@ from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.settlement_calculator import SettlementCalculator
 from src.workflow.summary_service import SummaryService
-from src.workflow.incomes_entries_service import IncomeEntryService
-from src.models.income_entry import IncomeEntry
 
 
 class WorkflowManager:
@@ -39,7 +36,6 @@ class WorkflowManager:
         period_repo: PeriodRepository | None = None,
         expense_repo: ExpenseRepository | None = None,
         debt_repo: DebtEntryRepository | None = None,
-        income_entry_repo: IncomeEntryRepository | None = None,
         saving_bucket_entry_repo: SavingBucketEntryRepository | None = None,
         saving_bucket_repo: SavingBucketRepository | None = None,
         budget_categories_repository: BudgetCategoryRepository | None = None,
@@ -52,7 +48,6 @@ class WorkflowManager:
         self.period_repo = period_repo
         self.expense_repo = expense_repo
         self.debt_repo = debt_repo
-        self.income_entry_repo = income_entry_repo
         self.saving_bucket_entry_repo = saving_bucket_entry_repo
         self.saving_bucket_repo = saving_bucket_repo
         self.budget_categories_repository = budget_categories_repository
@@ -683,41 +678,6 @@ class WorkflowManager:
             )
 
     # ====== QUERIES - General (Phase-independent) ======
-    def add_income_entry(
-        self,
-        member_name: str,
-        amount_euros: float,
-        description: str = "",
-    ):
-        """Registra un ingreso extra y lo envía al destino indicado (MONTH)."""
-        self.validate_phase(Phase.MONTH)
-
-        member_name = normalize_name(member_name)
-        if member_name not in self.household.members:
-            raise ValueError(f"Miembro '{member_name}' no registrado")
-
-        amount_cents = to_cents(amount_euros)
-
-        income_entry = IncomeEntry(
-            member_name=member_name, amount_cents=amount_cents, description=description
-        )
-
-        IncomeEntryService.add_income_entry(
-            income_entry=income_entry, household=self.household
-        )
-
-        if self.income_entry_repo and self.period_id and member_name in self.member_ids:
-            self.income_entry_repo.save(
-                income_entry,
-                period_id=self.period_id,
-                member_id=self.member_ids[member_name],
-            )
-
-    def get_extra_income_entries(self) -> list[IncomeEntry]:
-        """Obtiene ingresos extra registrados en el mes (MONTH+)"""
-        self.validate_phase_accessible(Phase.MONTH)
-        return self.household.get_extra_income_entries()
-
     def get_registered_members(self) -> list[str]:
         """Muestra miembros registrados"""
         return list(self.household.members.keys())
