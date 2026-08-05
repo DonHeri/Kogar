@@ -1,4 +1,7 @@
+from datetime import date
+
 from src.models.household import Household
+from src.models.period import Period
 from src.utils.text import normalize_name
 from src.workflow.settlement_calculator import SettlementCalculator
 
@@ -16,10 +19,7 @@ class SummaryService:
         total_incomes = household.get_total_incomes()
         categories = household.get_active_categories()
         debts = {
-            name: household.debt_bucket_tracker.total_expected_installment_by_member(
-                name
-            )
-            for name in members
+            name: household.get_debt_installment_by_member(name) for name in members
         }
         saving_goals = {
             name: household.get_saving_requirement_by_member(name) for name in members
@@ -93,9 +93,7 @@ class SummaryService:
             "owed": owed,
             "paid": paid,
             "balance": balance,
-            "debt": household.debt_bucket_tracker.total_expected_installment_by_member(
-                member_name
-            ),
+            "debt": household.get_debt_installment_by_member(member_name),
             "saving_goal": household.get_saving_requirement_by_member(member_name),
             "by_category": by_category,
         }
@@ -211,3 +209,65 @@ class SummaryService:
                 "by_member": missing_money_by_member,
             },
         }
+
+    @staticmethod
+    def get_settlement_summary(household: Household) -> list[dict]:
+        """
+        Retorna resumen de liquidación de deudas entre miembros del hogar.
+        Devuelve lista de transferencias mínimas para saldar deudas.
+        Ejemplo:
+            [
+                {"from": "heri", "to": "amanda", "amount": 50000},
+                {"from": "amanda", "to": "jose", "amount": 20000}
+            ]
+        """
+        settlement_transfers: list[dict] = SettlementCalculator.calculate(
+            household=household
+        )
+        return settlement_transfers
+
+    @staticmethod
+    def get_all_debts_summary(household: Household, period: Period) -> dict:
+        """Retorna el resumen de deuda de todos los miembros del hogar."""
+        start_date = period.start_date
+        end_date: date | None = period.end_date
+        return household.get_all_debts_summary(start_date=start_date, end_date=end_date)
+
+    @staticmethod
+    def get_debt_status(household: Household, member_name: str, period: Period) -> dict:
+        """Retorna el resumen de deuda de un miembro específico del hogar."""
+        member_name = normalize_name(member_name)
+        household.validate_member_exist(member_name)
+        start_date = period.start_date
+        end_date: date | None = period.end_date
+
+        return {
+            "debt": household.get_debt_status_by_member(
+                member_name=member_name, start_date=start_date, end_date=end_date
+            )
+        }
+
+    @staticmethod
+    def get_saving_status(
+        household: Household, member_name: str, period: Period
+    ) -> dict:
+        """Retorna el resumen de ahorro de un miembro específico del hogar."""
+        member_name = normalize_name(member_name)
+        household.validate_member_exist(member_name)
+        start_date = period.start_date
+        end_date: date | None = period.end_date
+
+        return {
+            "saving": household.get_saving_status_by_member(
+                member_name=member_name, start_date=start_date, end_date=end_date
+            )
+        }
+
+    @staticmethod
+    def get_saving_summary(household: Household, period: Period) -> dict:
+        """Retorna el resumen de ahorro de todos los miembros del hogar."""
+        start_date = period.start_date
+        end_date: date | None = period.end_date
+        return household.get_all_savings_summary(
+            start_date=start_date, end_date=end_date
+        )
