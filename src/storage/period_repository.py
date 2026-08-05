@@ -94,68 +94,84 @@ class PeriodRepository:
         )
 
     def save_agreed_contributions(
-        self, period_id: int, contributions: dict[str, int]
+        self, period_id: int, contributions: dict[str, dict[str, int]]
     ) -> None:
-        "Guarda los acuerdos de planning para un período. Si ya existen, sobreescribe los importes."
+        """Guarda el acuerdo desglosado de un período.
 
-        for full_name, amount_cents in contributions.items():
-            self.cursor.execute(
-                " SELECT id FROM members WHERE full_name = %s ", (full_name,)
-            )
-            row = self.cursor.fetchone()
-            if row is None:
-                raise ValueError(f"Miembro {full_name} no está en la base de datos ")
-            self.cursor.execute(
-                """ 
-                INSERT INTO period_agreed_contributions(period_id,member_id,amount_cents)
-                VALUES (%s,%s,%s)
-                ON CONFLICT (period_id,member_id)
-                DO UPDATE SET amount_cents = EXCLUDED.amount_cents
-                """,
-                (period_id, row["id"], amount_cents),
-            )
-
-    def get_agreed_contributions(self, period_id: int) -> dict[str, int]:
-        "Lee los acuerdos guardados de un período. Devuelve {nombre: amount_cents}."
+        Recibe {categoría: {miembro: céntimos}}. Se borra antes de insertar: una
+        categoría que desaparece del plan tiene que desaparecer del acuerdo, y un
+        ON CONFLICT solo actualiza lo que vuelve a llegar.
+        """
         self.cursor.execute(
-            """ 
-            SELECT m.full_name, pac.amount_cents
+            " DELETE FROM period_agreed_contributions WHERE period_id = %s ",
+            (period_id,),
+        )
+
+        member_ids = self._member_ids_by_name()
+
+        for category_name, by_member in contributions.items():
+            for full_name, amount_cents in by_member.items():
+                if full_name not in member_ids:
+                    raise ValueError(f"Miembro {full_name} no está en la base de datos ")
+                self.cursor.execute(
+                    """
+                    INSERT INTO period_agreed_contributions
+                        (period_id, member_id, category_name, amount_cents)
+                    VALUES (%s,%s,%s,%s)
+                    """,
+                    (period_id, member_ids[full_name], category_name, amount_cents),
+                )
+
+    def get_agreed_contributions(self, period_id: int) -> dict[str, dict[str, int]]:
+        """Lee el acuerdo desglosado. Devuelve {categoría: {miembro: céntimos}}."""
+        self.cursor.execute(
+            """
+            SELECT m.full_name, pac.category_name, pac.amount_cents
             FROM period_agreed_contributions pac
             INNER JOIN members m ON m.id = pac.member_id
             WHERE pac.period_id = %s
             """,
             (period_id,),
         )
-        return {row["full_name"]: row["amount_cents"] for row in self.cursor.fetchall()}
 
-    def save_custom_splits(self, period_id: int, splits: dict[str, int]) -> None:
-        "Guarda los porcentajes personalizados de reparto para un período. Si ya existen, sobreescribe."
+        agreement: dict[str, dict[str, int]] = {}
+        for row in self.cursor.fetchall():
+            category = agreement.setdefault(row["category_name"], {})
+            category[row["full_name"]] = row["amount_cents"]
+        return agreement
 
-        for full_name, percentage_basis_points in splits.items():
-            self.cursor.execute(
-                " SELECT id FROM members WHERE full_name = %s ", (full_name,)
-            )
-            row = self.cursor.fetchone()
-            if row is None:
+    def save_percentages(self, period_id: int, percentages: dict[str, int]) -> None:
+        """Guarda los porcentajes de reparto del período, en basis points.
+
+        Los escriben dos momentos distintos: el usuario al definir un reparto
+        propio durante PLANNING, y finish_planning al congelar el acuerdo. Con
+        método CUSTOM son el mismo número, así que no se pisan; con los demás,
+        la tabla está vacía hasta que se congela. Lo que distingue borrador de
+        acuerdo es la fase del período, que ya está persistida.
+        """
+        member_ids = self._member_ids_by_name()
+
+        for full_name, percentage_basis_points in percentages.items():
+            if full_name not in member_ids:
                 raise ValueError(f"Miembro {full_name} no está en la base de datos ")
             self.cursor.execute(
                 """
-                INSERT INTO period_custom_splits(period_id,member_id,percentage_basis_points)
+                INSERT INTO period_percentages(period_id,member_id,percentage_basis_points)
                 VALUES (%s,%s,%s)
                 ON CONFLICT (period_id,member_id)
                 DO UPDATE SET percentage_basis_points = EXCLUDED.percentage_basis_points
                 """,
-                (period_id, row["id"], percentage_basis_points),
+                (period_id, member_ids[full_name], percentage_basis_points),
             )
 
-    def get_custom_splits(self, period_id: int) -> dict[str, int]:
-        "Lee los porcentajes personalizados guardados de un período. Devuelve {nombre: percentage_basis_points}."
+    def get_percentages(self, period_id: int) -> dict[str, int]:
+        """Lee los porcentajes del período. Devuelve {nombre: percentage_basis_points}."""
         self.cursor.execute(
             """
-            SELECT m.full_name, pcs.percentage_basis_points
-            FROM period_custom_splits pcs
-            INNER JOIN members m ON m.id = pcs.member_id
-            WHERE pcs.period_id = %s
+            SELECT m.full_name, pp.percentage_basis_points
+            FROM period_percentages pp
+            INNER JOIN members m ON m.id = pp.member_id
+            WHERE pp.period_id = %s
             """,
             (period_id,),
         )
@@ -163,3 +179,11 @@ class PeriodRepository:
             row["full_name"]: row["percentage_basis_points"]
             for row in self.cursor.fetchall()
         }
+
+    def _member_ids_by_name(self) -> dict[str, int]:
+        """{full_name: id} de todos los miembros, en una sola consulta.
+
+        Antes se resolvía con un SELECT por fila dentro del bucle de escritura.
+        """
+        self.cursor.execute(" SELECT id, full_name FROM members ")
+        return {row["full_name"]: row["id"] for row in self.cursor.fetchall()}

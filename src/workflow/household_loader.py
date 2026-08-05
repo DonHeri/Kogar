@@ -98,7 +98,8 @@ class HouseholdLoader:
 
         # 3. Repoblar lo que el gasto necesita
         self._hydrate_budget(household, category_rows)
-        self._hydrate_custom_splits(household=household, period_id=period_id)
+        self._hydrate_custom_splits(household=household, period=period)
+        self._hydrate_agreement(household=household, period=period)
 
         return (household, member_ids, period)
 
@@ -384,18 +385,43 @@ class HouseholdLoader:
                         date=entry_row["entry_date"],
                     )
 
-    def _hydrate_custom_splits(self, household: Household, period_id: int):
-        """Repone los porcentajes personalizados del período, si los tiene.
+    def _hydrate_custom_splits(self, household: Household, period: Period):
+        """Repone el reparto propio del usuario, solo si el período es CUSTOM.
+
+        period_percentages guarda dos cosas según el momento: el borrador que el
+        usuario define en PLANNING y el acuerdo que congela finish_planning. Con
+        cualquier método distinto de CUSTOM esas filas son el acuerdo, no una
+        decisión, y cargarlas como _custom_splits inventaría un reparto propio
+        que nadie definió.
 
         La BD ya guarda basis points, que es la unidad que espera el dominio: no
         hay conversión que hacer aquí, igual que _hydrate_budget pasa céntimos.
-
-        Un período con método PROPORTIONAL o EQUAL no guarda ninguno, y eso es
-        normal: se sale sin tocar nada en vez de exigir un split por miembro.
         """
-        custom_splits = self._period_repo.get_custom_splits(period_id=period_id)
+        if period.method != MetodoReparto.CUSTOM:
+            return
+
+        custom_splits = self._period_repo.get_percentages(period_id=period.id)
 
         if not custom_splits:
             return
 
         household.set_custom_splits(custom_splits)
+
+    def _hydrate_agreement(self, household: Household, period: Period):
+        """Repone el acuerdo congelado, solo si el período ya lo tiene.
+
+        Un período en PLANNING todavía no ha congelado nada, y eso es normal: se
+        sale sin tocar nada en vez de reponer un acuerdo vacío.
+        """
+        if not period.status.is_at_least(Phase.MONTH):
+            return
+
+        contributions = self._period_repo.get_agreed_contributions(period_id=period.id)
+
+        if not contributions:
+            return
+
+        household.restore_agreement(
+            contributions=contributions,
+            percentages=self._period_repo.get_percentages(period_id=period.id),
+        )

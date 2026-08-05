@@ -145,6 +145,7 @@ class Household:
         """
         self.validate_has_members()
         self._validate_all_members_have_split(splits)
+        self._validate_splits_add_up(splits)
 
         self._custom_splits = dict(splits)
         self.method = MetodoReparto.CUSTOM
@@ -169,7 +170,22 @@ class Household:
     def freeze_planning_state(self):
         """Congela el estado de planificación al pasar a fase MONTH"""
         self._agreed_percentages = self.get_percentages_by_method(self.method)
-        self._agreed_contributions = self.get_current_contributions()
+        self._agreed_contributions = self.get_contributions_by_category()
+
+    def restore_agreement(
+        self,
+        contributions: dict[str, dict[str, int]],
+        percentages: dict[str, int],
+    ):
+        """Repone el acuerdo congelado que viene de BD.
+
+        Recibe lo mismo que produce freeze_planning_state, en la misma forma: el
+        acuerdo tiene una sola representación, se calcule o se lea.
+        """
+        self._agreed_contributions = {
+            category: dict(by_member) for category, by_member in contributions.items()
+        }
+        self._agreed_percentages = dict(percentages)
 
     # ====== MONTH — EXPENSES ======
 
@@ -473,6 +489,18 @@ class Household:
         """Obtiene contribuciones usando el método ya configurado (self.method)"""
         return self.preview_budget_contribution_summary(self.method)
 
+    def get_contributions_by_category(self) -> dict[str, dict[str, int]]:
+        """El reparto vigente en su forma mínima: {categoría: {miembro: céntimos}}.
+
+        Es lo que se congela y lo que se persiste. `planned` y `total_assigned`
+        se quedan fuera a propósito: el primero ya vive en budget_categories y el
+        segundo es la suma de la fila, y dos copias del mismo dato se descuadran.
+        """
+        return {
+            category: dict(data["contributions"])
+            for category, data in self.get_current_contributions().items()
+        }
+
     def get_total_contributions_by_member(self) -> dict[str, int]:
         "Suma las contribuciones de cada miembro en todas las categorías. Devuelve {nombre: total_cents}."
         contributions = self.get_current_contributions()
@@ -520,8 +548,7 @@ class Household:
         self.validate_member_exist(member_name)
         contributions = self.get_agreed_contributions()
         total = sum(
-            cat_data["contributions"][member_name]
-            for cat_data in contributions.values()
+            by_member[member_name] for by_member in contributions.values()
         )
         return total
 
@@ -605,6 +632,22 @@ class Household:
         for name in self.members:
             if name not in splits:
                 raise ValueError(f"Falta el porcentaje para el miembro: {name}")
+
+    def _validate_splits_add_up(self, splits: dict[str, int]):
+        """Valida que los porcentajes suman 100%.
+
+        Se lanza en vez de normalizar a propósito. Ajustar un 70/40 a 63.6/36.4
+        dejaría el acuerdo congelado distinto de lo que el usuario escribió, y
+        son el mismo dato: se guardan en la misma fila. Que lo corrija él.
+
+        Sin esta validación el fallo llegaba desde FinanceCalculator con un
+        mensaje sobre el "monto presupuestado", que no dice qué hay que arreglar.
+        """
+        total = sum(splits.values())
+        if total != 10000:
+            raise ValueError(
+                f"Los porcentajes deben sumar 100%, suman {total / 100:.2f}%"
+            )
 
     def validate_category_exist(self, category: str):
         """Valida que una categoría existe en el presupuesto"""

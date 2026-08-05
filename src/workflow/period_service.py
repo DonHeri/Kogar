@@ -91,18 +91,26 @@ class PeriodService:
         Es un borrador: el usuario ajusta lo que cambie durante PLANNING. Arrastrar
         ahorra trabajo, no impone nada.
         """
-        source, _, _ = self.household_loader.load_base(period_id=source_period_id)
+        source, _, source_period = self.household_loader.load_base(
+            period_id=source_period_id
+        )
 
         for _, budget_category in source.get_budget_categories().items():
             self.budget_categories_repository.save(
                 household_period_id=target_period_id, budget_category=budget_category
             )
 
-        splits = self.period_repo.get_custom_splits(period_id=source_period_id)
-        if splits:
-            self.period_repo.save_custom_splits(
-                period_id=target_period_id, splits=splits
-            )
+        # Solo se arrastra un reparto que el usuario decidió. Un período cerrado
+        # con método PROPORTIONAL también tiene porcentajes guardados — son su
+        # acuerdo, calculado desde los ingresos de aquel mes. Copiarlos aquí los
+        # congelaría como si fueran una decisión, y el mes nuevo dejaría de
+        # recalcularlos con los ingresos de ahora.
+        if source_period.method == MetodoReparto.CUSTOM:
+            splits = self.period_repo.get_percentages(period_id=source_period_id)
+            if splits:
+                self.period_repo.save_percentages(
+                    period_id=target_period_id, percentages=splits
+                )
 
     def set_distribution_method(self, method: MetodoReparto, period_id: int):
 
@@ -125,9 +133,12 @@ class PeriodService:
         }
         household.set_custom_splits(splits=splits_basis_points)
 
-        self.period_repo.save_custom_splits(
-            period_id=period_id, splits=household.get_custom_splits()
+        self.period_repo.save_percentages(
+            period_id=period_id, percentages=household.get_custom_splits()
         )
+        # set_custom_splits deja el método en CUSTOM: el período tiene que
+        # enterarse, o al recargar el reparto volvería a ser el anterior.
+        self.period_repo.update_method(method=household.method, period_id=period_id)
 
     def add_category(self, period_id: int, name: str, parent: str | None = None):
         """ """
@@ -255,9 +266,17 @@ class PeriodService:
 
         household.validate_debt_doesnt_exceed_capacity()
 
+        # Congelar y persistir son el mismo acto en dos sitios: el objeto muere
+        # al acabar la llamada, así que aquí la memoria del acuerdo es la BD.
+        household.freeze_planning_state()
+
         self.period_repo.save_agreed_contributions(
             period_id=period_id,
-            contributions=household.get_total_contributions_by_member(),
+            contributions=household.get_agreed_contributions(),
+        )
+        self.period_repo.save_percentages(
+            period_id=period_id,
+            percentages=household.get_agreed_percentages(),
         )
 
         self.period_repo.update_status(period_id, Phase.MONTH)

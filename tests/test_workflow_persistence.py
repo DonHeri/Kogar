@@ -105,7 +105,7 @@ def wm_planning_contributions_saved(
     wm_pre_planning: WorkflowManager,
 ) -> WorkflowManager:
     "WM en PLANNING con contribuciones del período guardadas en BD"
-    contributions = wm_pre_planning.get_total_contributions_by_member()
+    contributions = wm_pre_planning.household.get_contributions_by_category()
     wm_pre_planning.period_repo.save_agreed_contributions(
         period_id=wm_pre_planning.period_id, contributions=contributions
     )
@@ -223,6 +223,11 @@ def test_period_unique_constraint(
         period_repo.save(duplicate)
 
 
+def _total_agreed(agreement: dict[str, dict[str, int]]) -> int:
+    """Suma el acuerdo desglosado {categoría: {miembro: céntimos}}."""
+    return sum(amount for by_member in agreement.values() for amount in by_member.values())
+
+
 def test_get_agreed_contributions_returns_saved_data(
     wm_planning_contributions_saved: WorkflowManager,
 ) -> None:
@@ -235,36 +240,28 @@ def test_get_agreed_contributions_returns_saved_data(
         )
     )
 
-    total = sum(contributions.values())
-
-    assert total == 165200 + 145600
+    assert _total_agreed(contributions) == 165200 + 145600
 
 
-def test_save_agreed_contributions_overwrites_existing(
+def test_save_agreed_contributions_replaces_the_previous_agreement(
     wm_planning_contributions_saved: WorkflowManager,
 ) -> None:
-    "save_agreed_contributions sobreescribe importes existentes para el mismo período"
-    period_id = wm_planning_contributions_saved.period_id
-    old_contributions = (
-        wm_planning_contributions_saved.period_repo.get_agreed_contributions(period_id)
-    )
-    assert sum(old_contributions.values()) == 165200 + 145600
+    """Volver a guardar reemplaza el acuerdo entero, no lo mezcla con el anterior.
 
-    new_contributions = {
-        member: (amount + 20) for member, amount in old_contributions.items()
+    Se borra antes de insertar: una categoría que sale del plan tiene que salir
+    del acuerdo, y un ON CONFLICT solo actualiza lo que vuelve a llegar.
+    """
+    period_id = wm_planning_contributions_saved.period_id
+    repo = wm_planning_contributions_saved.period_repo
+
+    old_contributions = repo.get_agreed_contributions(period_id)
+    assert _total_agreed(old_contributions) == 165200 + 145600
+
+    repo.save_agreed_contributions(period_id, {"fijos": {"amanda": 500, "heri": 300}})
+
+    assert repo.get_agreed_contributions(period_id) == {
+        "fijos": {"amanda": 500, "heri": 300}
     }
-    wm_planning_contributions_saved.period_repo.save_agreed_contributions(
-        period_id, new_contributions
-    )
-    assert (
-        sum(
-            amount
-            for amount in wm_planning_contributions_saved.period_repo.get_agreed_contributions(
-                period_id
-            ).values()
-        )
-        == 165200 + 145600 + 40
-    )
 
 
 # ===============================================

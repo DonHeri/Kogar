@@ -76,8 +76,8 @@ class SummaryService:
         agreed_contributions = household.get_agreed_contributions()
         by_category = {}
 
-        for cat_name, cat_data in agreed_contributions.items():
-            contribution = cat_data["contributions"][member_name]
+        for cat_name, by_member in agreed_contributions.items():
+            contribution = by_member[member_name]
             paid_in_category = household.expense_tracker.get_total_spent(
                 member=member_name, categories=[cat_name]
             )

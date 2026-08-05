@@ -1652,10 +1652,10 @@ def test_get_agreed_contributions_returns_frozen_contributions(
 
     assert "fijos" in contributions
     assert "variables" in contributions
-    assert contributions["fijos"]["contributions"]["member1"] == 50000
-    assert contributions["fijos"]["contributions"]["member2"] == 50000
-    assert contributions["variables"]["contributions"]["member1"] == 25000
-    assert contributions["variables"]["contributions"]["member2"] == 25000
+    assert contributions["fijos"]["member1"] == 50000
+    assert contributions["fijos"]["member2"] == 50000
+    assert contributions["variables"]["member1"] == 25000
+    assert contributions["variables"]["member2"] == 25000
 
 
 # ====================================================

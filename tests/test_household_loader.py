@@ -317,8 +317,9 @@ def test_load_base_rehydrates_custom_splits_in_basis_points(
     BD y el usuario entran por la misma puerta. Cuando el dominio convertía, 5299
     volvía como 529900 sin que nada lanzara.
     """
-    period_repo.save_custom_splits(
-        period_id=period_id, splits={"heri": 5299, "amanda": 4701}
+    period_repo.update_method(method=MetodoReparto.CUSTOM, period_id=period_id)
+    period_repo.save_percentages(
+        period_id=period_id, percentages={"heri": 5299, "amanda": 4701}
     )
 
     household, _, _ = household_loader.load_base(period_id=period_id)
@@ -335,6 +336,75 @@ def test_load_base_leaves_splits_empty_when_the_period_has_none(
     household, _, _ = household_loader.load_base(period_id=period_id)
 
     assert household.get_custom_splits() == {}
+
+
+def test_load_base_ignores_percentages_when_the_method_is_not_custom(
+    household_loader: HouseholdLoader,
+    period_repo: PeriodRepository,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
+    """Los porcentajes de un período PROPORTIONAL son su acuerdo, no una decisión.
+
+    period_percentages guarda las dos cosas. Cargarlas como _custom_splits en un
+    período que no es CUSTOM inventaría un reparto propio que nadie definió.
+    """
+    period_repo.save_percentages(
+        period_id=period_id, percentages={"heri": 4800, "amanda": 5200}
+    )
+
+    household, _, _ = household_loader.load_base(period_id=period_id)
+
+    assert household.get_custom_splits() == {}
+
+
+def test_load_base_rehydrates_the_frozen_agreement(
+    household_loader: HouseholdLoader,
+    period_repo: PeriodRepository,
+    period_id: int,
+    member_ids: dict[str, int],
+) -> None:
+    """El acuerdo congelado sobrevive a la recarga, desglosado por categoría."""
+    period_repo.save_agreed_contributions(
+        period_id=period_id,
+        contributions={
+            "fijos": {"heri": 30000, "amanda": 20000},
+            "reserva": {"heri": 10000, "amanda": 5000},
+        },
+    )
+    period_repo.save_percentages(
+        period_id=period_id, percentages={"heri": 6000, "amanda": 4000}
+    )
+
+    household, _, _ = household_loader.load_base(period_id=period_id)
+
+    assert household.get_agreed_contributions() == {
+        "fijos": {"heri": 30000, "amanda": 20000},
+        "reserva": {"heri": 10000, "amanda": 5000},
+    }
+    assert household.get_agreed_percentages() == {"heri": 6000, "amanda": 4000}
+    assert household.get_member_owed_total("heri") == 40000
+
+
+def test_load_base_leaves_the_agreement_empty_while_planning(
+    household_loader: HouseholdLoader,
+    period_repo: PeriodRepository,
+    household_id: int,
+    member_ids: dict[str, int],
+) -> None:
+    """Un período en PLANNING no ha congelado nada, y cargarlo no puede fingirlo."""
+    planning_period = Period(
+        household_id=household_id,
+        start_date=date(2026, 3, 6),
+        status=Phase.PLANNING,
+        method=MetodoReparto.PROPORTIONAL,
+    )
+    planning_id = period_repo.save(period=planning_period)
+
+    household, _, _ = household_loader.load_base(period_id=planning_id)
+
+    with pytest.raises(ValueError, match="no han sido congeladas"):
+        household.get_agreed_contributions()
 
 
 # ===============================================

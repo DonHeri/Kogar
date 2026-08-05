@@ -17,6 +17,7 @@ from src.storage.saving_bucket_entry_repository import SavingBucketEntryReposito
 from src.workflow.household_loader import HouseholdLoader
 from src.workflow.household_service import HouseholdService
 from src.workflow.period_service import PeriodService
+from src.workflow.summary_service import SummaryService
 
 
 # ===============================================
@@ -218,7 +219,12 @@ def test_cannot_close_a_period_twice(
 def test_finish_planning_saves_the_agreement_and_advances(
     period_service: PeriodService, repos: dict[str, object], period_in_planning: int
 ) -> None:
-    """Confirmar el plan guarda las contribuciones acordadas y pasa a MONTH"""
+    """Confirmar el plan guarda el acuerdo desglosado y pasa a MONTH.
+
+    El acuerdo se guarda por categoría, no sumado por miembro: get_member_status
+    necesita saber cuánto de lo que debe Amanda era de fijos y cuánto de reserva,
+    y de un total no se puede volver al detalle.
+    """
     period_service.set_planned_amount(
         period_id=period_in_planning, category="fijos", amount_euros=5000
     )
@@ -228,7 +234,19 @@ def test_finish_planning_saves_the_agreement_and_advances(
     assert repos["period"].find_by_id(period_in_planning).status == Phase.MONTH
 
     contributions = repos["period"].get_agreed_contributions(period_in_planning)
-    assert contributions == {"amanda": 600000, "heri": 400000}
+
+    # Sumado por miembro sigue cuadrando con el ingreso de cada uno
+    totals = {"amanda": 0, "heri": 0}
+    for by_member in contributions.values():
+        for member, amount in by_member.items():
+            totals[member] += amount
+    assert totals == {"amanda": 600000, "heri": 400000}
+
+    # Y ahora además se sabe de qué categoría venía cada trozo
+    assert contributions["fijos"] == {"amanda": 300000, "heri": 200000}
+
+    percentages = repos["period"].get_percentages(period_in_planning)
+    assert percentages == {"amanda": 6000, "heri": 4000}
 
 
 def test_finish_planning_does_not_duplicate_categories(
@@ -464,3 +482,54 @@ def test_income_still_editable_while_planning(
     household_service.set_member_income(
         household_id=household_id, name="Amanda", amount_euros=7000
     )
+
+
+# ===============================================
+# TESTS — El acuerdo sobrevive a la recarga
+# ===============================================
+
+
+def test_member_status_works_after_reloading_from_the_database(
+    period_service: PeriodService,
+    loader: HouseholdLoader,
+    period_in_planning: int,
+) -> None:
+    """El "Hecho cuando" del paso 3: la consulta responde sin WorkflowManager.
+
+    freeze_planning_state solo dejaba el acuerdo en memoria, y en stateless el
+    Household muere al acabar la llamada. La siguiente request cargaba uno nuevo
+    con el acuerdo vacío y get_member_status lanzaba.
+    """
+    period_service.set_planned_amount(
+        period_id=period_in_planning, category="fijos", amount_euros=5000
+    )
+    period_service.finish_planning(period_id=period_in_planning)
+
+    # Hogar nuevo, reconstruido desde cero: es lo que haría el siguiente endpoint
+    household, _, _ = loader.load_base(period_id=period_in_planning)
+
+    status = SummaryService.get_member_status(household=household, member_name="amanda")
+
+    assert status["owed"] == 600000
+    assert status["by_category"]["fijos"]["contribution"] == 300000
+
+
+def test_the_reloaded_agreement_matches_the_one_just_frozen(
+    period_service: PeriodService,
+    loader: HouseholdLoader,
+    period_in_planning: int,
+) -> None:
+    """Lo que se lee de BD es exactamente lo que se congeló, no un recálculo."""
+    period_service.set_planned_amount(
+        period_id=period_in_planning, category="fijos", amount_euros=5000
+    )
+    period_service.finish_planning(period_id=period_in_planning)
+
+    household, _, _ = loader.load_base(period_id=period_in_planning)
+
+    assert household.get_agreed_contributions() == {
+        "fijos": {"amanda": 300000, "heri": 200000},
+        "variables": {"amanda": 0, "heri": 0},
+        "reserva": {"amanda": 300000, "heri": 200000},
+    }
+    assert household.get_agreed_percentages() == {"amanda": 6000, "heri": 4000}

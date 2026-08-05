@@ -353,7 +353,11 @@ class WorkflowManager:
 
             self.period_repo.save_agreed_contributions(
                 period_id=self.period_id,
-                contributions=self.get_total_contributions_by_member(),
+                contributions=self.household.get_agreed_contributions(),
+            )
+            self.period_repo.save_percentages(
+                period_id=self.period_id,
+                percentages=self.household.get_agreed_percentages(),
             )
 
         if self.budget_categories_repository and self.period_id:

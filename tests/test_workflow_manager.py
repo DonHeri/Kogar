@@ -447,9 +447,8 @@ def test_finish_planning_freezes_agreed_state(wm: WorkflowManager) -> None:
     assert "variables" in wm.household._agreed_contributions
 
     fijos_contrib = wm.household._agreed_contributions["fijos"]
-    assert "contributions" in fijos_contrib
-    assert fijos_contrib["contributions"]["amanda"] == 300000  # 60% de 500000
-    assert fijos_contrib["contributions"]["heri"] == 200000  # 40% de 500000
+    assert fijos_contrib["amanda"] == 300000  # 60% de 500000
+    assert fijos_contrib["heri"] == 200000  # 40% de 500000
 
 
 def test_finish_planning_allows_over_budget(wm: WorkflowManager) -> None:
@@ -602,8 +601,8 @@ def test_get_agreed_contributions_in_month(wm: WorkflowManager) -> None:
 
     assert "fijos" in frozen_contributions
     assert "variables" in frozen_contributions
-    assert frozen_contributions["fijos"]["contributions"]["amanda"] == 300000  # 60%
-    assert frozen_contributions["fijos"]["contributions"]["heri"] == 200000  # 40%
+    assert frozen_contributions["fijos"]["amanda"] == 300000  # 60%
+    assert frozen_contributions["fijos"]["heri"] == 200000  # 40%
 
 
 def test_get_agreed_contributions_fails_in_planning(wm: WorkflowManager) -> None:
