@@ -24,7 +24,7 @@ from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.dates import add_months
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
-from src.workflow.setllement_calculator import SettlementCalculator
+from src.workflow.settlement_calculator import SettlementCalculator
 from src.workflow.summary_service import SummaryService
 from src.workflow.incomes_entries_service import IncomeEntryService
 from src.models.income_entry import IncomeEntry

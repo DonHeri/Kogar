@@ -14,7 +14,7 @@ from src.models.member import Member
 from src.models.saving_bucket_tracker import SavingBucketTracker
 from src.models.saving_bucket import SavingBucket
 from src.workflow.budget_distribution_service import BudgetDistributionService
-from src.workflow.setllement_calculator import SettlementCalculator
+from src.workflow.settlement_calculator import SettlementCalculator
 from src.workflow.summary_service import SummaryService
 from tests.helpers import make_category
 

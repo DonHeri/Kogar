@@ -1,5 +1,6 @@
 from src.models.household import Household
 from src.utils.text import normalize_name
+from src.workflow.settlement_calculator import SettlementCalculator
 
 
 class SummaryService:
