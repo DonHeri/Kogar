@@ -819,34 +819,8 @@ def test_register_expense_explicit_is_shared_overrides_behavior(
 
 
 # ====================================================
-# TESTS: get_registration_summary y get_month_summary
+# TESTS: get_month_summary
 # ====================================================
-
-
-def test_get_registration_summary_in_registration_phase(wm: WorkflowManager) -> None:
-    """get_registration_summary() retorna resumen en REGISTRATION"""
-    wm.register_member("Amanda")
-    wm.register_member("Heri")
-    wm.set_member_incomes("Amanda", 3000)
-    wm.set_member_incomes("Heri", 2000)
-
-    summary = wm.get_registration_summary()
-
-    assert "members" in summary
-    assert "member_incomes" in summary
-    assert "total_household_income" in summary
-    assert summary["members"] == ["amanda", "heri"]
-    assert summary["total_household_income"] == 500000
-
-
-def test_get_registration_summary_after_freezing(wm: WorkflowManager) -> None:
-    """get_registration_summary() funciona después de congelar ingresos"""
-    wm.register_member("Amanda")
-    wm.set_member_incomes("Amanda", 3000)
-
-    summary = wm.get_registration_summary()
-
-    assert summary["total_household_income"] == 300000
 
 
 def test_get_month_summary_in_month_phase(wm: WorkflowManager) -> None:

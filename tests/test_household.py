@@ -1092,30 +1092,6 @@ def test_get_total_remaining_can_be_negative(household_with_members: Household) 
 
 
 # ====================================================
-# TESTS: get_registration_summary
-# ====================================================
-
-
-def test_get_registration_summary_returns_correct_structure(
-    household_with_members: Household,
-) -> None:
-    """Debe retornar members, member_incomes, total_household_income"""
-    summary = SummaryService.get_registration_summary(household_with_members)
-
-    assert "members" in summary
-    assert "member_incomes" in summary
-    assert "total_household_income" in summary
-
-    assert "member1" in summary["members"]
-    assert "member2" in summary["members"]
-
-    assert summary["member_incomes"]["member1"] == 200000
-    assert summary["member_incomes"]["member2"] == 100000
-
-    assert summary["total_household_income"] == 300000
-
-
-# ====================================================
 # TESTS: get_missing_money
 # ====================================================
 
@@ -2056,7 +2032,7 @@ def test_register_debt_payment_basic(household_month_ready: Household) -> None:
 
     hh.register_debt_payment("member1", 20000, bid)
 
-    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    totals = hh.get_debt_status_by_member("member1", _WIDE_START, _WIDE_END)["totals"]
     assert totals["committed"] == 50000
     assert totals["paid"] == 20000
     assert totals["remaining"] == 30000
@@ -2071,7 +2047,7 @@ def test_register_debt_payment_overpayment_allowed(
 
     hh.register_debt_payment("member1", 60000, bid)
 
-    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    totals = hh.get_debt_status_by_member("member1", _WIDE_START, _WIDE_END)["totals"]
     assert totals["paid"] == 60000
 
 
@@ -2084,7 +2060,7 @@ def test_get_debt_status_after_partial_payment(
 
     hh.register_debt_payment("member1", 20000, bid)
 
-    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    totals = hh.get_debt_status_by_member("member1", _WIDE_START, _WIDE_END)["totals"]
     assert totals == {"committed": 50000, "paid": 20000, "remaining": 30000}
 
 
@@ -2095,7 +2071,7 @@ def test_get_debt_status_after_full_payment(household_month_ready: Household) ->
 
     hh.register_debt_payment("member1", 50000, bid)
 
-    totals = hh.get_debt_status("member1", _WIDE_START, _WIDE_END)["totals"]
+    totals = hh.get_debt_status_by_member("member1", _WIDE_START, _WIDE_END)["totals"]
     assert totals["paid"] == 50000
     assert totals["remaining"] == 0
 
@@ -2116,7 +2092,7 @@ def test_get_saving_status_after_deposit(household_month_ready: Household) -> No
 
     hh.deposit_to_saving_bucket(bucket_id, "member1", 30000)
 
-    status = hh.get_saving_status("member1", _WIDE_START, _WIDE_END)
+    status = hh.get_saving_status_by_member("member1", _WIDE_START, _WIDE_END)
     bucket_status = status["buckets"][bucket_id]
 
     # required_this_month es un cálculo en vivo sobre el saldo actual, no el

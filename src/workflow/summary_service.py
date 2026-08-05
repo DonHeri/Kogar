@@ -5,21 +5,6 @@ from src.workflow.settlement_calculator import SettlementCalculator
 
 class SummaryService:
     @staticmethod
-    def get_registration_summary(household: Household):
-        """Resumen de fase REGISTRATION: miembros e ingresos"""
-        household.validate_has_members()
-        household.validate_total_incomes_positive()
-        member_incomes = {
-            name: m.monthly_income for name, m in household.members.items()
-        }
-        total_incomes = household.get_total_incomes()
-        return {
-            "members": list(household.members.keys()),
-            "member_incomes": member_incomes,
-            "total_household_income": total_incomes,
-        }
-
-    @staticmethod
     def get_planning_summary(household: Household) -> dict:
         """
         Resumen completo de fase PLANNING con el método ya configurado.
