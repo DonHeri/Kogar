@@ -125,21 +125,6 @@ class Household:
     def set_standard_categories(self):
         self.budget.set_standard_categories()
 
-    # ====== PLANNING — BUDGET ======
-
-    def add_debt_bucket(self, debt_bucket: DebtBucket) -> UUID:
-        """Registra un bucket de deuda personal (un único owner)."""
-        self.validate_member_exist(member_name=debt_bucket.owner)
-        bucket_id = self.debt_bucket_tracker.add_bucket(debt_bucket)
-
-        return bucket_id
-
-    def set_debt_bucket_installment(self, bucket_id: UUID, amount_cents: int):
-        """Fija la cuota mensual de un bucket (la settea el usuario)"""
-        self.debt_bucket_tracker.set_bucket_installment(
-            bucket_id=bucket_id, amount_cents=amount_cents
-        )
-
     # ====== PLANNING — DISTRIBUTION ======
 
     def assign_distribution_method(self, method: MetodoReparto):
@@ -192,6 +177,18 @@ class Household:
         self.expense_tracker.add_expense(expense)
 
     # ====== MONTH — DEBT BUCKETS ======
+    def add_debt_bucket(self, debt_bucket: DebtBucket) -> UUID:
+        """Registra un bucket de deuda personal (un único owner)."""
+        self.validate_member_exist(member_name=debt_bucket.owner)
+        bucket_id = self.debt_bucket_tracker.add_bucket(debt_bucket)
+
+        return bucket_id
+
+    def set_debt_bucket_installment(self, bucket_id: UUID, amount_cents: int):
+        """Fija la cuota mensual de un bucket (la settea el usuario)"""
+        self.debt_bucket_tracker.set_bucket_installment(
+            bucket_id=bucket_id, amount_cents=amount_cents
+        )
 
     def register_debt_payment(
         self,
@@ -213,11 +210,19 @@ class Household:
             member_name=member_name,
         )
 
-    def get_debt_status(self, member_name: str, start_date: date, end_date: date):
+    def get_debt_status_by_member(
+        self, member_name: str, start_date: date, end_date: date | None = None
+    ):
         """Resumen de deuda de un miembro en el período: detalle por bucket + totales."""
         self.validate_member_exist(member_name)
         return self.debt_bucket_tracker.member_debt_summary(
             member_name, start_date, end_date
+        )
+
+    def get_debt_installment_by_member(self, member_name: str) -> int:
+        """Cuota mensual comprometida por el miembro, sumando todos sus buckets."""
+        return self.debt_bucket_tracker.total_expected_installment_by_member(
+            member_name
         )
 
     def get_debt_history(self, member_name: str) -> list:
@@ -230,7 +235,9 @@ class Household:
             history.extend(bucket.entries)
         return history
 
-    def get_all_debts_summary(self, start_date: date, end_date: date) -> dict:
+    def get_all_debts_summary(
+        self, start_date: date, end_date: date | None = None
+    ) -> dict:
         """Resumen de deuda de todos los miembros del hogar."""
         return {
             member: self.debt_bucket_tracker.member_debt_summary(
@@ -240,21 +247,6 @@ class Household:
         }
 
     # ====== MONTH — SAVING BUCKETS ======
-    def get_saving_status(
-        self, member_name: str, start_date: date, end_date: date
-    ) -> dict:
-        """Resumen de ahorro de un miembro en el período: detalle por bucket + totales."""
-        self.validate_member_exist(member_name)
-        return self.saving_bucket_tracker.member_saving_summary(
-            member_name, start_date, end_date
-        )
-
-    def get_saving_requirement_by_member(self, member_name: str) -> int:
-        """Cuánto exigirían las metas del miembro este mes (informativo, snapshot de hoy)."""
-        return self.saving_bucket_tracker.total_required_contribution_by_member(
-            member_name
-        )
-
     def add_saving_bucket(self, bucket: SavingBucket) -> UUID:
         bucket_id = self.saving_bucket_tracker.add_bucket(bucket)
         return bucket_id
@@ -270,6 +262,32 @@ class Household:
     ) -> None:
         self.validate_member_exist(member_name)
         self.saving_bucket_tracker.withdraw(bucket_id, amount_cents, member_name, date)
+
+    def get_saving_status_by_member(
+        self, member_name: str, start_date: date, end_date: date
+    ) -> dict:
+        """Resumen de ahorro de un miembro en el período: detalle por bucket + totales."""
+        self.validate_member_exist(member_name)
+        return self.saving_bucket_tracker.member_saving_summary(
+            member_name, start_date, end_date
+        )
+
+    def get_saving_requirement_by_member(self, member_name: str) -> int:
+        """Cuánto exigirían las metas del miembro este mes (informativo, snapshot de hoy)."""
+        return self.saving_bucket_tracker.total_required_contribution_by_member(
+            member_name
+        )
+
+    def get_all_savings_summary(
+        self, start_date: date, end_date: date | None = None
+    ) -> dict:
+        """Resumen de ahorro de todos los miembros del hogar."""
+        return {
+            member: self.saving_bucket_tracker.member_saving_summary(
+                member, start_date, end_date
+            )
+            for member in self.members
+        }
 
     # ====== MONTH — NEW MONTH ======
 
@@ -444,7 +462,7 @@ class Household:
         contributions = self.get_current_contributions()
 
         totals = {member: 0 for member in self.members}
-
+    
         for cat in contributions:
             for member, amount in contributions[cat]["contributions"].items():
                 totals[member] += amount
