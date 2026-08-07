@@ -60,8 +60,8 @@ class SavingBucket:
 
     @property
     def goal(self) -> int | None:
-        if self._goal_cents:
-            return self._goal_cents
+        """Meta del bucket, o None si no tiene. Un bucket sin meta es ahorro libre."""
+        return self._goal_cents
 
     @property
     def entries(self) -> list[SavingBucketEntry]:
@@ -92,8 +92,8 @@ class SavingBucket:
     @property
     def months_until_deadline(self) -> int | None:
         """Meses desde hoy hasta el deadline. None si no hay deadline.
-        Si el deadline ya pasó, devuelve 1 (hace falta ya) — mismo patrón que
-        DebtBucket.remaining_term_months + el max(...,1) de next_installment."""
+        Si el deadline ya pasó, devuelve 1: la meta hace falta ya, y devolver 0
+        o un negativo rompería la división de required_monthly_contribution."""
         if self.deadline is None:
             return None
 
