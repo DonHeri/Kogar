@@ -693,7 +693,7 @@ def test_register_expense_in_month_phase(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "fijos", 500.50, "Alquiler")
+    wm.register_expense("Amanda", "fijos", 500.50, ["Amanda"], "Alquiler")
 
     expenses = wm.household.expense_tracker.expenses
     assert len(expenses) == 1
@@ -712,7 +712,7 @@ def test_register_expense_converts_euros_to_cents(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "fijos", 123.45)
+    wm.register_expense("Amanda", "fijos", 123.45, ["Amanda"])
 
     expense = wm.household.expense_tracker.expenses[0]
     assert expense.amount == 12345
@@ -727,7 +727,7 @@ def test_register_expense_normalizes_member_name(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("AMANDA", "fijos", 100.00)
+    wm.register_expense("AMANDA", "fijos", 100.00, ["Amanda"])
 
     expense = wm.household.expense_tracker.expenses[0]
     assert expense.member == "amanda"
@@ -742,7 +742,7 @@ def test_register_expense_strips_whitespace(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "  fijos  ", 100.00, "  Alquiler  ")
+    wm.register_expense("Amanda", "  fijos  ", 100.00, ["Amanda"], "  Alquiler  ")
 
     expense = wm.household.expense_tracker.expenses[0]
     assert expense.category.name == "fijos"
@@ -756,7 +756,7 @@ def test_register_expense_raises_if_not_in_month(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Amanda", 3000)
 
     with pytest.raises(ValueError, match="month"):
-        wm.register_expense("Amanda", "fijos", 100.00)
+        wm.register_expense("Amanda", "fijos", 100.00, ["Amanda"])
 
 
 def test_register_expense_empty_description_ok(wm: WorkflowManager) -> None:
@@ -768,7 +768,7 @@ def test_register_expense_empty_description_ok(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "fijos", 100.00, "")
+    wm.register_expense("Amanda", "fijos", 100.00, ["Amanda"], "")
 
     expense = wm.household.expense_tracker.expenses[0]
     assert expense.description == ""
@@ -831,7 +831,7 @@ def test_get_month_summary_in_month_phase(wm: WorkflowManager) -> None:
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
-    wm.register_expense("Amanda", "fijos", 500.00)
+    wm.register_expense("Amanda", "fijos", 500.00, ["Amanda"])
 
     summary = wm.get_month_summary()
 
@@ -1037,7 +1037,7 @@ def test_register_expense_raises_in_planning(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Amanda", 3000)
 
     with pytest.raises(ValueError, match="month"):
-        wm.register_expense("Amanda", "fijos", 100.0)
+        wm.register_expense("Amanda", "fijos", 100.0, ["Amanda"])
 
 
 def test_set_budget_for_category_raises_in_month(wm: WorkflowManager) -> None:

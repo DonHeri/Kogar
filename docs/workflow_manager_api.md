@@ -179,7 +179,7 @@ wm.get_category_billable("fijos")   #  65000¢ — lo no desglosado, si las hija
 
 ### Comportamiento de una categoría (`is_shared`)
 
-Cada categoría es un objeto `Category` con un atributo booleano `is_shared`: `fijos` es `True`; `variables` y `reserva` son `False`. No hay un método público para consultarlo directamente — se resuelve internamente al registrar el gasto (ver `register_expense`), donde determina quién participa por defecto si no se pasan `participants` explícitos.
+Cada categoría es un objeto `Category` con un atributo booleano `is_shared`: `fijos` es `True`; `variables` y `reserva` son `False`. No hay un método público para consultarlo directamente. Tampoco decide quién participa en un gasto: `register_expense` exige la lista siempre, y `is_shared` de la categoría solo sirve para que el borde (CLI, API) sugiera un valor al usuario.
 
 ---
 
@@ -380,19 +380,28 @@ wm.finish_planning()
 
 ## Fase MONTH — Gastos
 
-### `register_expense(member, category, amount_euros, desc="", participants=None)`
+### `register_expense(member, category, amount_euros, participants, desc="", method=None, weights=None)`
 
 Registra un gasto en euros.
 
-`participants`: lista de miembros que comparten el gasto.
-- Si se pasa → se usan esos (normalizados).
-- Si es `None` → se deriva de `category.is_shared`: `True` → todos los miembros del hogar; `False` → solo el pagador.
+**Cómo se reparte se decide gasto a gasto.** `weights` fija los porcentajes exactos (uno por participante, sumando 10000). `method` los deriva de un método concreto para esos participantes. Sin ninguno de los dos, se aplica el método acordado del hogar — que es un valor por defecto, no una imposición: cualquier gasto puede repartirse distinto sin tocar la configuración del hogar.
+
+`participants`: quiénes cargan con el gasto. **Obligatorio y nunca vacío** — un gasto sin participantes no tiene reparto posible, así que declararlo así es un error de quien llama. La categoría no lo decide: quien pregunta es el borde (CLI, API).
+
+Los tres casos que caben en esa lista:
+
+| Lista | Qué significa |
+|---|---|
+| solo el pagador | gasto personal, no entra en el settlement |
+| solo otro miembro | lo pagó uno y es de otro — el otro le debe el total |
+| varios miembros | compartido, se reparte según el método del hogar |
 
 `is_shared` de un gasto ya registrado no es un flag que se pase — se deriva de `len(participants) > 1` (ver `Expense.is_shared`).
 
 ```python
-wm.register_expense("Amanda", "fijos", 500.0, "alquiler")
-wm.register_expense("Heri", "variables", 80.0, "supermercado", participants=["Amanda", "Heri"])
+wm.register_expense("Amanda", "fijos", 500.0, ["Amanda", "Heri"], "alquiler")
+wm.register_expense("Heri", "variables", 80.0, ["Heri"], "supermercado")
+wm.register_expense("Amanda", "salud", 9.99, ["Heri"], "otoscopio")  # lo paga Amanda, es de Heri
 ```
 
 ---
@@ -614,7 +623,7 @@ summary = wm.get_month_summary()
 #     "ceiling":     159000,   # ¢ — techo de la raíz
 #     "spent":        93050,   # ¢ — gasto de todo su subárbol
 #     "remaining":    65950,   # ¢ — techo menos gasto; puede ser negativo
-#     "unallocated":  65000,   # ¢ — lo que no está desglosado en hijas
+#     "billable":     65000,   # ¢ — lo que reparte por sí misma: techo − Σ hijas
 #     "children": {
 #       "alquiler": {"ceiling": 80000, "spent": 80000, "remaining": 0}
 #     }
@@ -817,8 +826,8 @@ vacaciones = wm.create_saving_bucket(
 wm.finish_planning()
 
 # MONTH
-wm.register_expense("Amanda", "alquiler", 1200.0, "alquiler de mayo")
-wm.register_expense("Heri", "variables", 300.0, "supermercado")
+wm.register_expense("Amanda", "alquiler", 1200.0, ["Amanda", "Heri"], "alquiler de mayo")
+wm.register_expense("Heri", "variables", 300.0, ["Heri"], "supermercado")
 wm.register_debt_payment("Amanda", coche, 200.0)
 wm.deposit_to_saving_bucket(vacaciones, "Heri", 150.0)
 

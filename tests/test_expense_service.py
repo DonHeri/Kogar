@@ -245,6 +245,7 @@ def test_register_expense_with_valid_data_persists_to_db(
         member="amanda",
         category="fijos",
         amount_euros=575.67,
+        participants=["heri", "amanda"],
         description="Alquiler de febrero",
     )
 
@@ -273,11 +274,12 @@ def test_register_expense_with_incorrect_phase_raises_error(
             member="amanda",
             category="fijos",
             amount_euros=575.67,
+            participants=["heri", "amanda"],
             description="Alquiler de febrero",
         )
 
 
-def test_register_expense_into_non_shared_category_uses_only_payer_as_participant(
+def test_register_expense_personal_persists_only_the_payer(
     expense_service: ExpenseService,
     expense_repo: ExpenseRepository,
     household_id: int,
@@ -285,13 +287,14 @@ def test_register_expense_into_non_shared_category_uses_only_payer_as_participan
     member_ids: dict[str, int],
     budget_categories: dict[str, BudgetCategory],
 ) -> None:
-    """register_expense en categoría no compartida (is_shared=False) usa solo al pagador como participante."""
+    """register_expense con el pagador como único participante persiste solo a él."""
     expense_service.register_expense(
         household_id=household_id,
         period_id=period_id_month,
         member="amanda",
         category="variables",
         amount_euros=87.67,
+        participants=["amanda"],
         description="Alquiler de febrero",
     )
 
@@ -300,7 +303,7 @@ def test_register_expense_into_non_shared_category_uses_only_payer_as_participan
     assert saved["amount_cents"] == 8767
     assert saved["category"] == "variables"
     assert saved["payer_id"] == member_ids["amanda"]
-    assert set(saved["participants"]) == {"amanda"}  # variables no es compartida
+    assert set(saved["participants"]) == {"amanda"}
 
 
 def test_register_expense_with_explicit_participants_overrides_default(

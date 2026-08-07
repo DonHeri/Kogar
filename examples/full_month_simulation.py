@@ -256,16 +256,16 @@ with DatabaseConnection(
     print("=" * 60)
 
     # --- Gastos fijos (compartidos → cuentan para el settlement) ---
-    wm.register_expense("Amanda", "alquiler", 800.00, "Alquiler")
-    wm.register_expense("Heri", "luz", 85.50, "Luz")
-    wm.register_expense("Amanda", "internet", 45.00, "Internet")
+    wm.register_expense("Amanda", "alquiler", 800.00, ["Amanda", "Heri"], "Alquiler")
+    wm.register_expense("Heri", "luz", 85.50, ["Amanda", "Heri"], "Luz")
+    wm.register_expense("Amanda", "internet", 45.00, ["Amanda", "Heri"], "Internet")
     print("Gastos fijos registrados:")
     print("  Amanda: alquiler 800€ + internet 45€")
     print("  Heri:   luz 85.50€")
 
     # --- Gastos variables (behavior PERSONAL → no cuentan para settlement) ---
-    wm.register_expense("Heri", "variables", 150.00, "Supermercado")
-    wm.register_expense("Amanda", "variables", 67.30, "Farmacia")
+    wm.register_expense("Heri", "variables", 150.00, ["Heri"], "Supermercado")
+    wm.register_expense("Amanda", "variables", 67.30, ["Amanda"], "Farmacia")
     print("\nGastos variables registrados:")
     print("  Amanda: farmacia 67.30€")
     print("  Heri:   supermercado 150€")
@@ -458,9 +458,9 @@ with DatabaseConnection(
             print_row(
                 "· Sin desglosar",
                 4,
-                root["unallocated"],
+                root["billable"],
                 own_spent,
-                root["unallocated"] - own_spent,
+                root["billable"] - own_spent,
             )
             for member in members:
                 agreed, paid = member_share(member, [root_name])

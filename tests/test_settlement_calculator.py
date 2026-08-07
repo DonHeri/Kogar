@@ -8,6 +8,8 @@ from src.models.expense_tracker import ExpenseTracker
 from src.models.household import Household
 from src.models.member import Member
 from src.models.saving_bucket_tracker import SavingBucketTracker
+from src.utils.currency import to_cents
+from src.workflow.expense_weights import resolve_expense_weights
 from src.workflow.settlement_calculator import SettlementCalculator
 from tests.helpers import make_category
 
@@ -85,6 +87,22 @@ def test_get_settlement_empty_when_no_shared_expenses(
     )
 
     assert _get_settlement(household_with_members) == []
+
+
+def test_expense_shared_flag_behavior(
+    household_with_members: Household,
+) -> None:
+    """Un gasto pagado por un miembro pero que es del otro no se contabiliza en el settlement del pagador"""
+
+    _setup_settlement(household_with_members)
+
+    household_with_members.expense_tracker.add_expense(
+        Expense("member1", make_category("variables"), 10000, ["member2"])
+    )
+
+    assert _get_settlement(household_with_members)[0]["from"] == "member2"
+    assert _get_settlement(household_with_members)[0]["to"] == "member1"
+    assert _get_settlement(household_with_members)[0]["amount"] == 10000
 
 
 def test_get_settlement_empty_when_no_expenses(
@@ -222,3 +240,74 @@ def test_get_settlement_three_members_only_should_pay_two(
     assert transfers[0]["to"] == "alice"
     assert transfers[0]["from"] == "carol"
     assert transfers[0]["amount"] == 1500
+
+
+def test_get_settlement_custom_renormalizes_to_the_participants(
+    base_household: Household,
+) -> None:
+    """CUSTOM 50/30/20: un gasto que comparten dos se reparte 71.43/28.57 entre ellos.
+
+    Sin renormalizar, el 30% de bob no lo paga nadie y alice se queda con un
+    crédito de 3000¢ que el settlement no reclama.
+    """
+    m1, m2, m3 = Member("alice"), Member("bob"), Member("carol")
+    for m in (m1, m2, m3):
+        m.monthly_income = 100000
+        base_household.register_member(m)
+
+    base_household.set_custom_splits({"alice": 5000, "bob": 3000, "carol": 2000})
+    _setup_settlement(base_household)
+
+    # alice paga 100 € que comparte solo con carol.
+    # Filtrado: alice 5000, carol 2000 → suma 7000, no 10000.
+    # Renormalizado: alice 7143, carol 2857 → alice pone 71.43 €, carol 28.57 €.
+    base_household.expense_tracker.add_expense(
+        Expense(
+            "alice",
+            make_category("fijos"),
+            10000,
+            participants=["alice", "carol"],
+            weights=base_household.get_weights_for(
+                ["alice", "carol"], MetodoReparto.CUSTOM
+            ),
+        )
+    )
+
+    transfers = _get_settlement(base_household)
+
+    assert len(transfers) == 1
+    assert transfers[0]["from"] == "carol"
+    assert transfers[0]["to"] == "alice"
+    assert transfers[0]["amount"] == 2857  # y no 2000, que sería el 20% sin renormalizar
+
+
+def test_a_single_expense_can_split_differently_from_the_household(
+    household_with_members: Household,
+) -> None:
+    """El método del hogar es el valor por defecto, no una imposición.
+
+    El hogar reparte EQUAL. Un gasto concreto se registra PROPORTIONAL y se
+    reparte según los ingresos (200000 y 100000 → dos tercios y uno), sin tocar
+    la configuración del hogar ni afectar al gasto siguiente.
+    """
+    _setup_settlement(household_with_members)
+    participants = ["member1", "member2"]
+
+    por_defecto = resolve_expense_weights(
+        household=household_with_members, participants=participants
+    )
+    proporcional = resolve_expense_weights(
+        household=household_with_members,
+        participants=participants,
+        method=MetodoReparto.PROPORTIONAL,
+    )
+    a_mano = resolve_expense_weights(
+        household=household_with_members,
+        participants=participants,
+        weights={"member1": 7000, "member2": 3000},
+    )
+
+    assert por_defecto == {"member1": 5000, "member2": 5000}
+    assert proporcional == {"member1": 6667, "member2": 3333}
+    assert a_mano == {"member1": 7000, "member2": 3000}
+    assert household_with_members.method == MetodoReparto.EQUAL  # el hogar no cambió

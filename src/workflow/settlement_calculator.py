@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from src.models.constants import MetodoReparto
 from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
 
@@ -17,7 +16,8 @@ class SettlementCalculator:
     def calculate(household: Household) -> list[dict]:
         """
         Calcula las transferencias mínimas para saldar deudas entre miembros.
-        Solo opera sobre gastos con participants > 1.
+        Entra todo gasto que no sea personal, incluido el que paga uno y
+        consume otro.
 
         Returns:
             list[dict]: [{"from": "heri", "to": "amanda", "amount": 50000}]
@@ -27,36 +27,22 @@ class SettlementCalculator:
         balances = {m: 0 for m in household.members}
 
         for expense in household.expense_tracker.expenses:
-            if not expense.is_shared:
+            # Un gasto no entra en el settlement cuando es personal (pagado y consumido por el mismo miembro)
+            if expense.is_personal:
                 continue
 
-            participants = expense.participants
-
-            incomes = household.get_incomes()
-            incomes_map = {name: incomes[name] for name in participants}
-
-            # Cuánto debería pagar cada miembro según el método de reparto
-            if household.method == MetodoReparto.CUSTOM:
-                should_pay = (
-                    FinanceCalculator.calculate_contribution_from_custom_splits(
-                        household.get_custom_splits(), expense.amount
-                    )
-                )
-            elif household.method == MetodoReparto.EQUAL:
-                equal_map = {name: 1 for name in incomes_map}
-                should_pay = FinanceCalculator.calculate_contribution_from_incomes(
-                    equal_map, expense.amount
-                )
-            else:
-                should_pay = FinanceCalculator.calculate_contribution_from_incomes(
-                    incomes_map, expense.amount
-                )
+            # El gasto ya trae sus pesos: uno por participante y sumando 10000.
+            # Cómo se decidieron —a partes iguales, por ingresos o a mano— es
+            # asunto del borde. Aquí solo se reparte.
+            should_pay = FinanceCalculator.calculate_contribution_from_custom_splits(
+                expense.weights, expense.amount
+            )
 
             # ====== balances ======
             # balance positivo → acreedor (pagó de más)
             # balance negativo → deudor (pagó de menos)
-            for m in participants:
-                balances[m] -= should_pay.get(m, 0)
+            for m, owed in should_pay.items():
+                balances[m] -= owed
             balances[expense.member] += expense.amount
 
         creditors = sorted(

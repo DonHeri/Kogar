@@ -21,6 +21,7 @@ from src.models.saving_bucket import SavingBucket
 from src.models.debt_bucket import DebtBucket
 from src.utils.currency import to_cents, to_percentage_basis
 from src.utils.dates import add_months
+from src.workflow.expense_weights import resolve_expense_weights
 from src.utils.text import normalize_name
 from src.workflow.budget_distribution_service import BudgetDistributionService
 from src.workflow.settlement_calculator import SettlementCalculator
@@ -391,16 +392,22 @@ class WorkflowManager:
         member: str,
         category: str,
         amount_euros: float,
+        participants: list[str],
         description: str = "",
-        participants: list[str] | None = None,
+        method: MetodoReparto | None = None,
+        weights: dict[str, int] | None = None,
     ):
         """Registrar un gasto en fase MONTH.
 
-        participants: lista de miembros que comparten el gasto.
-          - Si se pasa → se usan esos (normalizados).
-          - Si es None → se deriva de la categoría:
-              is_shared=True  → todos los miembros del hogar.
-              is_shared=False → solo el pagador.
+        participants: quiénes cargan con el gasto. Obligatorio y nunca vacío.
+          Puede ser el pagador solo (personal), otro miembro distinto del pagador
+          (lo pagó uno y es de otro) o varios (compartido). Quien decide la lista
+          es quien llama; el dominio no la deduce de la categoría.
+
+        Cómo se reparte ese gasto se decide aquí, gasto a gasto:
+          - `weights` → los porcentajes exactos, uno por participante sumando 10000.
+          - `method` → se traducen desde ese método (EQUAL, PROPORTIONAL, CUSTOM).
+          - ninguno de los dos → el método acordado por el hogar, como default.
         """
         self.validate_phase(Phase.MONTH)
         member_normalized = normalize_name(member)
@@ -408,14 +415,13 @@ class WorkflowManager:
         description = description.strip()
         amount_cents = to_cents(amount_euros)
         cat = self._resolve_category(category)
-
-        if participants is not None:
-            participants = [normalize_name(name) for name in participants]
-        else:
-            if cat.is_shared:
-                participants = self.household.get_member_names()
-            else:
-                participants = [member_normalized]
+        participants = [normalize_name(name) for name in participants]
+        weights = resolve_expense_weights(
+            household=self.household,
+            participants=participants,
+            method=method,
+            weights=weights,
+        )
 
         expense = Expense(
             member=member_normalized,
@@ -423,6 +429,7 @@ class WorkflowManager:
             amount_cents=amount_cents,
             description=description,
             participants=participants,
+            weights=weights,
         )
         self.household.register_expense(expense=expense)
 
