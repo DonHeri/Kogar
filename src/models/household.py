@@ -427,6 +427,43 @@ class Household:
 
         return percentages
 
+    def get_weights_for(
+        self, participants: list[str], method: MetodoReparto
+    ) -> dict[str, int]:
+        """Traduce un método de reparto a pesos concretos, en basis points ×100.
+
+        El método llega como argumento: **el hogar no impone el suyo**. Cada gasto
+        puede repartirse distinto, y quién elige el método de un gasto es el borde.
+        Aquí solo se traduce, porque los ingresos y los splits viven en el hogar.
+
+        Los porcentajes del hogar cubren a todos sus miembros; un gasto que
+        comparten dos de tres solo puede usar la parte que les toca, renormalizada
+        a 10000. Sin renormalizar, el trozo del ausente no lo paga nadie y el
+        settlement deja al pagador con un crédito que no reclama a nadie.
+
+        Raises:
+            ValueError: si algún participante no es miembro del hogar.
+        """
+        if method == MetodoReparto.EQUAL:
+            return FinanceCalculator.calculate_equal_percentage(
+                {name: 1 for name in participants}
+            )
+
+        if method == MetodoReparto.CUSTOM:
+            source = self.get_percentages_by_method(MetodoReparto.CUSTOM)
+        else:
+            source = self.get_incomes()
+
+        missing = [name for name in participants if name not in source]
+        if missing:
+            raise ValueError(
+                f"Participantes que no son miembros del hogar: {sorted(missing)}"
+            )
+
+        return FinanceCalculator.calculate_percentage_based_on_weight_of_income(
+            {name: source[name] for name in participants}
+        )
+
     def preview_budget_contribution_summary(self, method: MetodoReparto) -> dict:
         """
         Calcula contribuciones por categoría con método de reparto inyectado.
