@@ -330,7 +330,7 @@ def test_negative_weights_are_rejected() -> None:
 def _household(method: MetodoReparto = MetodoReparto.EQUAL) -> Household:
     """Hogar con amanda (200.000 ¢) y heri (100.000 ¢), o sea 2:1."""
     budget = Budget()
-    budget.set_standard_categories()
+    budget.set_standard_categories(["amanda", "heri"])
     household = Household(
         budget=budget,
         expense_tracker=ExpenseTracker(),

@@ -45,7 +45,7 @@ def base_household() -> Household:
     e = ExpenseTracker()
     s = SavingBucketTracker()
     d = DebtBucketTracker()
-    b.set_standard_categories()
+    b.set_standard_categories(["member1", "member2"])
     return Household(
         budget=b,
         expense_tracker=e,

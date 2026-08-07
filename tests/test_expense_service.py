@@ -190,12 +190,14 @@ def budget_categories(
     period_id_month: int, budget_categories_repo: BudgetCategoryRepository
 ) -> dict[str, BudgetCategory]:
     """Dos categorías raíz (fijos, variables) + una hija (alquiler bajo fijos)."""
-    fijos = BudgetCategory(Category("fijos", is_shared=True), 900.0, parent=None)
+    fijos = BudgetCategory(
+        Category("fijos", is_shared=True), 90000, ["member1", "member2"], parent=None
+    )
     variables = BudgetCategory(
-        Category("variables", is_shared=False), 300.0, parent=None
+        Category("variables", is_shared=False), 30000, ["member1"], parent=None
     )
     alquiler = BudgetCategory(
-        Category("alquiler", is_shared=True), 600.0, parent="fijos"
+        Category("alquiler", is_shared=True), 60000, ["member1", "member2"], parent="fijos"
     )
 
     for budget_category in (fijos, variables, alquiler):

@@ -13,7 +13,7 @@ from tests.helpers import make_category
 @pytest.fixture
 def budget() -> Budget:
     b = Budget()
-    b.set_standard_categories()
+    b.set_standard_categories(["member1", "member2"])
     return b
 
 
@@ -22,7 +22,7 @@ def budget() -> Budget:
 # ====================================================
 def test_create_valid_budget_category() -> None:
     # Arrange & Act
-    budget1 = BudgetCategory(make_category("Test"), 500)
+    budget1 = BudgetCategory(make_category("Test"), 50000, ["member1", "member2"])
 
     # Assert
     assert budget1.name == "Test"
@@ -33,7 +33,11 @@ def test_negative_budget_must_raise_error() -> None:
     with pytest.raises(
         ValueError, match="El monto presupuestado no puede ser negativo"
     ):
-        budget1 = BudgetCategory(category=make_category("Test"), planned_amount=-500)
+        budget1 = BudgetCategory(
+            category=make_category("Test"),
+            planned_amount=-500,
+            participants=["member1"],
+        )
 
 
 # ====================================================
@@ -63,24 +67,82 @@ def test_set_budget_negative_amount_raises_error(budget: Budget) -> None:
 
 
 # ====================================================
-# TESTS: is_shared heredado desde la librería
+# TESTS: participantes de una categoría
 # ====================================================
 
 
-def test_standard_categories_inherit_is_shared_from_library(budget: Budget) -> None:
-    assert budget.categories["fijos"].is_shared is True
-    assert budget.categories["variables"].is_shared is False
-    assert budget.categories["reserva"].is_shared is False
+def test_a_child_inherits_the_participants_of_its_parent(budget: Budget) -> None:
+    budget.add_category("vivienda", parent="fijos")
+
+    assert budget.categories["vivienda"].participants == ["member1", "member2"]
 
 
-def test_add_known_category_inherits_is_shared(budget: Budget) -> None:
-    budget.add_category("ocio")
-    assert budget.categories["ocio"].is_shared is False
+def test_restricting_a_child_leaves_its_parent_untouched(budget: Budget) -> None:
+    """El límite está en que heredar no puede ser compartir la misma lista: si
+    lo fuera, restringir la hija restringiría al padre por detrás."""
+    budget.add_category("gimnasio", parent="fijos")
+
+    budget.categories["gimnasio"].participants.remove("member2")
+
+    assert budget.categories["gimnasio"].participants == ["member1"]
+    assert budget.categories["fijos"].participants == ["member1", "member2"]
 
 
-def test_add_unknown_category_defaults_to_shared(budget: Budget) -> None:
-    budget.add_category("nueva_custom")
-    assert budget.categories["nueva_custom"].is_shared is True
+def test_a_child_cannot_add_participants_its_parent_does_not_have(
+    budget: Budget,
+) -> None:
+    """Un tercero dentro de la hija haría que el techo del padre repartiera
+    entre gente que él no reparte."""
+    with pytest.raises(ValueError, match="no tiene: member3"):
+        budget.add_category("pesas", ["member1", "member3"], parent="fijos")
+
+
+def test_a_child_cannot_be_widened_after_it_is_created(budget: Budget) -> None:
+    """La otra puerta a la misma regla: crear estrecho y ampliar después."""
+    budget.add_category("gimnasio", ["member1"], parent="fijos")
+
+    with pytest.raises(ValueError, match="no tiene: member3"):
+        budget.add_participant_to_budget_category("member3", "gimnasio")
+
+    assert budget.categories["gimnasio"].participants == ["member1"]
+
+
+def test_a_child_may_recover_a_participant_its_parent_still_has(
+    budget: Budget,
+) -> None:
+    """Restringir no es irreversible: member2 sigue estando en el padre."""
+    budget.add_category("gimnasio", ["member1"], parent="fijos")
+
+    budget.add_participant_to_budget_category("member2", "gimnasio")
+
+    assert budget.categories["gimnasio"].participants == ["member1", "member2"]
+
+
+def test_a_root_may_take_in_anyone(budget: Budget) -> None:
+    """Una raíz no tiene padre que la limite."""
+    budget.add_participant_to_budget_category("member3", "fijos")
+
+    assert "member3" in budget.categories["fijos"].participants
+
+
+def test_the_subset_rule_does_not_depend_on_how_the_name_is_written(
+    budget: Budget,
+) -> None:
+    """member2 está en el padre como 'member2'; declararlo 'MEMBER2' es el mismo."""
+    budget.add_category("gimnasio", ["MEMBER2"], parent="fijos")
+
+    assert budget.categories["gimnasio"].participants == ["member2"]
+
+
+def test_a_root_without_participants_raises(budget: Budget) -> None:
+    with pytest.raises(ValueError, match="al menos un participante"):
+        budget.add_category("ocio")
+
+
+def test_a_root_with_an_empty_list_raises(budget: Budget) -> None:
+    """Lista vacía y lista ausente son el mismo error, no dos caminos."""
+    with pytest.raises(ValueError, match="al menos un participante"):
+        budget.add_category("ocio", [])
 
 
 # ====================================================
@@ -89,25 +151,25 @@ def test_add_unknown_category_defaults_to_shared(budget: Budget) -> None:
 
 
 def test_add_category_creates_new_category(budget: Budget) -> None:
-    budget.add_category("educacion")
+    budget.add_category("educacion", ["member1", "member2"])
 
     assert "educacion" in budget.get_category_names()
     assert budget.categories["educacion"].planned_amount == 0
 
 
 def test_add_category_normalizes_name(budget: Budget) -> None:
-    budget.add_category("  EDUCACIÓN  ")
+    budget.add_category("  EDUCACIÓN  ", ["member1", "member2"])
 
     assert "educación" in budget.get_category_names()
 
 
 def test_add_category_already_exists_raises_error(budget: Budget) -> None:
     with pytest.raises(ValueError, match="La categoría ya existe"):
-        budget.add_category("fijos")
+        budget.add_category("fijos", ["member1", "member2"])
 
 
 def test_add_category_adds_to_library_if_unknown(budget: Budget) -> None:
-    budget.add_category("nueva_categoria")
+    budget.add_category("nueva_categoria", ["member1", "member2"])
 
     assert budget.library.is_known("nueva_categoria")
 

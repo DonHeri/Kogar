@@ -230,13 +230,21 @@ class HouseholdLoader:
         return member_ids
 
     def _hydrate_budget(self, household: Household, category_rows: list[dict]):
-        """Hidratar household con presupuestos por categoría"""
+        """Hidratar household con presupuestos por categoría.
+
+        Los participantes todavía no se persisten: una raíz rehidrata con todo
+        el hogar y una hija hereda de su padre, que es exactamente el reparto
+        que tenían esas filas cuando se guardaron. Su tabla llega en P7.
+        """
         for row in category_rows:
             name = row["name"]
             parent = row["parent_name"]
             planned_amount = row["planned_amount"]
 
-            household.add_category(name=name, parent=parent)
+            participants = None if parent else household.get_member_names()
+            household.add_category(
+                name=name, participants=participants, parent=parent
+            )
             household.budget.set_planned_amount(
                 category=name, amount_cents=planned_amount
             )

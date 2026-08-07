@@ -144,6 +144,7 @@ class PeriodService:
         name: str,
         parent: str | None = None,
         budget_euros: float | None = None,
+        participants: list[str] | None = None,
     ):
         """Crea una categoría del período, con su importe si se indica.
 
@@ -162,7 +163,9 @@ class PeriodService:
         parent = normalize_name(parent) if parent else None
 
         # Pasar validaciones dominio
-        household.add_category(name=name, parent=parent)
+        if participants is None and parent is None:
+            participants = household.get_member_names()
+        household.add_category(name=name, participants=participants, parent=parent)
         # recuperar objeto
         budget_category = household.budget.get_budget_category(name)
         # persistir

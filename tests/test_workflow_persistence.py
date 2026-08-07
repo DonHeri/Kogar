@@ -84,6 +84,8 @@ def wm_pre_registration(wm_with_repos: WorkflowManager) -> WorkflowManager:
     wm_with_repos.register_member("amanda")
     wm_with_repos.set_member_incomes(name="heri", amount_euros=1652)
     wm_with_repos.set_member_incomes(name="amanda", amount_euros=1456)
+    # Después de los miembros: una categoría raíz necesita saber quién participa
+    wm_with_repos.household.set_standard_categories()
 
     return wm_with_repos
 

@@ -93,6 +93,10 @@ with DatabaseConnection(
     wm.register_member("Heri")
     wm.set_member_incomes("Heri", 1124.50)
 
+    # Después de los miembros: una categoría raíz nace con sus participantes,
+    # así que ya no puede crearse con el hogar todavía vacío
+    wm.household.set_standard_categories()
+
     print(f"Amanda: {to_euros(wm.get_member_income('amanda'))}")
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
     print(f"Total:  {to_euros(wm.get_total_incomes())}")

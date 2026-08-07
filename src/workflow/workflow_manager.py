@@ -104,16 +104,22 @@ class WorkflowManager:
         name: str,
         parent: str | None = None,
         budget_euros: float | None = None,
+        participants: list[str] | None = None,
     ):
         """Crea categoría en PLANNING, con su importe si se indica.
 
         `budget_euros` opcional: crear una categoría con presupuesto es una sola
         llamada desde fuera, no dos. Sin él la categoría nace con techo 0, que es
         el comportamiento de siempre.
+
+        `participants` opcional solo en las hijas, que heredan los de su padre.
+        Una raíz sin participantes no tiene entre quién repartir su techo.
         """
         self.validate_phase(Phase.PLANNING)
         parent = normalize_name(parent) if parent else None
-        self.household.add_category(name, parent=parent)
+        if participants is None and parent is None:
+            participants = self.household.get_member_names()
+        self.household.add_category(name, participants=participants, parent=parent)
 
         if budget_euros is None:
             return

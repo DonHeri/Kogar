@@ -32,9 +32,9 @@ def wm(household: Household) -> WorkflowManager:
 def wm_in_planning(wm: WorkflowManager) -> WorkflowManager:
     """WM en PLANNING: un miembro (Amanda, 5000) y categorías estándar."""
     wm.start_new_month()
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
+    wm.household.set_standard_categories()
     return wm
 
 
@@ -42,11 +42,11 @@ def wm_in_planning(wm: WorkflowManager) -> WorkflowManager:
 def wm_in_month_two_members(wm: WorkflowManager) -> tuple[WorkflowManager, UUID]:
     """WM en MONTH con dos miembros: amanda (60%) y heri (40%), total 1000€"""
     wm.start_new_month()
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 5000)
     debt_id = wm.add_debt_bucket(
         name="prestamo amanda",
@@ -76,6 +76,7 @@ def test_workflow_manager_starts_in_planning_phase(wm: WorkflowManager) -> None:
 def test_register_member_in_registration_phase(wm: WorkflowManager) -> None:
     """Un miembro registrado en fase REGISTRATION aparece en get_registered_members"""
     wm.register_member("Amanda")
+    wm.household.set_standard_categories()
     assert "amanda" in wm.get_registered_members()
 
 
@@ -83,18 +84,22 @@ def test_register_member_wrong_phase(wm_in_month: WorkflowManager) -> None:
     """Registrar un miembro con el mes ya en marcha lanza ValueError"""
     with pytest.raises(ValueError, match="planning"):
         wm_in_month.register_member("Nuevo")
+        wm_in_month.household.set_standard_categories()
 
 
 def test_register_duplicate_member(wm: WorkflowManager) -> None:
     """Registrar un miembro con nombre ya existente lanza ValueError"""
     wm.register_member("Amanda")
+    wm.household.set_standard_categories()
     with pytest.raises(ValueError, match="ya está registrado"):
         wm.register_member("Amanda")
+        wm.household.set_standard_categories()
 
 
 def test_register_member_strips_whitespace(wm: WorkflowManager) -> None:
     """register_member limpia espacios en blanco del nombre"""
     wm.register_member("  Amanda  ")
+    wm.household.set_standard_categories()
     assert "amanda" in wm.get_registered_members()
     assert "  Amanda  " not in wm.get_registered_members()
 
@@ -108,6 +113,7 @@ def test_set_income_valid(wm: WorkflowManager) -> None:
     """set_member_incomes actualiza el ingreso del miembro en centavos correctamente"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     assert wm.get_member_income("amanda") == 300000
 
 
@@ -118,12 +124,14 @@ def test_set_income_wrong_phase(wm_in_month: WorkflowManager) -> None:
     """
     with pytest.raises(ValueError, match="planning"):
         wm_in_month.set_member_incomes("Amanda", 5000)
+        wm_in_month.household.set_standard_categories()
 
 
 def test_set_income_nonexistent_member(wm: WorkflowManager) -> None:
     """Asignar ingresos a un miembro no registrado lanza ValueError"""
     with pytest.raises(ValueError):
         wm.set_member_incomes("Fantasma", 3000)
+        wm.household.set_standard_categories()
 
 
 # ====================================================
@@ -136,12 +144,14 @@ def test_members_and_incomes_are_editable_during_planning(wm: WorkflowManager) -
     wm.start_new_month()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     assert wm.current_phase == Phase.PLANNING
 
     wm.register_member("Heri")
     wm.set_member_incomes("Heri", 2000)
     wm.set_member_incomes("Amanda", 4000)
+    wm.household.set_standard_categories()
 
     assert wm.get_total_incomes() == 600000
 
@@ -153,11 +163,13 @@ def test_income_change_recalculates_split_while_planning(wm: WorkflowManager) ->
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
 
     split = wm.household.get_percentages_by_method(MetodoReparto.PROPORTIONAL)
     assert split == {"amanda": 6000, "heri": 4000}
 
     wm.set_member_incomes("Heri", 6000)
+    wm.household.set_standard_categories()
 
     split = wm.household.get_percentages_by_method(MetodoReparto.PROPORTIONAL)
     assert split == {"amanda": 5000, "heri": 5000}
@@ -174,6 +186,7 @@ def test_finish_planning_requires_incomes(wm: WorkflowManager) -> None:
     """El plan no se puede confirmar si nadie tiene ingresos"""
     wm.start_new_month()
     wm.register_member("Amanda")
+    wm.household.set_standard_categories()
     with pytest.raises(ValueError, match="Al menos un miembro debe tener ingresos"):
         wm.finish_planning()
 
@@ -185,6 +198,7 @@ def test_finish_planning_freezes_the_agreement(wm: WorkflowManager) -> None:
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
     wm.finish_planning()
 
@@ -199,6 +213,7 @@ def test_partial_incomes_are_valid(wm: WorkflowManager) -> None:
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
 
     wm.finish_planning()
@@ -220,6 +235,7 @@ def test_get_registered_members_multiple(wm: WorkflowManager) -> None:
     """get_registered_members retorna todos los nombres registrados"""
     wm.register_member("Amanda")
     wm.register_member("Heri")
+    wm.household.set_standard_categories()
     members = wm.get_registered_members()
     assert set(members) == {"amanda", "heri"}
 
@@ -234,6 +250,7 @@ def test_get_member_income_after_planning(wm: WorkflowManager) -> None:
     """get_member_income está disponible en cualquier fase y retorna centavos"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
+    wm.household.set_standard_categories()
     assert wm.get_member_income("amanda") == 500000
 
 
@@ -249,6 +266,7 @@ def test_get_total_incomes_multiple_members(wm: WorkflowManager) -> None:
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
     assert wm.get_total_incomes() == 500000
 
 
@@ -292,9 +310,9 @@ def test_set_budget_for_category_raises_if_not_in_planning(
 
 def test_set_budget_for_category_multiple_categories(wm: WorkflowManager) -> None:
     """Puedo asignar presupuestos a múltiples categorías"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 10000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 5000)
     wm.set_budget_for_category("variables", 3000)
@@ -318,9 +336,9 @@ def test_add_category_with_parent_in_planning(wm_in_planning: WorkflowManager) -
 
 def test_get_planning_summary_in_planning_phase(wm: WorkflowManager) -> None:
     """get_planning_summary retorna resumen completo en PLANNING"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 10000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 5000)
     wm.set_budget_for_category("variables", 3000)
@@ -337,9 +355,9 @@ def test_get_planning_summary_in_planning_phase(wm: WorkflowManager) -> None:
 
 def test_get_planning_summary_includes_all_key_data(wm: WorkflowManager) -> None:
     """get_planning_summary incluye todas las claves necesarias"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 10000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 5000)
 
     summary = wm.get_planning_summary()
@@ -364,9 +382,9 @@ def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
     wm: WorkflowManager,
 ) -> None:
     """set_budget_for_category bloquea presupuesto que supera ingresos"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     # Ingresos: 300000 céntimos — intentar setear 400000 → ValueError
     with pytest.raises(ValueError):
@@ -380,9 +398,9 @@ def test_get_planning_summary_returns_negative_missing_money_when_over_budget(
 
 def test_finish_planning_transitions_to_month_phase(wm: WorkflowManager) -> None:
     """finish_planning transita de PLANNING a MONTH correctamente"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
+    wm.household.set_standard_categories()
 
     assert wm.current_phase == Phase.PLANNING
 
@@ -405,6 +423,7 @@ def test_finish_planning_raises_if_no_budget_assigned(wm: WorkflowManager) -> No
     wm.start_new_month()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 5000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="presupuesto"):
         wm.finish_planning()
@@ -412,11 +431,11 @@ def test_finish_planning_raises_if_no_budget_assigned(wm: WorkflowManager) -> No
 
 def test_finish_planning_with_multiple_members(wm: WorkflowManager) -> None:
     """finish_planning funciona correctamente con múltiples miembros"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 3000)
     wm.set_budget_for_category("variables", 1500)
@@ -427,11 +446,11 @@ def test_finish_planning_with_multiple_members(wm: WorkflowManager) -> None:
 
 def test_finish_planning_freezes_agreed_state(wm: WorkflowManager) -> None:
     """finish_planning congela percentages y contributions acordadas"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
@@ -453,9 +472,9 @@ def test_finish_planning_freezes_agreed_state(wm: WorkflowManager) -> None:
 
 def test_finish_planning_allows_over_budget(wm: WorkflowManager) -> None:
     """set_budget_for_category bloquea presupuesto que supera ingresos"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 1000)
+    wm.household.set_standard_categories()
 
     # Presupuesto total: 1500€ > ingresos: 1000€ → ValueError
     with pytest.raises(ValueError):
@@ -527,11 +546,11 @@ def test_assign_distribution_method_sets_method(
 
 def test_assign_distribution_method_changes_summary(wm: WorkflowManager) -> None:
     """assign_distribution_method() cambia el método en el resumen"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.assign_distribution_method(MetodoReparto.EQUAL)
     summary = wm.get_planning_summary()
@@ -550,21 +569,23 @@ def test_get_incomes_returns_live_values(wm: WorkflowManager) -> None:
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     assert wm.get_incomes() == {"amanda": 300000, "heri": 200000}
 
     wm.set_member_incomes("Amanda", 4000)
+    wm.household.set_standard_categories()
 
     assert wm.get_incomes() == {"amanda": 400000, "heri": 200000}
 
 
 def test_get_agreed_percentages_in_month(wm: WorkflowManager) -> None:
     """get_agreed_percentages() retorna percentages congelados en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
@@ -579,6 +600,7 @@ def test_get_agreed_percentages_fails_in_planning(wm: WorkflowManager) -> None:
     """get_agreed_percentages() lanza error en PLANNING"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.get_agreed_percentages()
@@ -586,11 +608,11 @@ def test_get_agreed_percentages_fails_in_planning(wm: WorkflowManager) -> None:
 
 def test_get_agreed_contributions_in_month(wm: WorkflowManager) -> None:
     """get_agreed_contributions() retorna contributions congeladas en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
@@ -609,6 +631,7 @@ def test_get_agreed_contributions_fails_in_planning(wm: WorkflowManager) -> None
     """get_agreed_contributions() lanza error en PLANNING"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.get_agreed_contributions()
@@ -625,6 +648,7 @@ def test_set_custom_splits_in_planning_phase(wm: WorkflowManager) -> None:
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.set_custom_splits({"amanda": 70.0, "heri": 30.0})
 
@@ -646,11 +670,11 @@ def test_set_custom_splits_raises_if_not_in_planning(
 
 def test_preview_budget_contribution_summary_in_planning(wm: WorkflowManager) -> None:
     """preview_budget_contribution_summary() muestra preview con método específico"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 5000)
 
@@ -663,11 +687,11 @@ def test_preview_budget_contribution_summary_in_planning(wm: WorkflowManager) ->
 
 def test_get_current_contributions_in_planning(wm: WorkflowManager) -> None:
     """get_current_contributions() obtiene contribuciones con método configurado"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
 
     wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
@@ -686,9 +710,9 @@ def test_get_current_contributions_in_planning(wm: WorkflowManager) -> None:
 
 def test_register_expense_in_month_phase(wm: WorkflowManager) -> None:
     """register_expense() registra gasto correctamente en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -705,9 +729,9 @@ def test_register_expense_in_month_phase(wm: WorkflowManager) -> None:
 
 def test_register_expense_converts_euros_to_cents(wm: WorkflowManager) -> None:
     """register_expense() convierte euros a céntimos correctamente"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -720,9 +744,9 @@ def test_register_expense_converts_euros_to_cents(wm: WorkflowManager) -> None:
 
 def test_register_expense_normalizes_member_name(wm: WorkflowManager) -> None:
     """register_expense() normaliza el nombre del miembro"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -735,9 +759,9 @@ def test_register_expense_normalizes_member_name(wm: WorkflowManager) -> None:
 
 def test_register_expense_strips_whitespace(wm: WorkflowManager) -> None:
     """register_expense() limpia espacios en category y description"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -751,9 +775,9 @@ def test_register_expense_strips_whitespace(wm: WorkflowManager) -> None:
 
 def test_register_expense_raises_if_not_in_month(wm: WorkflowManager) -> None:
     """register_expense() lanza error si no estamos en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.register_expense("Amanda", "fijos", 100.00, ["Amanda"])
@@ -761,9 +785,9 @@ def test_register_expense_raises_if_not_in_month(wm: WorkflowManager) -> None:
 
 def test_register_expense_empty_description_ok(wm: WorkflowManager) -> None:
     """register_expense() acepta description vacía"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -776,11 +800,11 @@ def test_register_expense_empty_description_ok(wm: WorkflowManager) -> None:
 
 def test_register_expense_derives_is_shared_from_category(wm: WorkflowManager) -> None:
     """Sin is_shared explícito, se hereda del default (is_shared) de la categoría"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.register_member("Heri")
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
@@ -800,11 +824,11 @@ def test_register_expense_explicit_is_shared_overrides_behavior(
     wm: WorkflowManager,
 ) -> None:
     """is_shared explícito sobreescribe el default de la categoría"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
     wm.register_member("Heri")
     wm.set_member_incomes("Heri", 2000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("variables", 1000)
     wm.finish_planning()
 
@@ -824,9 +848,9 @@ def test_register_expense_explicit_is_shared_overrides_behavior(
 
 def test_get_month_summary_in_month_phase(wm: WorkflowManager) -> None:
     """get_month_summary() retorna resumen completo en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
@@ -845,6 +869,7 @@ def test_get_month_summary_raises_if_not_in_month(wm: WorkflowManager) -> None:
     """get_month_summary() lanza error si no estamos en MONTH"""
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.get_month_summary()
@@ -857,9 +882,9 @@ def test_get_month_summary_raises_if_not_in_month(wm: WorkflowManager) -> None:
 
 def test_get_budget_as_percentage_returns_basis_points(wm: WorkflowManager) -> None:
     """Retorna basis points representando % de ingresos"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 1500)  # 50% de 3000€
 
@@ -870,9 +895,9 @@ def test_get_budget_as_percentage_returns_basis_points(wm: WorkflowManager) -> N
 
 def test_get_budget_as_percentage_zero_budget(wm: WorkflowManager) -> None:
     """Retorna 0 cuando presupuesto es 0"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("variables", 0)
 
@@ -883,9 +908,9 @@ def test_get_budget_as_percentage_zero_budget(wm: WorkflowManager) -> None:
 
 def test_get_budget_as_percentage_roundtrip(wm: WorkflowManager) -> None:
     """set_budget_for_category + get_budget_as_percentage es consistente"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_for_category("fijos", 1200)  # 40% de 3000€
     retrieved = wm.get_budget_as_percentage("fijos")
@@ -900,9 +925,9 @@ def test_get_budget_as_percentage_roundtrip(wm: WorkflowManager) -> None:
 
 def test_set_budget_by_percentages_basic(wm: WorkflowManager) -> None:
     """Asigna presupuestos basados en distribución porcentual"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
@@ -914,9 +939,9 @@ def test_set_budget_by_percentages_basic(wm: WorkflowManager) -> None:
 
 def test_set_budget_by_percentages_sum_exceeds_100(wm: WorkflowManager) -> None:
     """Lanza error si la suma de porcentajes excede 100%"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="suman.*%.*máximo.*100%"):
         wm.set_budget_by_percentages(
@@ -926,9 +951,9 @@ def test_set_budget_by_percentages_sum_exceeds_100(wm: WorkflowManager) -> None:
 
 def test_set_budget_by_percentages_missing_category(wm: WorkflowManager) -> None:
     """Lanza error si alguna categoría no existe en el presupuesto"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="categoría debe estar creada"):
         wm.set_budget_by_percentages(
@@ -940,9 +965,9 @@ def test_set_budget_by_percentages_partial_allocation_raises(
     wm: WorkflowManager,
 ) -> None:
     """Lanza error si los porcentajes no suman 100%"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError):
         wm.set_budget_by_percentages({"fijos": 50.0, "variables": 20.0})
@@ -956,9 +981,9 @@ def test_set_budget_by_percentages_wrong_phase(wm_in_month: WorkflowManager) -> 
 
 def test_set_budget_by_percentages_empty_dict_raises(wm: WorkflowManager) -> None:
     """Lanza error con diccionario vacío (no suma 100%)"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError):
         wm.set_budget_by_percentages({})
@@ -966,9 +991,9 @@ def test_set_budget_by_percentages_empty_dict_raises(wm: WorkflowManager) -> Non
 
 def test_set_budget_by_percentages_fractional_percentages(wm: WorkflowManager) -> None:
     """Maneja correctamente porcentajes fraccionarios sin pérdida de céntimos"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     wm.set_budget_by_percentages({"fijos": 33.33, "variables": 33.33, "reserva": 33.34})
 
@@ -987,9 +1012,9 @@ def test_set_budget_by_percentages_fractional_percentages(wm: WorkflowManager) -
 def wm_in_month(wm: WorkflowManager) -> WorkflowManager:
     """WM listo en fase MONTH"""
     wm.start_new_month()
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
     wm.finish_planning()
     return wm
@@ -1032,9 +1057,9 @@ def test_get_settlement_accessible_after_finish_month(
 
 def test_register_expense_raises_in_planning(wm: WorkflowManager) -> None:
     """register_expense lanza ValueError si estamos en PLANNING, no en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.register_expense("Amanda", "fijos", 100.0, ["Amanda"])
@@ -1042,9 +1067,9 @@ def test_register_expense_raises_in_planning(wm: WorkflowManager) -> None:
 
 def test_set_budget_for_category_raises_in_month(wm: WorkflowManager) -> None:
     """set_budget_for_category lanza ValueError una vez en MONTH"""
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 2000)
     wm.finish_planning()
 
@@ -1144,6 +1169,7 @@ def test_deposit_outside_month_raises(wm: WorkflowManager) -> None:
 
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.deposit_to_saving_bucket(uuid4(), "Amanda", 100.0)
@@ -1155,6 +1181,7 @@ def test_withdraw_outside_month_raises(wm: WorkflowManager) -> None:
 
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
 
     with pytest.raises(ValueError, match="month"):
         wm.withdraw_from_saving_bucket(uuid4(), "Amanda", 100.0)
@@ -1170,6 +1197,7 @@ def test_full_flow_registration_to_closing(wm: WorkflowManager) -> None:
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)  # 600000 céntimos
     wm.set_member_incomes("Heri", 4000)  # 400000 céntimos
+    wm.household.set_standard_categories()
 
     assert wm.current_phase == Phase.PLANNING
 
@@ -1234,11 +1262,11 @@ def test_last_payments_dont_appear_in_new_month(wm: WorkflowManager) -> None:
     """
     # ── Mes 1: del 28-ene al 28-feb ──
     wm.start_new_month(start_date=date(2026, 1, 28))
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 5000)
     debt_id = wm.add_debt_bucket(
         name="prestamo amanda",
@@ -1263,6 +1291,7 @@ def test_last_payments_dont_appear_in_new_month(wm: WorkflowManager) -> None:
     wm.start_new_month()
     wm.set_member_incomes("Amanda", 6000)
     wm.set_member_incomes("Heri", 4000)
+    wm.household.set_standard_categories()
 
     totals_month_two = wm.get_debt_status(member="amanda")["totals"]
 
@@ -1283,9 +1312,9 @@ def test_payment_on_cut_off_day_counts_only_in_the_month_that_starts(
     justo el día del corte se contaría en el mes que cierra y en el que abre.
     """
     wm.start_new_month(start_date=date(2026, 1, 28))
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 6000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
     debt_id = wm.add_debt_bucket(
         name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212
@@ -1306,6 +1335,7 @@ def test_payment_on_cut_off_day_counts_only_in_the_month_that_starts(
     # El período nuevo arranca justo en el corte: la fecha se inyecta, no se hereda
     wm.start_new_month(start_date=date(2026, 2, 28))
     wm.set_member_incomes("Amanda", 6000)
+    wm.household.set_standard_categories()
     paid_new_month = wm.get_debt_status(member="amanda")["totals"]["paid"]
 
     assert paid_closed_month == 0
@@ -1321,6 +1351,7 @@ def test_new_period_starts_today_when_no_date_given(wm: WorkflowManager) -> None
     wm.start_new_month(start_date=date(2026, 1, 28))
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     wm.finish_month(end_date=date(2026, 2, 28))
 
     wm.start_new_month()
@@ -1335,6 +1366,7 @@ def test_new_period_cannot_start_before_the_previous_one_ends(
     wm.start_new_month(start_date=date(2026, 1, 28))
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 3000)
+    wm.household.set_standard_categories()
     wm.finish_month(end_date=date(2026, 2, 28))
 
     with pytest.raises(ValueError, match="se solaparían"):
@@ -1344,9 +1376,9 @@ def test_new_period_cannot_start_before_the_previous_one_ends(
 def test_open_period_has_no_upper_bound(wm: WorkflowManager) -> None:
     """Mientras el mes sigue abierto no tiene techo: lo registrado hoy cuenta."""
     wm.start_new_month(start_date=date(2026, 1, 28))
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 6000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
     debt_id = wm.add_debt_bucket(
         name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212
@@ -1363,9 +1395,9 @@ def test_open_period_has_no_upper_bound(wm: WorkflowManager) -> None:
 def wm_month_from_28_jan(wm: WorkflowManager) -> tuple[WorkflowManager, UUID]:
     """WM en MONTH con un período que arranca el 28-ene-2026 y un bucket de deuda."""
     wm.start_new_month(start_date=date(2026, 1, 28))
-    wm.household.budget.set_standard_categories()
     wm.register_member("Amanda")
     wm.set_member_incomes("Amanda", 6000)
+    wm.household.set_standard_categories()
     wm.set_budget_for_category("fijos", 1000)
     debt_id = wm.add_debt_bucket(
         name="prestamo", principal_euros=21200, owner="Amanda", installment_euros=212

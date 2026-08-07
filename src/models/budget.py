@@ -2,6 +2,7 @@ from src.models.budget_category import BudgetCategory
 from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
 from src.models.exceptions import CeilingBelowChildrenError
+from src.utils.text import normalize_name
 
 
 class Budget:
@@ -13,21 +14,35 @@ class Budget:
         self.library = CategoryLibrary()
 
     # ====== INITIALIZATION ======
-    def set_standard_categories(self):
+    def set_standard_categories(self, participants: list[str]):
         """Establece las categorías estándar predefinidas('fijos','variables';
         'reserva' como almacén del sobrante para ahorro/deuda/otras categorías)"""
 
         for name in CategoryLibrary.get_standards_categories().keys():
             if name in self.categories:
                 continue
-            self.add_category(name=name)
+            self.add_category(name=name, participants=participants)
 
     # ====== CATEGORY MANAGEMENT ======
 
     def add_category(
-        self, name: str, parent: str | None = None, is_shared: bool | None = None
+        self,
+        name: str,
+        participants: list[str] | None = None,
+        parent: str | None = None,
+        is_shared: bool | None = None,
     ):
-        """Agrega una nueva categoría al presupuesto"""
+        """Agrega una nueva categoría al presupuesto.
+
+        Args:
+            participants: quiénes cargan con la categoría. En una hija, None
+                hereda los del padre. En una raíz no hay de quién heredar, así
+                que es obligatorio: Budget no conoce a los miembros del hogar.
+
+        Raises:
+            ValueError: si una raíz llega sin participantes, o si una hija mete
+                a alguien que su padre no tiene.
+        """
         normalized = CategoryLibrary.normalize(name)
         self._validate_active_category(normalized)
 
@@ -43,17 +58,45 @@ class Budget:
                     "Solo se permiten 2 niveles de profundidad: "
                     "una categoría hija no puede ser padre"
                 )
+
+            if participants is None:
+                participants = self.categories[parent].participants
+            else:
+                self._validate_subset_of_parent(participants, parent)
+
             is_shared = self.categories[parent].is_shared
             category = self.library.create_category(normalized, is_shared=is_shared)
 
             self._children.setdefault(parent, []).append(normalized)
 
         else:
+            if not participants:
+                raise ValueError(
+                    "Una categoría raíz debe declarar al menos un participante"
+                )
             category = self.library.create_category(normalized, is_shared=is_shared)
 
-        self.categories[normalized] = BudgetCategory(category, 0, parent=parent)
+        self.categories[normalized] = BudgetCategory(
+            category, 0, participants, parent=parent
+        )
 
     # ====== BUDGET ASSIGNMENT ======
+    def add_participant_to_budget_category(self, member_name: str, category_name: str):
+        """Añade un participante a una categoría ya creada.
+
+        En una hija, el nuevo tiene que estar en el padre: ampliarla metería
+        dinero de un tercero en una bolsa que no es suya. Ampliar un padre sí
+        es libre — sus hijas siguen siendo subconjunto.
+        """
+        normalized = CategoryLibrary.normalize(category_name)
+        self._validate_category_exists(normalized)
+
+        parent = self.categories[normalized].parent
+        if parent is not None:
+            self._validate_subset_of_parent([member_name], parent)
+
+        self.categories[normalized].add_participant(member_name)
+
     def set_planned_amount(self, category: str, amount_cents: int) -> None:
         """Establece el monto presupuestado para una categoría (céntimos).
 
@@ -180,6 +223,25 @@ class Budget:
         """Valida que la categoría no existe (para agregar nueva)"""
         if name in self.categories:
             raise ValueError(f"La categoría ya existe")
+
+    def _validate_subset_of_parent(self, participants: list[str], parent: str) -> None:
+        """Valida que una hija no participe a nadie que su padre no tenga.
+
+        Una hija vive dentro del techo de su padre. Si metiera a un tercero, ese
+        techo dejaría de significar lo que dice, porque estaría repartiendo entre
+        gente que el padre no reparte.
+        """
+        parent_participants = self.categories[parent].participants
+        intruders = [
+            name for name in participants
+            if normalize_name(name) not in parent_participants
+        ]
+        if intruders:
+            raise ValueError(
+                f"Una subcategoría no puede añadir participantes que su padre "
+                f"({parent}) no tiene: {', '.join(sorted(intruders))}. "
+                f"Participantes de {parent}: {', '.join(sorted(parent_participants))}"
+            )
 
     def _validate_covers_children(self, name: str, amount_cents: int) -> None:
         """Valida que el techo no baja por debajo de lo repartido en sus hijas"""

@@ -66,8 +66,8 @@ class Household:
         """
         self._create_personal_saving_bucket_for_members()
 
-        if not self.budget.categories:
-            self.budget.set_standard_categories()
+        if self.members and not self.budget.categories:
+            self.budget.set_standard_categories(self.get_member_names())
 
     def _create_personal_saving_bucket(self, name: str) -> None:
         """Crea el bucket de ahorro personal de un miembro si aún no lo tiene."""
@@ -88,9 +88,30 @@ class Household:
 
     # ====== PLANNING — CATEGORIES ======
 
-    def add_category(self, name: str, parent: str | None = None):
-        """Agrega categoría y la propaga a Budget"""
-        self.budget.add_category(name, parent=parent)
+    def add_category(
+        self, name: str, participants: list[str] | None = None, parent: str | None = None
+    ):
+        """Agrega categoría y la propaga a Budget.
+
+        En una hija, `participants=None` hereda los del padre. Es el único caso
+        en que puede faltar: una raíz no tiene de quién heredar.
+        """
+        self._validate_participants_are_members(participants)
+        self.budget.add_category(name, participants=participants, parent=parent)
+
+    def _validate_participants_are_members(
+        self, participants: list[str] | None
+    ) -> None:
+        """Valida que cada participante viva en el hogar.
+
+        Budget no puede comprobarlo: no conoce a los miembros. Sin esto, una
+        categoría reparte entre alguien que no existe y el reparto revienta
+        más tarde, lejos de donde se declaró el error.
+        """
+        if participants is None:
+            return
+        for name in participants:
+            self.validate_member_exist(normalize_name(name))
 
     def remove_category(self, name: str):
         """Elimina una categoría y resuelve el destino de sus gastos.
@@ -122,7 +143,8 @@ class Household:
             expense.category = destination
 
     def set_standard_categories(self):
-        self.budget.set_standard_categories()
+        """Categorías estándar con todo el hogar dentro. Muere en P5."""
+        self.budget.set_standard_categories(self.get_member_names())
 
     # ====== PLANNING — DISTRIBUTION ======
 
@@ -584,9 +606,7 @@ class Household:
         member_name = normalize_name(member_name)
         self.validate_member_exist(member_name)
         contributions = self.get_agreed_contributions()
-        total = sum(
-            by_member[member_name] for by_member in contributions.values()
-        )
+        total = sum(by_member[member_name] for by_member in contributions.values())
         return total
 
     def get_member_paid_total(self, member_name: str) -> int:

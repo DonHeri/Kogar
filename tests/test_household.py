@@ -88,7 +88,7 @@ def base_household() -> Household:
     e = ExpenseTracker()
     s = SavingBucketTracker()
     d = DebtBucketTracker()
-    b.set_standard_categories()
+    b.set_standard_categories(["member1", "member2"])
     return Household(
         budget=b,
         expense_tracker=e,
@@ -815,11 +815,19 @@ def test_get_planning_summary_percentages_sum_to_10000(
 # ====================================================
 
 
-def test_add_category_creates_in_budget(base_household: Household) -> None:
+def test_add_category_creates_in_budget(household_with_members: Household) -> None:
     """add_category() agrega categoría al budget"""
-    base_household.add_category("educacion")
+    household_with_members.add_category("educacion", ["member1", "member2"])
 
-    assert "educacion" in base_household.get_active_categories()
+    assert "educacion" in household_with_members.get_active_categories()
+
+
+def test_add_category_rejects_a_participant_outside_the_household(
+    household_with_members: Household,
+) -> None:
+    """Budget no conoce a los miembros; el hogar sí, y para aquí el error."""
+    with pytest.raises(ValueError, match="no existe en el hogar"):
+        household_with_members.add_category("educacion", ["fulanito"])
 
 
 def test_remove_category_deletes_from_budget(base_household: Household) -> None:
@@ -834,6 +842,7 @@ def test_set_standard_categories_populates_budget(base_household: Household) -> 
     household = Household(
         Budget(), ExpenseTracker(), SavingBucketTracker(), DebtBucketTracker()
     )
+    household.register_member(Member("Member1"))
     household.set_standard_categories()
 
     categories = household.get_active_categories()

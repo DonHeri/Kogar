@@ -172,15 +172,19 @@ def period_id(
 
 @pytest.fixture
 def budget_categories(
-    period_id: int, budget_categories_repo: BudgetCategoryRepository
+    period_id: int,
+    member_id_heri: int,
+    budget_categories_repo: BudgetCategoryRepository,
 ) -> dict[str, BudgetCategory]:
     """Dos categorías raíz (fijos, variables) + una hija (alquiler bajo fijos)."""
-    fijos = BudgetCategory(Category("fijos", is_shared=True), 900.0, parent=None)
+    fijos = BudgetCategory(
+        Category("fijos", is_shared=True), 90000, ["member1", "member2"], parent=None
+    )
     variables = BudgetCategory(
-        Category("variables", is_shared=False), 300.0, parent=None
+        Category("variables", is_shared=False), 30000, ["member1"], parent=None
     )
     alquiler = BudgetCategory(
-        Category("alquiler", is_shared=True), 600.0, parent="fijos"
+        Category("alquiler", is_shared=True), 60000, ["member1", "member2"], parent="fijos"
     )
 
     for budget_category in (fijos, variables, alquiler):
@@ -334,13 +338,16 @@ def test_load_budget_rehydrates_parent_before_child_regardless_of_insertion_orde
     household_loader: HouseholdLoader,
     household_id: int,
     period_id: int,
+    member_id_heri: int,
     budget_categories_repo: BudgetCategoryRepository,
 ) -> None:
     """Regresión: si la hija se persiste antes que la madre, Load.BUDGET no debe
     romper con 'La categoría debe estar creada'. El orden de hidratación no
     puede depender del orden físico de inserción en BD."""
-    child = BudgetCategory(Category("alquiler", is_shared=True), 600.0, parent="fijos")
-    parent = BudgetCategory(Category("fijos", is_shared=True), 900.0, parent=None)
+    child = BudgetCategory(Category("alquiler", is_shared=True), 60000, ["member1", "member2"], parent="fijos")
+    parent = BudgetCategory(
+        Category("fijos", is_shared=True), 90000, ["member1", "member2"], parent=None
+    )
 
     # Se guarda la hija ANTES que la madre a propósito
     budget_categories_repo.save(household_period_id=period_id, budget_category=child)

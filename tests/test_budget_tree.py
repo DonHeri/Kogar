@@ -29,7 +29,7 @@ from src.models.saving_bucket_tracker import SavingBucketTracker
 def budget() -> Budget:
     """Presupuesto con las tres categorías estándar."""
     budget = Budget()
-    budget.set_standard_categories()
+    budget.set_standard_categories(["amanda", "heri"])
     return budget
 
 
@@ -37,7 +37,7 @@ def budget() -> Budget:
 def household() -> Household:
     """Hogar con dos miembros, categorías estándar y reparto a partes iguales."""
     budget = Budget()
-    budget.set_standard_categories()
+    budget.set_standard_categories(["amanda", "heri"])
     household = Household(
         budget=budget,
         expense_tracker=ExpenseTracker(),

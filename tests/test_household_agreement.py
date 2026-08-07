@@ -31,7 +31,7 @@ from tests.helpers import make_category
 def _household(method: MetodoReparto = MetodoReparto.EQUAL) -> Household:
     """Hogar con dos miembros (200.000 ¢ y 100.000 ¢) y categorías estándar."""
     budget = Budget()
-    budget.set_standard_categories()
+    budget.set_standard_categories(["amanda", "heri"])
     household = Household(
         budget=budget,
         expense_tracker=ExpenseTracker(),

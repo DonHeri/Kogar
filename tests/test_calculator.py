@@ -50,7 +50,7 @@ def household_base() -> Household:
     b = Budget()
     e = ExpenseTracker()
     s = SavingBucketTracker()
-    b.set_standard_categories()
+    b.set_standard_categories(["member1", "member2"])
     return Household(
         budget=b,
         expense_tracker=e,
@@ -325,7 +325,7 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base: Household) -> None:
     household_base.prepare_period()
 
     for i in range(1, 6):
-        household_base.add_category(f"categoria{i}")
+        household_base.add_category(f"categoria{i}", ["amanda", "heri"])
         _set_budget(household_base, f"categoria{i}", 60000)
 
     contributions = household_base.get_current_contributions()
@@ -398,7 +398,7 @@ def test_edge_case_ten_categories_accumulate_remainders(
     household_base.prepare_period()
 
     for i in range(1, 11):
-        household_base.add_category(f"categoria{i}")
+        household_base.add_category(f"categoria{i}", ["amanda", "heri"])
         _set_budget(household_base, f"categoria{i}", 30000)
 
     contributions = household_base.get_current_contributions()
