@@ -72,7 +72,9 @@ class DebtBucketTracker:
         totals = {"committed": 0, "paid": 0, "remaining": 0}
 
         for id, bucket in self.get_bucket_by_member(member_name).items():
-            period = bucket.get_period_balance(start_date=start_date, end_date=end_date)
+            period = bucket.get_period_balance(
+                start_date=start_date, end_date=end_date
+            )  # Si hay sobrepago, signo (-)
             buckets[id] = {
                 "name": bucket.bucket_name,
                 "principal": bucket.principal_cents,

@@ -92,7 +92,12 @@ class DebtBucket:
         return ceil(self.remaining_balance / self._installment_cents)
 
     def get_period_balance(self, start_date: date, end_date: date) -> dict[str, int]:
-        """Balance del bucket en el período [start_date, end_date): cuota, pagado y restante."""
+        """Balance del bucket en el período [start_date, end_date): cuota, pagado y restante.
+
+        `remaining` sale negativo cuando se paga por encima de la cuota del mes, y su
+        magnitud es cuánto se ha adelantado. No se corta en 0 a propósito: el sobrepago
+        está permitido y ese número es la única forma de verlo.
+        """
         entries = [e for e in self._entries if start_date <= e.date.date() < end_date]
         committed = self.next_installment
         paid = sum(e.amount_cents for e in entries)
@@ -116,7 +121,7 @@ class DebtBucket:
         self,
         amount_cents: int,
         member_name: str,
-        description:str|None=None,
+        description: str | None = None,
         date: datetime | None = None,
         id: UUID | None = None,
     ):
