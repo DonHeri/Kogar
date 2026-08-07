@@ -264,7 +264,7 @@ class SummaryService:
         }
 
     @staticmethod
-    def get_saving_summary(household: Household, period: Period) -> dict:
+    def get_all_savings_summary(household: Household, period: Period) -> dict:
         """Retorna el resumen de ahorro de todos los miembros del hogar."""
         start_date = period.start_date
         end_date: date | None = period.end_date
