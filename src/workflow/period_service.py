@@ -140,9 +140,23 @@ class PeriodService:
         # enterarse, o al recargar el reparto volvería a ser el anterior.
         self.period_repo.update_method(method=household.method, period_id=period_id)
 
-    def add_category(self, period_id: int, name: str, parent: str | None = None):
-        """ """
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+    def add_category(
+        self,
+        period_id: int,
+        name: str,
+        parent: str | None = None,
+        budget_euros: float | None = None,
+    ):
+        """Crea una categoría del período, con su importe si se indica.
+
+        `budget_euros` opcional, y por una razón que solo se ve en esta capa: crear
+        una categoría con importe eran dos llamadas, y cada una rehidrataba el hogar
+        entero por su cuenta. Aquí se hace con una sola carga.
+
+        Asignar el importe puede recalcular más de una categoría (la raíz recalcula
+        la reserva), por eso se persisten todas y no solo la nueva.
+        """
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
 
         period.status.require(Phase.PLANNING)
 
@@ -157,6 +171,20 @@ class PeriodService:
         self.budget_categories_repository.save(
             household_period_id=period_id, budget_category=budget_category
         )
+
+        if budget_euros is None:
+            return
+
+        BudgetDistributionService.set_budget_for_category(
+            household, category_name=name, amount_cents=to_cents(budget_euros)
+        )
+
+        for category_name, budget_category in household.get_budget_categories().items():
+            self.budget_categories_repository.update_planned_amount(
+                household_period_id=period_id,
+                name=category_name,
+                planned_amount=budget_category.planned_amount,
+            )
 
     def set_standard_categories(self, period_id: int):
         household, _, period = self.household_loader.load_base(period_id=period_id)

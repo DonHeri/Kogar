@@ -98,11 +98,28 @@ class WorkflowManager:
         self.household.set_custom_splits(splits_basis_points)
 
     # ====== PLANNING PHASE - Category Management ======
-    def add_category(self, name: str, parent: str | None = None):
-        """Crea categoría en PLANNING"""
+    def add_category(
+        self,
+        name: str,
+        parent: str | None = None,
+        budget_euros: float | None = None,
+    ):
+        """Crea categoría en PLANNING, con su importe si se indica.
+
+        `budget_euros` opcional: crear una categoría con presupuesto es una sola
+        llamada desde fuera, no dos. Sin él la categoría nace con techo 0, que es
+        el comportamiento de siempre.
+        """
         self.validate_phase(Phase.PLANNING)
         parent = normalize_name(parent) if parent else None
         self.household.add_category(name, parent=parent)
+
+        if budget_euros is None:
+            return
+
+        BudgetDistributionService.set_budget_for_category(
+            self.household, name, to_cents(budget_euros)
+        )
 
     def set_standard_categories(self):
         """Establece categorías estándar [fijos,variables,deuda,ahorro]"""
