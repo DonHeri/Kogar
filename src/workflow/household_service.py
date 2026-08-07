@@ -36,12 +36,19 @@ class HouseholdService:
 
         return household_id
 
-    def register_member(self, household_id: int, name: str):
+    def register_member(
+        self, household_id: int, name: str, income_euros: float | None = None
+    ):
         """Registra un nuevo miembro en el hogar y lo persiste de inmediato en BD.
+
+        El ingreso entra en la misma llamada: un miembro sin ingreso no participa
+        en ningún reparto, así que pedirlo aparte solo daba ocasión de olvidarlo.
 
         Args:
             household_id: Identificador del núcleo familiar
             name: Nombre del miembro (se normaliza internamente)
+            income_euros: Ingreso mensual en euros. Se puede cambiar después con
+                `set_member_income` mientras los miembros sean editables.
 
         Returns:
             member_id: Identificador de BD del miembro creado
@@ -57,6 +64,8 @@ class HouseholdService:
         member_normalized = normalize_name(name)
 
         member = Member(member_normalized)
+        if income_euros is not None:
+            member.set_income(to_cents(income_euros))
 
         household.register_member(member=member)
 

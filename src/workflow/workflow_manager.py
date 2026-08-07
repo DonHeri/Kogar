@@ -58,12 +58,21 @@ class WorkflowManager:
         self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
     # ====== PLANNING PHASE - Miembros e ingresos ======
-    def register_member(self, name: str):
-        """Registra un miembro. Se puede hacer mientras se planifica el período."""
+    def register_member(self, name: str, income_euros: float | None = None):
+        """Registra un miembro, con su ingreso si se indica.
+
+        El ingreso va aquí porque un miembro sin él no sirve para nada: no entra
+        en ningún reparto. Separarlo en dos llamadas obligaba a todo borde a
+        acordarse de la segunda. Sigue pudiendo cambiarse con
+        `set_member_incomes` mientras dure la planificación.
+        """
         self.validate_phase(Phase.PLANNING)
         member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
         self._persist_new_members()
+
+        if income_euros is not None:
+            self.set_member_incomes(name, income_euros)
 
     def set_member_incomes(self, name: str, amount_euros: float):
         """Cambia el ingreso de un miembro.
