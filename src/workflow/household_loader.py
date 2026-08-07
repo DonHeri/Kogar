@@ -263,6 +263,14 @@ class HouseholdLoader:
 
         for row in expense_rows:
             participants: list = list(row["participants"])
+            # Filas anteriores a los pesos los traen a NULL: sin peso guardado,
+            # Expense reparte a partes iguales, que es como se calcularon.
+            raw_weights: dict | None = row.get("weights")
+            weights = (
+                raw_weights
+                if raw_weights and all(v is not None for v in raw_weights.values())
+                else None
+            )
 
             member: str = member_ids[row["payer_id"]]
 
@@ -278,6 +286,7 @@ class HouseholdLoader:
                 description=description,
                 member=member,
                 participants=participants,
+                weights=weights,
             )
             household.register_expense(expense)
 

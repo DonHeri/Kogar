@@ -457,6 +457,37 @@ def test_load_for_queries_rehydrates_participants(
     assert set(expense.participants) == {"heri", "amanda"}
 
 
+def test_load_for_queries_rehydrates_weights(
+    expense_repo: ExpenseRepository,
+    household_loader: HouseholdLoader,
+    member_ids: dict[str, int],
+    period_id: int,
+    budget_categories: dict[str, BudgetCategory],
+) -> None:
+    """Los pesos sobreviven al viaje de ida y vuelta a BD.
+
+    Sin esto, un gasto repartido 70/30 volvería como 50/50 al recargar y el
+    settlement daría un número distinto según si el hogar estaba en memoria o
+    se acababa de cargar.
+    """
+    expense_repo.save(
+        expense=Expense(
+            member="heri",
+            amount_cents=10000,
+            category=make_category("fijos", is_shared=True),
+            participants=["heri", "amanda"],
+            weights={"heri": 7000, "amanda": 3000},
+        ),
+        member_ids=member_ids,
+        period_id=period_id,
+    )
+
+    household, _, _ = household_loader.load_household(period_id, load=Load.FOR_QUERIES)
+
+    expense = household.expense_tracker.get_all_expenses()[0]
+    assert expense.weights == {"heri": 7000, "amanda": 3000}
+
+
 def test_load_for_queries_resolves_category_object(
     household_loader: HouseholdLoader,
     household_id: int,

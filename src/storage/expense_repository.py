@@ -40,20 +40,27 @@ class ExpenseRepository:
         for member in expense.participants:
             self.cursor.execute(
                 """
-                INSERT INTO expense_participants (expense_id,member_id)
-                VALUES (%s,%s)
+                INSERT INTO expense_participants (expense_id,member_id,weight)
+                VALUES (%s,%s,%s)
                 """,
-                (expense_id, member_ids[member]),
+                (expense_id, member_ids[member], expense.weights[member]),
             )
 
         return expense_id
 
     def find_with_participants(self, period_id: int) -> list[dict]:
-        """JOIN entre expenses, expense_participants y members para que cada resultado incluya la lista de participantes"""
+        """JOIN entre expenses, expense_participants y members para que cada resultado
+        incluya la lista de participantes y el peso de cada uno.
+
+        weights viene como dict {nombre: basis_points}: un array paralelo a
+        participants dependería de que las dos agregaciones ordenen igual, y eso
+        Postgres no lo garantiza.
+        """
         self.cursor.execute(
-            """ 
+            """
             SELECT e.*,
-                array_agg(m.full_name) AS participants
+                array_agg(m.full_name) AS participants,
+                json_object_agg(m.full_name, ep.weight) AS weights
             FROM expenses e
             JOIN expense_participants ep ON ep.expense_id = e.id
             JOIN members m ON m.id = ep.member_id
