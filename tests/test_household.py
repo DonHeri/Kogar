@@ -1489,7 +1489,7 @@ def test_get_month_summary_calculates_correctly(
 def test_get_month_summary_by_category_has_correct_structure(
     household_with_members: Household,
 ) -> None:
-    """Cada raíz en 'by_category' lleva ceiling, spent, remaining, unallocated y children"""
+    """Cada raíz en 'by_category' lleva ceiling, spent, remaining, billable y children"""
 
     household_with_members.assign_distribution_method(MetodoReparto.EQUAL)
     household_with_members.prepare_period()
@@ -1510,14 +1510,14 @@ def test_get_month_summary_by_category_has_correct_structure(
         "ceiling",
         "spent",
         "remaining",
-        "unallocated",
+        "billable",
         "children",
     }
 
     assert by_category["fijos"]["ceiling"] == 100000
     assert by_category["fijos"]["spent"] == 25000
     assert by_category["fijos"]["remaining"] == 75000
-    assert by_category["fijos"]["unallocated"] == 100000
+    assert by_category["fijos"]["billable"] == 100000
     assert by_category["fijos"]["children"] == {}
 
     assert by_category["variables"]["ceiling"] == 50000
@@ -1555,7 +1555,7 @@ def test_get_month_summary_nests_children_under_their_root(
     # El gasto de la hija cuenta contra el techo del padre
     assert by_category["fijos"]["spent"] == 80000
     assert by_category["fijos"]["remaining"] == 20000
-    assert by_category["fijos"]["unallocated"] == 20000
+    assert by_category["fijos"]["billable"] == 20000
 
 
 def test_get_month_summary_by_category_matches_totals(

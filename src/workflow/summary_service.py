@@ -114,7 +114,7 @@ class SummaryService:
                     "ceiling":     159000,   # techo de la raíz
                     "spent":        80000,   # gasto de todo su subárbol
                     "remaining":    79000,   # techo - gasto; puede ser negativo
-                    "unallocated":  65000,   # lo que no está desglosado en hijas
+                    "billable":     65000,   # lo que reparte por sí misma: techo − Σ hijas
                     "children": {
                         "alquiler": {
                             "ceiling":   80000,
@@ -142,7 +142,9 @@ class SummaryService:
                 }
             },
             "missing_money": {
-                "total": 100000,   # parte de reserva sin asignar a categoría/ahorro/deuda
+                "total": 100000,   # lo que reserva reparte entre los miembros: como
+                                    # absorbe todo lo no asignado, es el dinero del
+                                    # período que aún no tiene destino
                 "by_member": {
                     "amanda": 60000,
                     "heri":   40000
@@ -180,7 +182,7 @@ class SummaryService:
                 "ceiling": household.get_category_planned_amount(cat_name),
                 "spent": household.get_category_spent(cat_name),
                 "remaining": household.get_category_remaining(cat_name),
-                "unallocated": household.get_category_billable(cat_name),
+                "billable": household.get_category_billable(cat_name),
                 # Siempre presente, vacío si la raíz no tiene hijas: quien lo
                 # recorra no necesita comprobar si la clave existe.
                 "children": {
