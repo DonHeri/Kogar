@@ -1,5 +1,7 @@
 from datetime import datetime
+from enum import Flag, auto
 from uuid import UUID
+
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
@@ -26,6 +28,30 @@ from src.models.category import Category
 from src.models.constants import MetodoReparto, Phase
 
 
+class Load(Flag):
+    """Qué partes del hogar hidratar. Se combinan con `|`.
+
+    Cada valor es un interruptor independiente: cargar deuda no tiene nada que ver
+    con cargar gastos, así que cualquier mezcla es legítima. Por eso es un Flag y no
+    un enum de niveles — `DEBTS` no es "más profundo" que `EXPENSES`, es otra cosa.
+
+    Los miembros NO son un flag: se cargan siempre. Sin ellos no hay hogar que
+    hidratar.
+
+    EXPENSES nunca viaja solo: `_hydrate_expenses` resuelve la categoría de cada
+    gasto contra el árbol del presupuesto, así que sin BUDGET no hay dónde buscarla.
+    `load_household` lo añade por su cuenta en vez de exigírselo al llamador.
+    """
+
+    BUDGET = auto()
+    EXPENSES = auto()
+    DEBTS = auto()
+    SAVINGS = auto()
+
+    FOR_QUERIES = BUDGET | EXPENSES
+    FULL = BUDGET | EXPENSES | DEBTS | SAVINGS
+
+
 class HouseholdLoader:
     def __init__(
         self,
@@ -50,25 +76,38 @@ class HouseholdLoader:
         self._saving_bucket_entry_repository = saving_bucket_entry_repository
 
     # ============================================================
-    # # recetas públicas (composiciones por PROFUNDIDAD, no por servicio)
+    # recetas públicas
+    #
+    # Son dos, y responden a preguntas distintas: `load_household` reconstruye el
+    # hogar **dentro de un período** y el llamador compone la profundidad con
+    # flags; `load_members_only` lo reconstruye **sin período**, para las
+    # operaciones del hogar que ocurren antes de que exista ninguno.
     # ============================================================
 
     def load_members_only(
         self, household_id: int, period: Period | None = None
     ) -> tuple[Household, dict[str, int]]:
+        """El hogar con sus miembros y nada más. No necesita período.
 
-        # crear household
+        No se puede expresar con `Load`, y por eso sigue siendo un método aparte:
+        registrar un miembro o fijar su ingreso son operaciones **del hogar**, y
+        ocurren antes de que exista un período al que pedirle nada. `HouseholdService`
+        las usa así.
+
+        `period` es opcional porque solo sirve para que el Household nazca con el
+        método de reparto correcto; sin él cae al default de `_build_base`.
+        """
         household = self._build_base(period=period)
 
-        # Hidratar miembros
         member_rows = self._member_repo.list_members(household_id)
-
         member_ids = self._hydrate_members(household=household, members=member_rows)
 
         return (household, member_ids)
 
-    def load_base(self, period_id: int) -> tuple[Household, dict[str, int], Period]:
-        """Miembros + presupuesto del período.
+    def load_household(
+        self, period_id: int, load: Load = Load.FULL
+    ) -> tuple[Household, dict[str, int], Period]:
+        """Reconstruye el hogar del período, hidratando solo lo que se pida.
 
         Basta el period_id: el household_id vive en el propio Period, así que pedir
         los dos obligaba al llamador a leer el período antes solo para reenviarlo,
@@ -77,123 +116,73 @@ class HouseholdLoader:
         Devuelve el Period entero, no solo su fase: quien orquesta necesita también
         el rango de fechas, y así no tiene que volver a pedirlo al repositorio.
 
+        Cada lectura de BD vive dentro de su `if`. Sacarlas arriba traería las filas
+        de deuda aunque nadie las pida, que es justo lo que este método evita.
+
         Raises:
             ValueError: si el período no existe
         """
+        # EXPENSES no puede ir solo: los gastos buscan su categoría en el árbol
+        if Load.EXPENSES in load:
+            load |= Load.BUDGET
 
-        # 1. Leer filas
-
+        # ---- siempre: período, hogar vacío y miembros ----
         period = self._require_period(period_id)
         household_id = period.household_id
 
-        category_rows = sorted(
-            self._budget_categories_repo.find_by_period(period_id),
-            key=lambda row: row["parent_name"] is not None,
-        )
-
-        # 2. Construir Household base (trackers vacíos)
         household, member_ids = self.load_members_only(
             household_id=household_id, period=period
         )
 
-        # 3. Repoblar lo que el gasto necesita
-        self._hydrate_budget(household, category_rows)
-        self._hydrate_custom_splits(household=household, period=period)
-        self._hydrate_agreement(household=household, period=period)
+        # ---- presupuesto, splits y acuerdo congelado ----
+        if Load.BUDGET in load:
+            # Las hijas se hidratan después que sus padres: add_category exige que
+            # el padre exista, y la BD no garantiza el orden.
+            category_rows = sorted(
+                self._budget_categories_repo.find_by_period(period_id),
+                key=lambda row: row["parent_name"] is not None,
+            )
+            self._hydrate_budget(household, category_rows)
+            self._hydrate_custom_splits(household=household, period=period)
+            self._hydrate_agreement(household=household, period=period)
 
-        return (household, member_ids, period)
+        # ---- gastos del período ----
+        if Load.EXPENSES in load:
+            expense_rows = self._expense_repository.find_with_participants(period_id)
+            self._hydrate_expenses(
+                household, expense_rows=expense_rows, member_ids=member_ids
+            )
 
-    def load_for_queries(
-        self, period_id: int
-    ) -> tuple[Household, dict[str, int], Period]:
-        """load_base + histórico de gastos del período (para lecturas)"""
-        household, member_ids, period = self.load_base(period_id=period_id)
+        # ---- buckets de deuda (household-scoped, cruzan meses) ----
+        if Load.DEBTS in load:
+            debt_buckets_rows: list[dict] = (
+                self._debt_bucket_respository.find_by_household(
+                    household_id=household_id
+                )
+            )
+            self._hydrate_debt_buckets(
+                household=household,
+                debt_buckets_rows=debt_buckets_rows,
+                member_ids=member_ids,
+            )
 
-        expense_rows = self._expense_repository.find_with_participants(period_id)
-        self._hydrate_expenses(
-            household, expense_rows=expense_rows, member_ids=member_ids
-        )
-
-        return (household, member_ids, period)
-
-    def load_with_debts(
-        self, period_id: int
-    ) -> tuple[Household, dict[str, int], Period]:
-        # 1. Leer filas
-        period = self._require_period(period_id)
-        household_id = period.household_id
-
-        debt_buckets_rows: list[dict] = self._debt_bucket_respository.find_by_household(
-            household_id=household_id
-        )
-
-        # 2. Construir Household base (trackers vacíos)
-        household, member_ids = self.load_members_only(
-            household_id=household_id, period=period
-        )
-
-        # 3. Repoblar lo que el gasto necesita
-        self._hydrate_debt_buckets(
-            household=household,
-            debt_buckets_rows=debt_buckets_rows,
-            member_ids=member_ids,
-        )
-
-        return (household, member_ids, period)
-
-    def load_with_savings(
-        self, period_id: int
-    ) -> tuple[Household, dict[str, int], Period]:
-        # 1. Leer filas
-        period = self._require_period(period_id)
-        household_id = period.household_id
-
-        saving_buckets_rows: list[dict] = (
-            self._saving_bucket_repository.find_with_owners(household_id=household_id)
-        )
-
-        # 2. Construir Household base (trackers vacíos)
-        household, member_ids = self.load_members_only(
-            household_id=household_id, period=period
-        )
-
-        # 3. Repoblar buckets de ahorro + sus movimientos
-        self._hydrate_saving_buckets(
-            household=household,
-            saving_buckets_rows=saving_buckets_rows,
-            member_ids=member_ids,
-        )
-
-        return (household, member_ids, period)
-
-    def load_full(self, period_id: int) -> tuple[Household, dict[str, int], Period]:
-        """load_for_queries + buckets de deuda y ahorro del hogar (carga completa)."""
-        household, member_ids, period = self.load_for_queries(period_id=period_id)
-
-        household_id = period.household_id
-
-        debt_buckets_rows: list[dict] = self._debt_bucket_respository.find_by_household(
-            household_id=household_id
-        )
-        saving_buckets_rows: list[dict] = (
-            self._saving_bucket_repository.find_with_owners(household_id=household_id)
-        )
-
-        self._hydrate_debt_buckets(
-            household=household,
-            debt_buckets_rows=debt_buckets_rows,
-            member_ids=member_ids,
-        )
-        self._hydrate_saving_buckets(
-            household=household,
-            saving_buckets_rows=saving_buckets_rows,
-            member_ids=member_ids,
-        )
+        # ---- buckets de ahorro (household-scoped, cruzan meses) ----
+        if Load.SAVINGS in load:
+            saving_buckets_rows: list[dict] = (
+                self._saving_bucket_repository.find_with_owners(
+                    household_id=household_id
+                )
+            )
+            self._hydrate_saving_buckets(
+                household=household,
+                saving_buckets_rows=saving_buckets_rows,
+                member_ids=member_ids,
+            )
 
         return (household, member_ids, period)
 
     # ============================================================
-    # helpers privados (las piezas)
+    # helpers privados (las piezas) — SIN CAMBIOS
     # ============================================================
 
     def _require_period(self, period_id: int) -> Period:

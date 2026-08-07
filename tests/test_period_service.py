@@ -14,7 +14,7 @@ from src.storage.debt_bucket_repository import DebtBucketRepository
 from src.storage.debt_entry_repository import DebtEntryRepository
 from src.storage.saving_bucket_repository import SavingBucketRepository
 from src.storage.saving_bucket_entry_repository import SavingBucketEntryRepository
-from src.workflow.household_loader import HouseholdLoader
+from src.workflow.household_loader import HouseholdLoader, Load
 from src.workflow.household_service import HouseholdService
 from src.workflow.period_service import PeriodService
 from src.workflow.summary_service import SummaryService
@@ -493,7 +493,7 @@ def test_member_status_works_after_reloading_from_the_database(
     period_service.finish_planning(period_id=period_in_planning)
 
     # Hogar nuevo, reconstruido desde cero: es lo que haría el siguiente endpoint
-    household, _, _ = loader.load_base(period_id=period_in_planning)
+    household, _, _ = loader.load_household(period_in_planning, load=Load.BUDGET)
 
     status = SummaryService.get_member_status(household=household, member_name="amanda")
 
@@ -512,7 +512,7 @@ def test_the_reloaded_agreement_matches_the_one_just_frozen(
     )
     period_service.finish_planning(period_id=period_in_planning)
 
-    household, _, _ = loader.load_base(period_id=period_in_planning)
+    household, _, _ = loader.load_household(period_in_planning, load=Load.BUDGET)
 
     assert household.get_agreed_contributions() == {
         "fijos": {"amanda": 300000, "heri": 200000},

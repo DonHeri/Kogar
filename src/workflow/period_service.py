@@ -3,7 +3,7 @@ from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
 from src.storage.budget_categories_repository import BudgetCategoryRepository
-from src.workflow.household_loader import HouseholdLoader
+from src.workflow.household_loader import HouseholdLoader, Load
 from src.utils.text import normalize_name
 from src.utils.currency import to_cents, to_percentage_basis
 from src.workflow.budget_distribution_service import BudgetDistributionService
@@ -91,9 +91,7 @@ class PeriodService:
         Es un borrador: el usuario ajusta lo que cambie durante PLANNING. Arrastrar
         ahorra trabajo, no impone nada.
         """
-        source, _, source_period = self.household_loader.load_base(
-            period_id=source_period_id
-        )
+        source, _, source_period = self.household_loader.load_household(source_period_id, load=Load.BUDGET)
 
         for _, budget_category in source.get_budget_categories().items():
             self.budget_categories_repository.save(
@@ -114,7 +112,7 @@ class PeriodService:
 
     def set_distribution_method(self, method: MetodoReparto, period_id: int):
 
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
 
         # Validar que estamos en fase para settear el método
         period.status.require(Phase.PLANNING)
@@ -125,7 +123,7 @@ class PeriodService:
 
     def set_custom_splits(self, splits: dict[str, float], period_id: int):
         """Recibe porcentajes 0-100 y los convierte: este es el borde."""
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
         period.status.require(Phase.PLANNING)
 
         splits_basis_points = {
@@ -187,7 +185,7 @@ class PeriodService:
             )
 
     def set_standard_categories(self, period_id: int):
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
 
         period.status.require(Phase.PLANNING)
 
@@ -199,7 +197,7 @@ class PeriodService:
             )
 
     def remove_category(self, period_id: int, name: str):
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
         period.status.require(Phase.PLANNING)
 
         name = normalize_name(name)
@@ -211,7 +209,7 @@ class PeriodService:
         )
 
     def set_planned_amount(self, period_id: int, category: str, amount_euros: float):
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
         period.status.require(Phase.PLANNING)
 
         amount_cents = to_cents(amount_euros)
@@ -231,7 +229,7 @@ class PeriodService:
     def set_budget_by_percentages(
         self, period_id: int, percentages_floats: dict[str, float]
     ):
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
         period.status.require(Phase.PLANNING)
 
         total_pct = sum(percentages_floats.values())
@@ -278,7 +276,7 @@ class PeriodService:
         Las categorías no se persisten aquí: ya se guardaron al crearlas y al
         presupuestarlas. Lo único que nace en este paso es el acuerdo.
         """
-        household, _, period = self.household_loader.load_base(period_id=period_id)
+        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
 
         period.status.require(Phase.PLANNING)
         household.validate_has_members()
