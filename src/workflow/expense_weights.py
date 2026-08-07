@@ -25,9 +25,7 @@ def resolve_expense_weights(
     - `method` → se traducen desde ese método para estos participantes.
     - ninguno → el método que el hogar tiene acordado, como valor por defecto.
 
-    Ese último caso es el acuerdo del hogar aplicándose, no el hogar decidiendo
-    por su cuenta: quien llama puede saltárselo en cualquier gasto sin tocar la
-    configuración del hogar.
+    Si no se inyectan porcentajes o method, se aplica el MétodoReparto del hogar
     """
     if weights is not None:
         return {normalize_name(name): pct for name, pct in weights.items()}
