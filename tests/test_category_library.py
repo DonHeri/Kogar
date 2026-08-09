@@ -49,43 +49,27 @@ def test_add_category_normalizes_name() -> None:
     assert lib.is_known("otra categoria")
 
 
-def test_add_category_default_is_shared() -> None:
-    lib = CategoryLibrary()
-    lib.add_category("gimnasio")
-    assert lib.create_category("gimnasio").is_shared is True
-
-
-def test_add_category_accepts_custom_is_shared() -> None:
-    lib = CategoryLibrary()
-    lib.add_category("retiro", is_shared=False)
-    assert lib.create_category("retiro").is_shared is False
-
-
 # ====================================================
 # TESTS: create_category (factory string -> objeto)
 # ====================================================
 
 
-def test_create_category_fijos_is_shared() -> None:
+def test_create_category_returns_a_plain_category() -> None:
     cat = CategoryLibrary().create_category("fijos")
     assert isinstance(cat, Category)
-    assert cat.is_shared is True
-
-
-def test_create_category_variables_is_personal() -> None:
-    assert CategoryLibrary().create_category("variables").is_shared is False
+    assert cat.name == "fijos"
 
 
 def test_create_category_reserva_is_auto_calculated() -> None:
+    """La única distinción que la librería sigue haciendo por nombre."""
     cat = CategoryLibrary().create_category("reserva")
     assert isinstance(cat, AutoCalculatedCategory)
-    assert cat.is_shared is False
 
 
-def test_create_category_unknown_defaults_to_shared() -> None:
+def test_create_category_unknown_is_still_a_category() -> None:
     cat = CategoryLibrary().create_category("inventada")
     assert isinstance(cat, Category)
-    assert cat.is_shared is True
+    assert not isinstance(cat, AutoCalculatedCategory)
 
 
 # ====================================================

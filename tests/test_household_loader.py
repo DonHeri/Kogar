@@ -178,13 +178,13 @@ def budget_categories(
 ) -> dict[str, BudgetCategory]:
     """Dos categorías raíz (fijos, variables) + una hija (alquiler bajo fijos)."""
     fijos = BudgetCategory(
-        Category("fijos", is_shared=True), 90000, ["member1", "member2"], parent=None
+        Category("fijos"), 90000, ["member1", "member2"], parent=None
     )
     variables = BudgetCategory(
-        Category("variables", is_shared=False), 30000, ["member1"], parent=None
+        Category("variables"), 30000, ["member1"], parent=None
     )
     alquiler = BudgetCategory(
-        Category("alquiler", is_shared=True), 60000, ["member1", "member2"], parent="fijos"
+        Category("alquiler"), 60000, ["member1", "member2"], parent="fijos"
     )
 
     for budget_category in (fijos, variables, alquiler):
@@ -206,7 +206,7 @@ def sample_expense_id(
     expense = Expense(
         member="heri",
         amount_cents=34600,
-        category=make_category("fijos", is_shared=True),
+        category=make_category("fijos"),
         participants=["heri", "amanda"],
     )
     return expense_repo.save(
@@ -344,9 +344,9 @@ def test_load_budget_rehydrates_parent_before_child_regardless_of_insertion_orde
     """Regresión: si la hija se persiste antes que la madre, Load.BUDGET no debe
     romper con 'La categoría debe estar creada'. El orden de hidratación no
     puede depender del orden físico de inserción en BD."""
-    child = BudgetCategory(Category("alquiler", is_shared=True), 60000, ["member1", "member2"], parent="fijos")
+    child = BudgetCategory(Category("alquiler"), 60000, ["member1", "member2"], parent="fijos")
     parent = BudgetCategory(
-        Category("fijos", is_shared=True), 90000, ["member1", "member2"], parent=None
+        Category("fijos"), 90000, ["member1", "member2"], parent=None
     )
 
     # Se guarda la hija ANTES que la madre a propósito
@@ -533,7 +533,7 @@ def test_load_for_queries_rehydrates_weights(
         expense=Expense(
             member="heri",
             amount_cents=10000,
-            category=make_category("fijos", is_shared=True),
+            category=make_category("fijos"),
             participants=["heri", "amanda"],
             weights={"heri": 7000, "amanda": 3000},
         ),

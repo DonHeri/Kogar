@@ -35,7 +35,7 @@ def expense_groceries() -> Expense:
     """Gasto: Heri - variables - 120€ (personal)"""
     return Expense(
         "Heri",
-        make_category("variables", is_shared=False),
+        make_category("variables"),
         to_cents(120.0),
         ["heri"],
         "Supermercado",
@@ -55,7 +55,7 @@ def expense_leisure() -> Expense:
     """Gasto: Heri - ocio - 45.50€ (personal)"""
     return Expense(
         "Heri",
-        make_category("ocio", is_shared=False),
+        make_category("ocio"),
         to_cents(45.50),
         ["heri"],
         "Cine",
@@ -343,14 +343,14 @@ def test_tracker_handles_same_member_multiple_categories(
     tracker.add_expense(
         Expense(
             "Amanda",
-            make_category("variables", is_shared=False),
+            make_category("variables"),
             to_cents(50.0),
             ["amanda"],
         )
     )
     tracker.add_expense(
         Expense(
-            "Amanda", make_category("ocio", is_shared=False), to_cents(30.0), ["amanda"]
+            "Amanda", make_category("ocio"), to_cents(30.0), ["amanda"]
         )
     )
 

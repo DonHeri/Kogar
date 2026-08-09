@@ -144,15 +144,17 @@ def test_a_child_cannot_have_children_of_its_own(budget: Budget) -> None:
         budget.add_category("garaje", parent="alquiler")
 
 
-def test_a_child_inherits_is_shared_from_its_parent(budget: Budget) -> None:
-    """La hija hereda de su madre, no de la librería.
+def test_a_child_is_shared_when_it_inherits_more_than_one_participant(
+    budget: Budget,
+) -> None:
+    """Compartida sale de los participantes heredados, no de la librería.
 
-    'ocio' está en la librería como no compartida. Colgada de 'fijos', que sí lo
-    es, pasa a compartida: manda el árbol que ha montado el usuario.
+    'ocio' está en la librería como no compartida. Colgada de 'fijos', hereda a
+    sus dos participantes y pasa a compartida: manda el árbol del usuario.
     """
     budget.add_category("ocio", parent="fijos")
 
-    assert budget.categories["fijos"].is_shared is True
+    assert budget.categories["ocio"].participants == ["amanda", "heri"]
     assert budget.categories["ocio"].is_shared is True
 
 

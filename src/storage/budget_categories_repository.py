@@ -13,14 +13,13 @@ class BudgetCategoryRepository:
     def save(self, household_period_id: int, budget_category: BudgetCategory) -> int:
         self.cursor.execute(
             """
-            INSERT INTO budget_categories (household_period_id, name, is_shared, planned_amount, parent_name)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO budget_categories (household_period_id, name, planned_amount, parent_name)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
             (
                 household_period_id,
                 budget_category.name,
-                budget_category.is_shared,
                 budget_category.planned_amount,
                 budget_category.parent,
             ),

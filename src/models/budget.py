@@ -30,7 +30,6 @@ class Budget:
         name: str,
         participants: list[str] | None = None,
         parent: str | None = None,
-        is_shared: bool | None = None,
     ):
         """Agrega una nueva categoría al presupuesto.
 
@@ -64,9 +63,6 @@ class Budget:
             else:
                 self._validate_subset_of_parent(participants, parent)
 
-            is_shared = self.categories[parent].is_shared
-            category = self.library.create_category(normalized, is_shared=is_shared)
-
             self._children.setdefault(parent, []).append(normalized)
 
         else:
@@ -74,7 +70,8 @@ class Budget:
                 raise ValueError(
                     "Una categoría raíz debe declarar al menos un participante"
                 )
-            category = self.library.create_category(normalized, is_shared=is_shared)
+
+        category = self.library.create_category(normalized)
 
         self.categories[normalized] = BudgetCategory(
             category, 0, participants, parent=parent

@@ -104,7 +104,7 @@ def sample_expense_id(
     expense = Expense(
         member="heri",
         amount_cents=34600,
-        category=make_category("fijos", is_shared=True),
+        category=make_category("fijos"),
         participants=["heri", "amanda"],
     )
     return expense_repo.save(
@@ -124,7 +124,7 @@ def test_save_returns_the_expense_own_id(
     expense = Expense(
         member="heri",
         amount_cents=34600,
-        category=make_category("fijos", is_shared=True),
+        category=make_category("fijos"),
         participants=["heri", "amanda"],
     )
 
@@ -141,7 +141,7 @@ def test_save_persists_the_expense_id(
     expense = Expense(
         member="heri",
         amount_cents=34600,
-        category=make_category("fijos", is_shared=True),
+        category=make_category("fijos"),
         participants=["heri", "amanda"],
     )
     expense_repo.save(expense=expense, member_ids=member_ids, period_id=period_id)

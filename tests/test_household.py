@@ -989,7 +989,7 @@ def test_get_category_spent_only_counts_matching_category(
 
     expense1 = Expense("member1", make_category("fijos"), 25000, ["member1"])
     expense2 = Expense(
-        "member2", make_category("variables", is_shared=False), 15000, ["member2"]
+        "member2", make_category("variables"), 15000, ["member2"]
     )
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
@@ -1018,7 +1018,7 @@ def test_get_total_spent_sums_all_expenses(household_with_members: Household) ->
 
     expense1 = Expense("member1", make_category("fijos"), 25000, ["member1"])
     expense2 = Expense(
-        "member2", make_category("variables", is_shared=False), 15000, ["member2"]
+        "member2", make_category("variables"), 15000, ["member2"]
     )
     expense3 = Expense("member1", make_category("fijos"), 10000, ["member1"])
     household_with_members.register_expense(expense1)
@@ -1095,7 +1095,7 @@ def test_get_total_remaining_calculates_correctly(
 
     expense1 = Expense("member1", make_category("fijos"), 25000, ["member1"])
     expense2 = Expense(
-        "member2", make_category("variables", is_shared=False), 10000, ["member2"]
+        "member2", make_category("variables"), 10000, ["member2"]
     )
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
@@ -1290,7 +1290,7 @@ def test_get_member_status_returns_complete_structure(
 
     expense1 = Expense("member1", make_category("fijos"), 30000, ["member1"])
     expense2 = Expense(
-        "member1", make_category("variables", is_shared=False), 10000, ["member1"]
+        "member1", make_category("variables"), 10000, ["member1"]
     )
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
@@ -1327,11 +1327,11 @@ def test_get_member_status_paid_is_total_not_per_category(
 
     expense1 = Expense("member1", make_category("fijos"), 20000, ["member1"])
     expense2 = Expense(
-        "member1", make_category("variables", is_shared=False), 15000, ["member1"]
+        "member1", make_category("variables"), 15000, ["member1"]
     )
     expense3 = Expense(
         "member1",
-        make_category("reserva", is_shared=False, auto_calculated=True),
+        make_category("reserva", auto_calculated=True),
         5000,
         ["member1"],
     )
@@ -1358,7 +1358,7 @@ def test_get_member_status_by_category_has_correct_structure(
 
     expense1 = Expense("member1", make_category("fijos"), 30000, ["member1"])
     expense2 = Expense(
-        "member1", make_category("variables", is_shared=False), 10000, ["member1"]
+        "member1", make_category("variables"), 10000, ["member1"]
     )
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)
@@ -1483,7 +1483,7 @@ def test_get_month_summary_calculates_correctly(
 
     expense1 = Expense("member1", make_category("fijos"), 30000, ["member1"])
     expense2 = Expense(
-        "member2", make_category("variables", is_shared=False), 20000, ["member2"]
+        "member2", make_category("variables"), 20000, ["member2"]
     )
     household_with_members.register_expense(expense1)
     household_with_members.register_expense(expense2)

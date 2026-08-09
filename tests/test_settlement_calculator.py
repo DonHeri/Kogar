@@ -80,7 +80,7 @@ def test_get_settlement_empty_when_no_shared_expenses(
     household_with_members.expense_tracker.add_expense(
         Expense(
             "member1",
-            make_category("variables", is_shared=False),
+            make_category("variables"),
             50000,
             participants=["member1"],
         )
@@ -152,7 +152,7 @@ def test_get_settlement_ignores_non_shared_expenses(
     household_with_members.expense_tracker.add_expense(
         Expense(
             "member1",
-            make_category("variables", is_shared=False),
+            make_category("variables"),
             99999,
             participants=["member1"],
         )
