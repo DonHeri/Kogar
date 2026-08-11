@@ -1,4 +1,5 @@
 from src.models.budget_category import BudgetCategory
+from src.models.constants import MetodoReparto
 from src.models.category import AutoCalculatedCategory, Category
 from src.models.category_library import CategoryLibrary
 from src.models.exceptions import CeilingBelowChildrenError
@@ -30,6 +31,8 @@ class Budget:
         name: str,
         participants: list[str] | None = None,
         parent: str | None = None,
+        method: MetodoReparto | None = None,
+        custom_splits: dict[str, int] | None = None,
     ):
         """Agrega una nueva categoría al presupuesto.
 
@@ -74,11 +77,34 @@ class Budget:
         category = self.library.create_category(normalized)
 
         self.categories[normalized] = BudgetCategory(
-            category, 0, participants, parent=parent
+            category,
+            0,
+            participants,
+            parent=parent,
+            method=method,
+            custom_splits=custom_splits,
         )
 
     # ====== BUDGET ASSIGNMENT ======
-    def add_participant_to_budget_category(self, member_name: str, category_name: str):
+    def set_split_method(self, category_name: str, method: MetodoReparto) -> None:
+        """Cambia el método de reparto de una categoría ya creada."""
+        normalized = CategoryLibrary.normalize(category_name)
+        self._validate_category_exists(normalized)
+        self.categories[normalized].set_split_method(method)
+
+    def set_custom_splits(
+        self, category_name: str, custom_splits: dict[str, int]
+    ) -> None:
+        """Declara los splits personalizados de una categoría; la deja en CUSTOM."""
+        normalized = CategoryLibrary.normalize(category_name)
+        self._validate_category_exists(normalized)
+        self.categories[normalized].set_custom_splits(custom_splits)
+
+    def add_participant_to_budget_category(
+        self,
+        member_name: str,
+        category_name: str,
+    ):
         """Añade un participante a una categoría ya creada.
 
         En una hija, el nuevo tiene que estar en el padre: ampliarla metería
@@ -230,7 +256,8 @@ class Budget:
         """
         parent_participants = self.categories[parent].participants
         intruders = [
-            name for name in participants
+            name
+            for name in participants
             if normalize_name(name) not in parent_participants
         ]
         if intruders:
