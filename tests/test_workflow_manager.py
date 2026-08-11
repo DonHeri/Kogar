@@ -452,7 +452,7 @@ def test_finish_planning_freezes_agreed_state(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Heri", 4000)
     wm.household.set_standard_categories()
 
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
     wm.set_budget_for_category("variables", 2000)
 
@@ -534,25 +534,25 @@ def test_remove_category_raises_if_not_in_planning(
 # ====================================================
 
 
-def test_assign_distribution_method_sets_method(
+def test_set_distribution_method_sets_method(
     wm_in_planning: WorkflowManager,
 ) -> None:
-    """assign_distribution_method() establece método de reparto"""
+    """set_distribution_method() establece método de reparto"""
     wm = wm_in_planning
-    wm.assign_distribution_method(MetodoReparto.EQUAL)
+    wm.set_distribution_method(MetodoReparto.EQUAL)
 
     assert wm.household.method == MetodoReparto.EQUAL
 
 
-def test_assign_distribution_method_changes_summary(wm: WorkflowManager) -> None:
-    """assign_distribution_method() cambia el método en el resumen"""
+def test_set_distribution_method_changes_summary(wm: WorkflowManager) -> None:
+    """set_distribution_method() cambia el método en el resumen"""
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
     wm.set_member_incomes("Heri", 2000)
     wm.household.set_standard_categories()
 
-    wm.assign_distribution_method(MetodoReparto.EQUAL)
+    wm.set_distribution_method(MetodoReparto.EQUAL)
     summary = wm.get_planning_summary()
 
     assert summary["distribution_method"] == "equal"
@@ -587,7 +587,7 @@ def test_get_agreed_percentages_in_month(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Heri", 2000)
     wm.household.set_standard_categories()
 
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
     wm.finish_planning()
 
@@ -614,7 +614,7 @@ def test_get_agreed_contributions_in_month(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Heri", 4000)
     wm.household.set_standard_categories()
 
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
     wm.set_budget_for_category("variables", 2000)
     wm.finish_planning()
@@ -664,12 +664,12 @@ def test_set_custom_splits_raises_if_not_in_planning(
 
 
 # ====================================================
-# TESTS: preview_budget_contribution_summary y get_current_contributions
+# TESTS: preview_with_forced_method y get_current_contributions
 # ====================================================
 
 
-def test_preview_budget_contribution_summary_in_planning(wm: WorkflowManager) -> None:
-    """preview_budget_contribution_summary() muestra preview con método específico"""
+def test_preview_with_forced_method_in_planning(wm: WorkflowManager) -> None:
+    """preview_with_forced_method() muestra preview con método específico"""
     wm.register_member("Amanda")
     wm.register_member("Heri")
     wm.set_member_incomes("Amanda", 3000)
@@ -678,11 +678,11 @@ def test_preview_budget_contribution_summary_in_planning(wm: WorkflowManager) ->
 
     wm.set_budget_for_category("fijos", 5000)
 
-    preview = wm.preview_budget_contribution_summary(MetodoReparto.EQUAL)
+    preview = wm.preview_with_forced_method(MetodoReparto.EQUAL)
 
     assert "fijos" in preview
-    assert preview["fijos"]["contributions"]["amanda"] == 250000
-    assert preview["fijos"]["contributions"]["heri"] == 250000
+    assert preview["fijos"]["amanda"] == 250000
+    assert preview["fijos"]["heri"] == 250000
 
 
 def test_get_current_contributions_in_planning(wm: WorkflowManager) -> None:
@@ -693,7 +693,7 @@ def test_get_current_contributions_in_planning(wm: WorkflowManager) -> None:
     wm.set_member_incomes("Heri", 2000)
     wm.household.set_standard_categories()
 
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)
 
     contributions = wm.get_current_contributions()
@@ -1202,7 +1202,7 @@ def test_full_flow_registration_to_closing(wm: WorkflowManager) -> None:
     assert wm.current_phase == Phase.PLANNING
 
     # PLANNING — total income: 1000000¢, PROPORTIONAL: 60% Amanda, 40% Heri
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     wm.set_budget_for_category("fijos", 5000)  # 500000¢
     wm.set_budget_for_category("variables", 2000)  # 200000¢
     # reserva autocalcula: 1000000 - 500000 - 200000 = 300000¢

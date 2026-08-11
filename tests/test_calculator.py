@@ -50,7 +50,6 @@ def household_base() -> Household:
     b = Budget()
     e = ExpenseTracker()
     s = SavingBucketTracker()
-    b.set_standard_categories(["member1", "member2"])
     return Household(
         budget=b,
         expense_tracker=e,
@@ -344,7 +343,7 @@ def test_edge_case_five_members_equal_split(household_base: Household) -> None:
         household_base.register_member(m)
 
     household_base.prepare_period()
-    household_base.assign_distribution_method(MetodoReparto.EQUAL)
+    household_base.set_distribution_method(MetodoReparto.EQUAL)
 
     _set_budget(household_base, "fijos", 150000)
     _set_budget(household_base, "variables", 90000)
