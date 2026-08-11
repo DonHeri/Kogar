@@ -365,7 +365,7 @@ def test_an_expense_keeps_the_weights_it_was_created_with() -> None:
     household = _household(MetodoReparto.EQUAL, {"a": 100000, "b": 300000})
 
     _spend(household, "a", 10000, ["a", "b"])
-    household.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    household.set_distribution_method(MetodoReparto.PROPORTIONAL)
 
     assert SettlementCalculator.calculate(household) == [
         {"from": "b", "to": "a", "amount": 5000}

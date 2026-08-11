@@ -117,7 +117,7 @@ class PeriodService:
         # Validar que estamos en fase para settear el método
         period.status.require(Phase.PLANNING)
 
-        household.assign_distribution_method(method=method)
+        household.set_distribution_method(method=method)
 
         self.period_repo.update_method(method=method, period_id=period_id)
 

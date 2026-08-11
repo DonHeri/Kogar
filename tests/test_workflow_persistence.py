@@ -271,12 +271,12 @@ def test_save_agreed_contributions_replaces_the_previous_agreement(
 # ===============================================
 
 
-def test_assign_distribution_method_persists_method(
+def test_set_distribution_method_persists_method(
     wm_pre_registration: WorkflowManager,
 ) -> None:
-    """assign_distribution_method persiste method"""
+    """set_distribution_method persiste method"""
     household_id = wm_pre_registration.household_id
-    wm_pre_registration.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm_pre_registration.set_distribution_method(MetodoReparto.PROPORTIONAL)
     current_period = wm_pre_registration.period_repo.get_current(household_id)
 
     repo_method = current_period.method

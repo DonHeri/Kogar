@@ -43,7 +43,7 @@ def full_household(members_with_incomes: dict[str, Member]) -> Household:
         household.register_member(member)
     household.prepare_period()
 
-    household.assign_distribution_method(method=MetodoReparto.EQUAL)
+    household.set_distribution_method(method=MetodoReparto.EQUAL)
     BudgetDistributionService.set_budget_by_percentages(
         household=household,
         percentages={"fijos": 5000, "variables": 2000, "reserva": 3000},

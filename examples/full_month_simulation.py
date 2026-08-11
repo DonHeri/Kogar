@@ -141,7 +141,7 @@ with DatabaseConnection(
     print(f"  {'TECHO':<14} {to_euros(wm.get_category_budget('fijos')):>10}")
 
     # --- Método de reparto ---
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     print("\nMétodo de reparto: PROPORCIONAL")
 
     # --- Contribuciones por categoría ---
