@@ -236,15 +236,15 @@ No hay un método `get_missing_money()` independiente. El dato vive dentro de `g
 
 ## Fase PLANNING — Método de reparto
 
-### `assign_distribution_method(method: MetodoReparto)`
+### `set_distribution_method(method: MetodoReparto)`
 
 Configura cómo se reparten los gastos entre miembros.
 
 ```python
 from src.models.constants import MetodoReparto
-wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)  # proporcional a ingresos
-wm.assign_distribution_method(MetodoReparto.EQUAL)          # a partes iguales
-wm.assign_distribution_method(MetodoReparto.CUSTOM)         # porcentajes manuales
+wm.set_distribution_method(MetodoReparto.PROPORTIONAL)  # proporcional a ingresos
+wm.set_distribution_method(MetodoReparto.EQUAL)          # a partes iguales
+wm.set_distribution_method(MetodoReparto.CUSTOM)         # porcentajes manuales
 ```
 
 ### `set_custom_splits(splits: dict[str, float])`
@@ -255,24 +255,20 @@ Define porcentajes personalizados para el método CUSTOM. Los porcentajes son fl
 wm.set_custom_splits({"Amanda": 60.0, "Heri": 40.0})
 ```
 
-### `preview_budget_contribution_summary(method: MetodoReparto) → dict` *(PLANNING+)*
+### `preview_with_forced_method(method: MetodoReparto, custom_splits: dict[str, float] | None = None) → dict` *(PLANNING+)*
 
-Calcula cómo quedarían las contribuciones con un método **hipotético**, sin modificar la configuración actual. Útil para comparar métodos antes de decidir.
+Cómo quedarían las contribuciones si **todas** las categorías usaran `method`, ignorando el método propio de cada una. Solo lectura: no modifica nada. Útil para comparar antes de decidir.
 
 ```python
-preview = wm.preview_budget_contribution_summary(MetodoReparto.EQUAL)
+preview = wm.preview_with_forced_method(MetodoReparto.EQUAL)
 # {
-#   "fijos": {
-#     "planned": 150000,                              # ¢
-#     "contributions": {"amanda": 75000, "heri": 75000},  # ¢
-#     "total_assigned": 150000                        # ¢
-#   }
+#   "fijos": {"amanda": 75000, "heri": 75000},  # ¢
 # }
 ```
 
 ### `get_current_contributions() → dict` *(PLANNING+)*
 
-Contribuciones calculadas con el método **ya configurado** (equivale a `preview` con el método activo). Úsalo cuando ya tienes el método fijado y solo quieres ver los números.
+Contribuciones reales: cada categoría usa su propio método si lo declaró, o el del hogar si no. **No** es lo mismo que `preview_with_forced_method` con el método activo — una categoría con método propio no se mueve aunque cambie el del hogar.
 
 ```python
 contribs = wm.get_current_contributions()
@@ -806,7 +802,7 @@ wm.register_member("Heri")
 wm.set_member_incomes("Heri", 1000.0)
 
 # PLANNING — presupuesto por porcentaje; reserva se autocalcula
-wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
 wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
 # Desglosar el techo de fijos: las hijas reparten dentro, no se suman aparte

@@ -91,10 +91,10 @@ class WorkflowManager:
             )
 
     # ====== PLANNING PHASE - Distribution Configuration ======
-    def assign_distribution_method(self, method: MetodoReparto):
+    def set_distribution_method(self, method: MetodoReparto):
         """Configura el método de reparto (PROPORTIONAL, EQUAL, CUSTOM)"""
         self.validate_phase(Phase.PLANNING)
-        self.household.assign_distribution_method(method)
+        self.household.set_distribution_method(method)
 
         if self.period_repo and self.period_id:
             self.period_repo.update_method(self.period_id, method)
@@ -325,10 +325,18 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_total_budgeted()
 
-    def preview_budget_contribution_summary(self, method: MetodoReparto):
-        """Preview: muestra cómo quedarían las contribuciones con un método específico"""
+    def preview_with_forced_method(
+        self, method: MetodoReparto, custom_splits: dict[str, float] | None = None
+    ):
+        """Cómo quedarían las contribuciones si TODAS las categorías usaran
+        `method`, sin tocar el método propio de ninguna. Solo lectura."""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.preview_budget_contribution_summary(method)
+        splits_basis_points = (
+            {name: to_percentage_basis(pct) for name, pct in custom_splits.items()}
+            if custom_splits is not None
+            else None
+        )
+        return self.household.preview_with_forced_method(method, splits_basis_points)
 
     def get_current_contributions(self):
         """Obtiene contribuciones con el método ya configurado (self.method)"""
