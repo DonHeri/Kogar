@@ -848,6 +848,75 @@ def test_two_categories_with_different_split_method(
 
 
 # ====================================================
+# TESTS: techo en euros o en porcentaje (P3)
+# ====================================================
+
+
+def test_percentage_ceiling_stays_live_until_income_changes(
+    base_household: Household, members_with_incomes: dict[str, Member]
+) -> None:
+    """Alquiler al 20% y agua a 35€ conviven; subir un sueldo mueve el alquiler y deja el agua quieta."""
+    for member in members_with_incomes.values():
+        base_household.register_member(member)
+
+    participants = list(members_with_incomes.keys())
+    base_household.add_category("alquiler", participants=participants)
+    base_household.set_planned_percentage("alquiler", 2000)  # 20%
+    base_household.add_category("agua", participants=participants)
+    base_household.budget.set_planned_amount("agua", 3500)  # 35€ fijos
+
+    # member1 200000¢ + member2 100000¢ = 300000¢; 20% = 60000¢
+    assert base_household.get_category_planned_amount("alquiler") == 60000
+    assert base_household.get_category_planned_amount("agua") == 3500
+
+    base_household.set_member_income("member1", 400000)
+
+    # 400000¢ + 100000¢ = 500000¢; 20% = 100000¢
+    assert base_household.get_category_planned_amount("alquiler") == 100000
+    assert base_household.get_category_planned_amount("agua") == 3500
+
+
+def test_setting_a_fixed_amount_clears_the_percentage(base_household: Household) -> None:
+    """Declarar un importe fijo pisa el porcentaje: deja de recalcularse en vivo."""
+    member = Member("member1")
+    member.monthly_income = 200000
+    base_household.register_member(member)
+
+    base_household.add_category("ocio", participants=["member1"])
+    base_household.set_planned_percentage("ocio", 1000)  # 10% de 200000 = 20000
+    assert base_household.get_category_planned_amount("ocio") == 20000
+
+    base_household.budget.set_planned_amount("ocio", 5000)
+    base_household.set_member_income("member1", 400000)
+
+    assert base_household.get_category_planned_amount("ocio") == 5000
+
+
+def test_unbudgeted_income_detects_percentage_driven_overshoot(
+    base_household: Household,
+) -> None:
+    """Bajar un sueldo puede hacer que lo presupuestado supere el ingreso.
+    No lanza nada — se detecta como un número negativo."""
+    member = Member("member1")
+    member.monthly_income = 100000
+    base_household.register_member(member)
+
+    base_household.add_category("alquiler", participants=["member1"])
+    base_household.set_planned_percentage("alquiler", 5000)  # 50%
+    base_household.add_category("seguro", participants=["member1"])
+    base_household.budget.set_planned_amount("seguro", 40000)  # fijo
+
+    # alquiler 50% de 100000 = 50000; + seguro 40000 = 90000 presupuestado
+    assert base_household.get_unbudgeted_income() == 10000
+
+    base_household.set_member_income("member1", 60000)
+
+    # alquiler 50% de 60000 = 30000; + seguro (sigue fijo) 40000 = 70000
+    # presupuestado contra 60000 de ingreso
+    assert base_household.get_unbudgeted_income() == -10000
+
+
+# ====================================================
 # TESTS: PLANNING - Planning Summary
 # ====================================================
 

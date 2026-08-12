@@ -86,6 +86,39 @@ class Budget:
         )
 
     # ====== BUDGET ASSIGNMENT ======
+    def set_planned_percentage(
+        self, category_name: str, percentage: int, resolved_amount_cents: int
+    ):
+        """Settea el peso de una categoría en porcentaje. Recibe cantidad resuelta en céntimos"""
+        normalized = CategoryLibrary.normalize(category_name)
+        self._validate_category_exists(normalized)
+        self._validate_covers_children(
+            name=normalized, amount_cents=resolved_amount_cents
+        )
+        self.categories[normalized].set_planned_percentage(
+            percentage=percentage, resolved_amount_cents=resolved_amount_cents
+        )
+
+    def recalculate_percentage_categories(self, incomes: dict[str, int]) -> None:
+        """Recalcula el techo de cada categoría con porcentaje declarado, contra el
+        ingreso vivo de sus propios participantes.
+
+        Hijas antes que raíces: así, cuando le toca a una raíz, `_validate_covers_children`
+        ya ve el total actualizado de sus hijas, no el de antes de este recálculo.
+        """
+        children_first = sorted(
+            self.categories.items(), key=lambda item: item[1].parent is None
+        )
+        for name, category in children_first:
+            percentage = category.planned_percentage
+            if percentage is None:
+                continue
+            participants_income = sum(
+                incomes[member] for member in category.participants
+            )
+            resolved_amount_cents = participants_income * percentage // 10000
+            self.set_planned_percentage(name, percentage, resolved_amount_cents)
+
     def set_split_method(self, category_name: str, method: MetodoReparto) -> None:
         """Cambia el método de reparto de una categoría ya creada."""
         normalized = CategoryLibrary.normalize(category_name)
@@ -131,7 +164,8 @@ class Budget:
         self._validate_category_exists(normalized)
         self._validate_amount_cents(amount_cents)
         self._validate_covers_children(normalized, amount_cents)
-        self.categories[normalized].planned_amount = amount_cents
+
+        self.categories[normalized].set_fixed_amount(amount_cents)
 
     def delete_budget_category(self, category_name: str) -> None:
         """Elimina una categoría del presupuesto.

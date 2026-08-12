@@ -12,6 +12,7 @@ class BudgetCategory:
         category: Category,
         planned_amount: int,
         participants: list[str],
+        planned_percentage: int | None = None,
         method: MetodoReparto | None = None,
         custom_splits: dict[str, int] | None = None,
         parent: str | None = None,
@@ -30,17 +31,27 @@ class BudgetCategory:
 
         self._validate_amount(planned_amount)
         self._validate_non_empty_list(participants, "participants")
-        self._validate_custom_method(
-            method=method, custom_splits=custom_splits, participants=participants
-        )
+        if method is MetodoReparto.CUSTOM:
+            self._validate_custom_method(
+                custom_splits=custom_splits, participants=participants
+            )
 
         # ================== Atributos ==================
         self.category = category
-        self.planned_amount: int = planned_amount
+        self._planned_amount: int = planned_amount
+        self._planned_percentage: int | None = planned_percentage
         self.participants = [normalize_name(name) for name in participants]
         self._method = method
         self._custom_splits = custom_splits
         self._parent = parent
+
+    @property
+    def planned_amount(self) -> int:
+        return self._planned_amount
+
+    @property
+    def planned_percentage(self) -> int | None:
+        return self._planned_percentage
 
     @property
     def parent(self) -> str | None:
@@ -78,9 +89,11 @@ class BudgetCategory:
         Si pasa a CUSTOM, exige que ya haya splits guardados: aquí no hay
         lectura diferida como en Household, se valida al vuelo.
         """
-        self._validate_custom_method(
-            method=method, custom_splits=self._custom_splits, participants=self.participants
-        )
+        if method is MetodoReparto.CUSTOM:
+            self._validate_custom_method(
+                custom_splits=self._custom_splits,
+                participants=self.participants,
+            )
         self._method = method
 
     def set_custom_splits(self, custom_splits: dict[str, int]) -> None:
@@ -90,17 +103,34 @@ class BudgetCategory:
         razón para definirlos, así que fijan el método de una sola vez.
         """
         self._validate_custom_method(
-            method=MetodoReparto.CUSTOM,
             custom_splits=custom_splits,
             participants=self.participants,
         )
         self._custom_splits = dict(custom_splits)
         self._method = MetodoReparto.CUSTOM
 
+    # ================== planned_amount - percentage ==================
+    def set_fixed_amount(self, amount_cents: int):
+        """
+        Establecer presupuesto fijo de la categoría.
+        Si tenía setteado porcentaje, pasa a ser None.
+        """
+        self._validate_amount(amount_cents)
+        self._planned_percentage = None
+        self._planned_amount = amount_cents
+
+    def set_planned_percentage(self, percentage: int, resolved_amount_cents: int):
+        """
+        Establece porcentaje y cantidad resuelta en céntimos para el presupuesto de la categoría.
+        """
+        self._validate_amount(percentage)
+        self._validate_amount(resolved_amount_cents)
+
+        self._planned_percentage = percentage
+        self._planned_amount = resolved_amount_cents
+
     def __repr__(self) -> str:  # pragma: no cover
-        return (
-            f"BudgetCategory(name={self.name}, planned={to_euros(self.planned_amount)})"
-        )
+        return f"BudgetCategory(name={self.name}, planned={to_euros(self._planned_amount)})"
 
     # ====== VALIDATORS ======
     def _validate_amount(self, amount: int):
@@ -117,25 +147,25 @@ class BudgetCategory:
 
     def _validate_custom_method(
         self,
-        method: MetodoReparto,
         custom_splits: dict[str, int] | None,
         participants: list[str],
     ):
-        if method is MetodoReparto.CUSTOM:
-            if not custom_splits:
-                raise ValueError(
-                    "Debe enviar el peso de cada miembro para este presupuesto si elige método CUSTOM"
-                )
 
-            if set(custom_splits) != set(participants):
-                raise ValueError(
-                    "weights debe tener un peso por participante: "
-                    f"participantes {sorted(participants)}, pesos {sorted(custom_splits)}"
-                )
+        if not custom_splits:
+            raise ValueError(
+                "Debe enviar el peso de cada miembro para este presupuesto si elige método CUSTOM"
+            )
 
-            total = sum(custom_splits.values())
-            if total != 10000:
-                raise ValueError(
-                    f"Los pesos deben sumar 100% (10000 basis points), suman {total}"
-                )
+        if set(custom_splits) != set(participants):
+            raise ValueError(
+                "weights debe tener un peso por participante: "
+                f"participantes {sorted(participants)}, pesos {sorted(custom_splits)}"
+            )
+
+        total = sum(custom_splits.values())
+        if total != 10000:
+            raise ValueError(
+                f"Los pesos deben sumar 100% (10000 basis points), suman {total}"
+            )
+
         return

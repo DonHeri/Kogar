@@ -57,6 +57,7 @@ class Household:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].set_income(amount_cents)
+        self.budget.recalculate_percentage_categories(self.get_incomes())
 
     def prepare_period(self):
         """Deja el hogar listo para planificar: buckets personales y categorías base.
@@ -165,6 +166,20 @@ class Household:
     def set_standard_categories(self):
         """Categorías estándar con todo el hogar dentro. Muere en P5."""
         self.budget.set_standard_categories(self.get_member_names())
+
+    # ====== PLANNING — BUDGET ======
+
+    def set_planned_percentage(self, category: str, percentage: int) -> None:
+        """Declara el techo de una categoría como % del ingreso de sus propios
+        participantes, no del total del hogar. Se resuelve aquí y no en Budget,
+        porque Budget no conoce ingresos — Household es quien tiene los dos
+        datos a la vez.
+        """
+        participants = self.budget.get_budget_category(category).participants
+        incomes = self.get_incomes()
+        participants_income = sum(incomes[name] for name in participants)
+        resolved_amount_cents = participants_income * percentage // 10000
+        self.budget.set_planned_percentage(category, percentage, resolved_amount_cents)
 
     # ====== PLANNING — DISTRIBUTION ======
 
@@ -411,6 +426,19 @@ class Household:
     def get_total_budgeted(self):
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
+
+    def get_unbudgeted_income(self) -> int:
+        """Ingreso sin destino: total de ingresos menos lo presupuestado en
+        categorías raíz. Negativo significa que las categorías piden más de
+        lo que entra — categorías con porcentaje incluidas, porque su
+        `planned_amount` ya se mantiene al día en cada cambio de ingreso.
+
+        No lanza ni bloquea nada: detecta el número, no decide qué hacer con
+        él. Avisar es responsabilidad de quien llame (UI/CLI), como ya pasa
+        con `missing_money`. Es una pieza estrecha, pensada para el guard de
+        P3 — la versión completa y visible del sobrante es la tarea P6.
+        """
+        return self.get_total_incomes() - self.get_total_budgeted()
 
     def get_reserve_contribution_by_member(self, name: str) -> int:
         """Obtiene cuánto le corresponde a un miembro de la categoría auto-calculada (reserva) según el método activo"""
