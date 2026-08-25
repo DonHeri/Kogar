@@ -24,11 +24,10 @@ class SavingBucketRepository:
         owners: list = saving_bucket.owners
         deadline: datetime | None = saving_bucket.deadline
         description: str = saving_bucket.description
-        is_default: bool = saving_bucket.is_default
         self.cursor.execute(
             """
-            INSERT INTO saving_buckets (id, household_id, bucket_name, goal_cents, deadline, description, is_default)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO saving_buckets (id, household_id, bucket_name, goal_cents, deadline, description)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -38,7 +37,6 @@ class SavingBucketRepository:
                 goal_cents,
                 deadline,
                 description,
-                is_default,
             ),
         )
         bucket_id = id

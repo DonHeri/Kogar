@@ -6,7 +6,6 @@ from src.models.category import AutoCalculatedCategory, Category
 @dataclass
 class CategoryInfo:
     description: str
-    is_shared: bool = True
     auto_calculated: bool = False
 
 
@@ -14,28 +13,22 @@ class CategoryLibrary:
     """Biblioteca de categorías estándar y extendidas.
     Las categorías custom son por instancia — cada Budget tiene su propia librería."""
 
-    STANDARD_CATEGORIES: dict[str, CategoryInfo] = {
-        "fijos": CategoryInfo("Gastos fijos mensuales recurrentes", is_shared=True),
-        "variables": CategoryInfo("Gastos variables del día a día", is_shared=False),
-        "reserva": CategoryInfo(
-            "Reserva personal: deuda y ahorro", is_shared=False, auto_calculated=True
-        ),
+    STANDARD_CATEGORIES: dict[
+        str, CategoryInfo
+    ] = {  # TODO la librería deja de tener standard y extended?
+        "fijos": CategoryInfo("Gastos fijos mensuales recurrentes"),
+        "variables": CategoryInfo("Gastos variables del día a día"),
     }
 
     EXTENDED_CATEGORIES: dict[str, CategoryInfo] = {
-        "deuda": CategoryInfo("Préstamos e intereses personales", is_shared=False),
-        "salud": CategoryInfo("Gastos médicos y farmacia", is_shared=False),
-        "transporte": CategoryInfo(
-            "Coche, gasolina, transporte público", is_shared=False
-        ),
-        "ocio": CategoryInfo("Entretenimiento y hobbies", is_shared=False),
-        "educacion": CategoryInfo("Formación, cursos, libros", is_shared=False),
-        "mascotas": CategoryInfo("Cuidado y gastos de mascotas", is_shared=False),
-        "regalos": CategoryInfo("Regalos y celebraciones", is_shared=False),
-        "viajes": CategoryInfo("Vacaciones y escapadas", is_shared=False),
-        "tecnologia": CategoryInfo(
-            "Dispositivos, software, suscripciones", is_shared=False
-        ),
+        "salud": CategoryInfo("Gastos médicos y farmacia"),
+        "transporte": CategoryInfo("Coche, gasolina, transporte público"),
+        "ocio": CategoryInfo("Entretenimiento y hobbies"),
+        "educacion": CategoryInfo("Formación, cursos, libros"),
+        "mascotas": CategoryInfo("Cuidado y gastos de mascotas"),
+        "regalos": CategoryInfo("Regalos y celebraciones"),
+        "viajes": CategoryInfo("Vacaciones y escapadas"),
+        "tecnologia": CategoryInfo("Dispositivos, software, suscripciones"),
     }
 
     def __init__(self):
@@ -81,23 +74,20 @@ class CategoryLibrary:
 
     # ====== API PÚBLICA ======
 
-    def create_category(self, name: str, is_shared: bool | None = None) -> Category:
+    def create_category(self, name: str) -> Category:
         """Fabrica el objeto Category a partir de su nombre.
-        reserva → AutoCalculatedCategory. El resto → Category con su is_shared por defecto."""
+        reserva → AutoCalculatedCategory. El resto → Category."""
         normalized = self.normalize(name)
         info = self._get_info(normalized)
-        if is_shared is None:
-            is_shared = info.is_shared
-        if info.auto_calculated:
-            return AutoCalculatedCategory(normalized, is_shared=is_shared)
-        return Category(
-            normalized, is_shared=is_shared
-        )  # NOTE se puede inyectar is_shared para la creación de category
 
-    def add_category(self, name: str, is_shared: bool = True) -> None:
+        if info.auto_calculated:
+            return AutoCalculatedCategory(normalized)
+        return Category(normalized)
+
+    def add_category(self, name: str) -> None:
         """Registra una categoría custom en esta instancia"""
         normalized = self.normalize(name)
-        self._custom_categories[normalized] = CategoryInfo("", is_shared=is_shared)
+        self._custom_categories[normalized] = CategoryInfo("")
 
     def get_all_suggestions(self) -> dict[str, str]:
         """Retorna {nombre: descripción} de todas las categorías"""

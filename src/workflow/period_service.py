@@ -79,9 +79,7 @@ class PeriodService:
 
         return period_id
 
-    def _carry_over_config(
-        self, source_period_id: int, target_period_id: int
-    ) -> None:
+    def _carry_over_config(self, source_period_id: int, target_period_id: int) -> None:
         """Copia la configuración del período anterior como punto de partida.
 
         Se arrastra lo que describe *cómo se reparte y en qué se presupuesta*:
@@ -91,7 +89,9 @@ class PeriodService:
         Es un borrador: el usuario ajusta lo que cambie durante PLANNING. Arrastrar
         ahorra trabajo, no impone nada.
         """
-        source, _, source_period = self.household_loader.load_household(source_period_id, load=Load.BUDGET)
+        source, _, source_period = self.household_loader.load_household(
+            source_period_id, load=Load.BUDGET
+        )
 
         for _, budget_category in source.get_budget_categories().items():
             self.budget_categories_repository.save(
@@ -112,18 +112,22 @@ class PeriodService:
 
     def set_distribution_method(self, method: MetodoReparto, period_id: int):
 
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
 
         # Validar que estamos en fase para settear el método
         period.status.require(Phase.PLANNING)
 
-        household.assign_distribution_method(method=method)
+        household.set_distribution_method(method=method)
 
         self.period_repo.update_method(method=method, period_id=period_id)
 
     def set_custom_splits(self, splits: dict[str, float], period_id: int):
         """Recibe porcentajes 0-100 y los convierte: este es el borde."""
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
         period.status.require(Phase.PLANNING)
 
         splits_basis_points = {
@@ -144,6 +148,7 @@ class PeriodService:
         name: str,
         parent: str | None = None,
         budget_euros: float | None = None,
+        participants: list[str] | None = None,
     ):
         """Crea una categoría del período, con su importe si se indica.
 
@@ -154,7 +159,9 @@ class PeriodService:
         Asignar el importe puede recalcular más de una categoría (la raíz recalcula
         la reserva), por eso se persisten todas y no solo la nueva.
         """
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
 
         period.status.require(Phase.PLANNING)
 
@@ -162,7 +169,9 @@ class PeriodService:
         parent = normalize_name(parent) if parent else None
 
         # Pasar validaciones dominio
-        household.add_category(name=name, parent=parent)
+        if participants is None and parent is None:
+            participants = household.get_member_names()
+        household.add_category(name=name, participants=participants, parent=parent)
         # recuperar objeto
         budget_category = household.budget.get_budget_category(name)
         # persistir
@@ -181,11 +190,13 @@ class PeriodService:
             self.budget_categories_repository.update_planned_amount(
                 household_period_id=period_id,
                 name=category_name,
-                planned_amount=budget_category.planned_amount,
+                planned_amount=budget_category._planned_amount,
             )
 
     def set_standard_categories(self, period_id: int):
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
 
         period.status.require(Phase.PLANNING)
 
@@ -197,7 +208,9 @@ class PeriodService:
             )
 
     def remove_category(self, period_id: int, name: str):
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
         period.status.require(Phase.PLANNING)
 
         name = normalize_name(name)
@@ -209,7 +222,9 @@ class PeriodService:
         )
 
     def set_planned_amount(self, period_id: int, category: str, amount_euros: float):
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
         period.status.require(Phase.PLANNING)
 
         amount_cents = to_cents(amount_euros)
@@ -223,13 +238,15 @@ class PeriodService:
             self.budget_categories_repository.update_planned_amount(
                 household_period_id=period_id,
                 name=name,
-                planned_amount=budget_category.planned_amount,
+                planned_amount=budget_category._planned_amount,
             )
 
     def set_budget_by_percentages(
         self, period_id: int, percentages_floats: dict[str, float]
     ):
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
         period.status.require(Phase.PLANNING)
 
         total_pct = sum(percentages_floats.values())
@@ -247,7 +264,7 @@ class PeriodService:
             self.budget_categories_repository.update_planned_amount(
                 household_period_id=period_id,
                 name=name,
-                planned_amount=budget_category.planned_amount,
+                planned_amount=budget_category._planned_amount,
             )
 
     def finish_month(self, period_id: int, end_date: date | None = None):
@@ -276,7 +293,9 @@ class PeriodService:
         Las categorías no se persisten aquí: ya se guardaron al crearlas y al
         presupuestarlas. Lo único que nace en este paso es el acuerdo.
         """
-        household, _, period = self.household_loader.load_household(period_id, load=Load.BUDGET)
+        household, _, period = self.household_loader.load_household(
+            period_id, load=Load.BUDGET
+        )
 
         period.status.require(Phase.PLANNING)
         household.validate_has_members()
@@ -310,8 +329,6 @@ class PeriodService:
     # ============================================================
     # QUERIES
     # ============================================================
-
-
 
     def _load_period(self, period_id: int) -> Period:
         period = self.period_repo.find_by_id(period_id=period_id)

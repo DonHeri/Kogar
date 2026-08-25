@@ -9,12 +9,6 @@ def to_euros(cents: int) -> str:
     return f"{cents / 100:.2f}€"
 
 
-def to_euros_float(cents: int) -> float:
-    """Convierte céntimos a euros como número (simétrica de to_cents). Para cálculo,
-    no para mostrar — si es para pantalla, usa to_euros."""
-    return cents / 100
-
-
 # ====== PERCENTAGE CONVERSIONS ======
 def to_percentage_basis(decimal_percentage: float) -> int:
     """

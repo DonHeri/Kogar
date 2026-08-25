@@ -4,10 +4,10 @@ from src.workflow.incomes_entries_service import IncomeEntryService
 from src.models.household import Household
 
 from src.models.income_entry import IncomeEntry
-from src.models.debt_bucket_tracker import DebtBucketTracker
+from src.models.archivo.debt_tracker import DebtTracker
 from src.models.expense import Expense
 from src.models.budget import Budget
-from src.models.saving_bucket_tracker import SavingBucketTracker
+from src.models.saving_tracker import SavingTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.member import Member
 from src.models.constants import MetodoReparto
@@ -20,7 +20,7 @@ from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
 @pytest.fixture
-def members_with_incomes() -> dict[str, Member]:
+def members_with_incomes():
     """Dos miembros con ingresos diferentes"""
     m1 = Member("Member1")
     m2 = Member("Member2")
@@ -30,18 +30,18 @@ def members_with_incomes() -> dict[str, Member]:
 
 
 @pytest.fixture
-def full_household(members_with_incomes: dict[str, Member]) -> Household:
+def full_household(members_with_incomes):
     """Crea un hogar con los miembros proporcionados"""
     b = Budget()
     e = ExpenseTracker()
-    s = SavingBucketTracker()
-    d = DebtBucketTracker()
+    s = SavingTracker()
+    d = DebtTracker()
     household = Household(
-        budget=b, expense_tracker=e, saving_bucket_tracker=s, debt_bucket_tracker=d
+        budget=b, expense_tracker=e, saving_tracker=s, debt_bucket_tracker=d
     )
     for member in members_with_incomes.values():
         household.register_member(member)
-    household.prepare_period()
+    household.freeze_registration_state()
 
     household.assign_distribution_method(method=MetodoReparto.EQUAL)
     BudgetDistributionService.set_budget_by_percentages(
@@ -52,7 +52,7 @@ def full_household(members_with_incomes: dict[str, Member]) -> Household:
 
 
 @pytest.fixture
-def full_household_with_child_categories(full_household: Household) -> Household:
+def full_household_with_child_categories(full_household):
     """Household con dos hijas (vivienda, suministros) colgando de fijos."""
     full_household.add_category("vivienda", parent="fijos")
     full_household.add_category("suministros", parent="fijos")
@@ -62,15 +62,8 @@ def full_household_with_child_categories(full_household: Household) -> Household
 # ===============================================
 # --------------- add_income --------------------
 # ===============================================
-def test_add_income_entry_records_it_without_touching_the_plan(
-    full_household: Household,
-) -> None:
-    """Un ingreso extra se registra como hecho del mes y no mueve el presupuesto.
-
-    Antes suba la reserva, y con ella cambiaba lo que debía cada miembro: el extra
-    que cobraba uno se repartía entre todos. Este test es la red que impide que
-    vuelva a colarse si alguien reconecta el servicio.
-    """
+def test_add_income_entry_creates_entry(full_household):
+    """Verifica que se cree una entrada de ingreso al agregar un ingreso."""
 
     last_incomes = full_household.get_total_incomes()
     entry = IncomeEntry(
@@ -84,16 +77,16 @@ def test_add_income_entry_records_it_without_touching_the_plan(
     }
 
     IncomeEntryService.add_income_entry(income_entry=entry, household=full_household)
+    new_reserve = full_household.get_category_planned_amount("reserva")
 
-    # El hecho queda registrado
+    assert new_reserve == last_reserve + 50000
     assert len(full_household._income_entries) == 1
     entry = full_household._income_entries[0]
     assert entry.amount_cents == 50000
     assert entry.member_name == "member1"
+    assert full_household.get_total_incomes() == last_incomes + 50000
 
-    # Y el plan no se entera: ni el ingreso total ni ninguna categoría se mueven
-    assert full_household.get_total_incomes() == last_incomes
-    assert full_household.get_category_planned_amount("reserva") == last_reserve
+    # Cambia total, pero no cambia la distribución de los presupuestos de las categorías
     assert categories_budgets["fijos"] == full_household.get_category_planned_amount(
         "fijos"
     )

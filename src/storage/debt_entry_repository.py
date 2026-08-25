@@ -41,21 +41,11 @@ class DebtEntryRepository:
         )
         return id
 
-    def find_by_bucket(self, debt_bucket_id: UUID) -> list[dict]:
+    def find_by_bucket(self, debt_bucket_id: UUID):
         self.cursor.execute(
-            """
+            """ 
             SELECT de.* FROM debt_entries de WHERE debt_id = (%s)
             """,
             (debt_bucket_id,),
-        )
-        return self.cursor.fetchall()
-
-    def find_by_buckets(self, debt_bucket_ids: list[UUID]) -> list[dict]:
-        """Todas las entries de varios buckets en una sola consulta (evita N+1 al rehidratar)."""
-        self.cursor.execute(
-            """
-            SELECT de.* FROM debt_entries de WHERE debt_id = ANY(%s)
-            """,
-            (debt_bucket_ids,),
         )
         return self.cursor.fetchall()

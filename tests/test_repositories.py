@@ -8,6 +8,7 @@ from src.models.constants import Phase
 from src.storage.household_repository import HouseholdRepository
 from src.storage.member_repository import MemberRepository
 from src.storage.period_repository import PeriodRepository
+from src.storage.debt_entry_repository import DebtEntryRepository
 from src.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 # ===============================================

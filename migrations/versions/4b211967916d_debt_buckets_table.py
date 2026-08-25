@@ -31,8 +31,7 @@ def upgrade() -> None:
             member_id INTEGER NOT NULL REFERENCES members(id),
             installment_cents INTEGER NOT NULL,
             term_months INTEGER NULL,
-            start_date TIMESTAMP NOT NULL,
-            description TEXT
+            start_date TIMESTAMP NOT NULL 
         );
         """
     )

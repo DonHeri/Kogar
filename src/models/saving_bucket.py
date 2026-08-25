@@ -18,7 +18,7 @@ class SavingBucket:
     def __init__(
         self,
         saving_bucket_name: str,
-        owners: list,
+        owners: list, 
         goal_cents: int | None = None,
         deadline: datetime | None = None,
         is_default: bool = False,
@@ -36,7 +36,7 @@ class SavingBucket:
         self.bucket_name = saving_bucket_name
         self._goal_cents = goal_cents  # Un bucket puede ser de meta indefinida.
 
-        self._owners = owners
+        self._owners = owners #FIXME participants para coherencia.
         self.deadline = deadline
         self._is_default = is_default
         self._entries: list[SavingBucketEntry] = []

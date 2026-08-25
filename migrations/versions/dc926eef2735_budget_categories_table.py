@@ -21,13 +21,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.execute(
+    op.execute(#FIXME Quitar is_shared
         """
         CREATE TABLE budget_categories (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             household_period_id INTEGER NOT NULL REFERENCES household_periods(id),
             name VARCHAR(255) NOT NULL,
-            is_shared BOOLEAN NOT NULL,
+            is_shared BOOLEAN NOT NULL, 
             planned_amount INTEGER NOT NULL,
             parent_name VARCHAR(255) NULL,
             UNIQUE (household_period_id, name)

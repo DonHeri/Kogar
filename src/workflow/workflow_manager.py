@@ -58,12 +58,21 @@ class WorkflowManager:
         self.member_ids: dict[str, int] = {}  # nombre_normalizado → id BD
 
     # ====== PLANNING PHASE - Miembros e ingresos ======
-    def register_member(self, name: str):
-        """Registra un miembro. Se puede hacer mientras se planifica el período."""
+    def register_member(self, name: str, income_euros: float | None = None):
+        """Registra un miembro, con su ingreso si se indica.
+
+        El ingreso va aquí porque un miembro sin él no sirve para nada: no entra
+        en ningún reparto. Separarlo en dos llamadas obligaba a todo borde a
+        acordarse de la segunda. Sigue pudiendo cambiarse con
+        `set_member_incomes` mientras dure la planificación.
+        """
         self.validate_phase(Phase.PLANNING)
         member = Member(name)  # Member normaliza automáticamente
         self.household.register_member(member)
         self._persist_new_members()
+
+        if income_euros is not None:
+            self.set_member_incomes(name, income_euros)
 
     def set_member_incomes(self, name: str, amount_euros: float):
         """Cambia el ingreso de un miembro.
@@ -82,10 +91,10 @@ class WorkflowManager:
             )
 
     # ====== PLANNING PHASE - Distribution Configuration ======
-    def assign_distribution_method(self, method: MetodoReparto):
+    def set_distribution_method(self, method: MetodoReparto):
         """Configura el método de reparto (PROPORTIONAL, EQUAL, CUSTOM)"""
         self.validate_phase(Phase.PLANNING)
-        self.household.assign_distribution_method(method)
+        self.household.set_distribution_method(method)
 
         if self.period_repo and self.period_id:
             self.period_repo.update_method(self.period_id, method)
@@ -104,16 +113,22 @@ class WorkflowManager:
         name: str,
         parent: str | None = None,
         budget_euros: float | None = None,
+        participants: list[str] | None = None,
     ):
         """Crea categoría en PLANNING, con su importe si se indica.
 
         `budget_euros` opcional: crear una categoría con presupuesto es una sola
         llamada desde fuera, no dos. Sin él la categoría nace con techo 0, que es
         el comportamiento de siempre.
+
+        `participants` opcional solo en las hijas, que heredan los de su padre.
+        Una raíz sin participantes no tiene entre quién repartir su techo.
         """
         self.validate_phase(Phase.PLANNING)
         parent = normalize_name(parent) if parent else None
-        self.household.add_category(name, parent=parent)
+        if participants is None and parent is None:
+            participants = self.household.get_member_names()
+        self.household.add_category(name, participants=participants, parent=parent)
 
         if budget_euros is None:
             return
@@ -310,10 +325,18 @@ class WorkflowManager:
         self.validate_phase_accessible(Phase.PLANNING)
         return self.household.get_total_budgeted()
 
-    def preview_budget_contribution_summary(self, method: MetodoReparto):
-        """Preview: muestra cómo quedarían las contribuciones con un método específico"""
+    def preview_with_forced_method(
+        self, method: MetodoReparto, custom_splits: dict[str, float] | None = None
+    ):
+        """Cómo quedarían las contribuciones si TODAS las categorías usaran
+        `method`, sin tocar el método propio de ninguna. Solo lectura."""
         self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.preview_budget_contribution_summary(method)
+        splits_basis_points = (
+            {name: to_percentage_basis(pct) for name, pct in custom_splits.items()}
+            if custom_splits is not None
+            else None
+        )
+        return self.household.preview_with_forced_method(method, splits_basis_points)
 
     def get_current_contributions(self):
         """Obtiene contribuciones con el método ya configurado (self.method)"""
@@ -324,16 +347,30 @@ class WorkflowManager:
         "Contribución total por miembro según el método de reparto activo (disponible en PLANNING)."
         return self.household.get_total_contributions_by_member()
 
-    def get_reserve_contribution_by_member(self, member_name: str) -> int:
-        """Dinero no presupuestado de un miembro según su porcentaje"""
-        self.validate_phase_accessible(Phase.PLANNING)
-        return self.household.get_reserve_contribution_by_member(member_name)
-
     def validate_debt_doesnt_exceed_capacity(self):
         """Valida que la deuda comprometida no supere la parte de reserva de cada miembro.
         El ahorro no se valida — es elección, no obligación."""
         self.validate_phase(Phase.PLANNING)
         return self.household.validate_debt_doesnt_exceed_capacity()
+
+    def get_unbudgeted_income(self) -> int:
+        """Ingreso sin destino: total de ingresos menos lo presupuestado en
+        categorías raíz. Negativo significa que las categorías piden más de
+        lo que entra — categorías con porcentaje incluidas, porque su
+        `planned_amount` ya se mantiene al día en cada cambio de ingreso.
+
+        No lanza ni bloquea nada: detecta el número, no decide qué hacer con
+        él. Avisar es responsabilidad de quien llame (UI/CLI), como ya pasa
+        con `missing_money`. Es una pieza estrecha, pensada para el guard de
+        P3 — la versión completa y visible del sobrante es la tarea P6.
+        """
+        return self.get_total_incomes() - self.get_total_budgeted()
+
+    def get_unbudgeted_income_by_member(self, name: str) -> int:
+        """Cuánto le queda a un miembro sin presupuestar: su ingreso menos lo
+        que ya le piden sus categorías. Análogo por miembro de get_unbudgeted_income."""
+        normalized = normalize_name(name)
+        return self.household.get_unbudgeted_income_by_member(name=normalized)
 
     # ====== PLANNING PHASE - Finalization ======
     def finish_planning(self):

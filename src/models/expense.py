@@ -64,7 +64,7 @@ class Expense:
     # ====== PROPERTIES ======
 
     @property
-    def is_shared(self):
+    def is_shared(self):#FIXME Se queda - no afecta
         return len(self.participants) > 1
 
     @property

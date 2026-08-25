@@ -10,7 +10,7 @@ from src.models.category import AutoCalculatedCategory, Category
 
 def make_category(
     name: str = "fijos",
-    is_shared: bool = True,
+    # is_shared: bool = True, #FIXME se va
     auto_calculated: bool = False,
 ) -> Category:
     """Fabrica un Category para tests sin pasar por CategoryLibrary.
@@ -18,5 +18,5 @@ def make_category(
     auto_calculated=True → AutoCalculatedCategory (como 'reserva').
     """
     if auto_calculated:
-        return AutoCalculatedCategory(name, is_shared=is_shared)
-    return Category(name, is_shared=is_shared)
+        return AutoCalculatedCategory(name)
+    return Category(name)

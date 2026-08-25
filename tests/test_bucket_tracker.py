@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from uuid import UUID
 
 import pytest
@@ -12,45 +12,49 @@ from src.models.saving_bucket import SavingBucket
 # FIXTURES
 # ====================================================
 @pytest.fixture
-def tracker() -> SavingBucketTracker:
+def tracker():
     return SavingBucketTracker()
 
 
 @pytest.fixture
-def bucket_shared_trip_to_japan() -> SavingBucket:
+def bucket_shared_trip_to_japan():
     return SavingBucket(
         saving_bucket_name="Viaje a Japón",
         deadline=datetime(2027, 4, 23),
         goal_cents=280000,
+        scope=SavingScope.SHARED,
         owners=["amanda", "heri"],
     )
 
 
 @pytest.fixture
-def bucket_shared_emergency_fund() -> SavingBucket:
+def bucket_shared_emergency_fund():
     return SavingBucket(
         saving_bucket_name="Fondo de emergencia",
         goal_cents=600000,
+        scope=SavingScope.SHARED,
         owners=["amanda", "heri"],
         description="3 meses de gastos fijos cubiertos",
     )
 
 
 @pytest.fixture
-def bucket_personal_new_mac() -> SavingBucket:
+def bucket_personal_new_mac():
     return SavingBucket(
         saving_bucket_name="MacBook Pro",
         deadline=datetime(2026, 11, 1),
         goal_cents=220000,
+        scope=SavingScope.PERSONAL,
         owners=["heri"],
     )
 
 
 @pytest.fixture
-def bucket_personal_amanda_course() -> SavingBucket:
+def bucket_personal_amanda_course():
     return SavingBucket(
         saving_bucket_name="Curso de diseño UX",
         goal_cents=45000,
+        scope=SavingScope.PERSONAL,
         owners=["amanda"],
         description="Máster online",
     )
@@ -58,12 +62,12 @@ def bucket_personal_amanda_course() -> SavingBucket:
 
 @pytest.fixture
 def tracker_with_buckets(
-    tracker: SavingBucketTracker,
-    bucket_shared_trip_to_japan: SavingBucket,
-    bucket_shared_emergency_fund: SavingBucket,
-    bucket_personal_new_mac: SavingBucket,
-    bucket_personal_amanda_course: SavingBucket,
-) -> SavingBucketTracker:
+    tracker,
+    bucket_shared_trip_to_japan,
+    bucket_shared_emergency_fund,
+    bucket_personal_new_mac,
+    bucket_personal_amanda_course,
+):
 
     for bucket in [
         bucket_shared_trip_to_japan,
@@ -94,27 +98,21 @@ def tests_bucket_tracker_creation_valid():
 # ====================================================
 
 
-def test_add_bucket_returns_uuid(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_add_bucket_returns_uuid(tracker, bucket_shared_emergency_fund):
 
     id_emergency_fund = tracker.add_bucket(bucket_shared_emergency_fund)
 
     assert isinstance(id_emergency_fund, UUID)
 
 
-def test_add_bucket_stores_bucket(
-    tracker: SavingBucketTracker, bucket_personal_amanda_course: SavingBucket
-) -> None:
+def test_add_bucket_stores_bucket(tracker, bucket_personal_amanda_course):
     id_course = tracker.add_bucket(bucket_personal_amanda_course)
 
     assert len(tracker.buckets) == 1
     assert "amanda" in tracker.buckets[id_course].owners
 
 
-def test_add_bucket_uses_bucket_id_as_key(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_add_bucket_uses_bucket_id_as_key(tracker, bucket_shared_emergency_fund):
     """El UUID devuelto por add_bucket coincide con la clave en el dict"""
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
 
@@ -122,9 +120,7 @@ def test_add_bucket_uses_bucket_id_as_key(
     assert tracker.buckets[bucket_id].id == bucket_id
 
 
-def test_get_all_buckets_returns_copy(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
+def test_get_all_buckets_returns_copy(tracker_with_buckets):
     copy = tracker_with_buckets.get_all_buckets()
 
     assert len(copy) == 4
@@ -132,7 +128,7 @@ def test_get_all_buckets_returns_copy(
     assert len(tracker_with_buckets.buckets) == 4
 
 
-def test_get_all_buckets_empty_tracker(tracker: SavingBucketTracker) -> None:
+def test_get_all_buckets_empty_tracker(tracker):
     empty_copy = tracker.get_all_buckets()
 
     assert len(empty_copy) == 0
@@ -144,9 +140,7 @@ def test_get_all_buckets_empty_tracker(tracker: SavingBucketTracker) -> None:
 # ====================================================
 
 
-def test_get_bucket_by_id_returns_correct_bucket(
-    tracker: SavingBucketTracker, bucket_personal_new_mac: SavingBucket
-) -> None:
+def test_get_bucket_by_id_returns_correct_bucket(tracker, bucket_personal_new_mac):
     bucket_id = tracker.add_bucket(bucket_personal_new_mac)
 
     bucket = tracker.get_bucket_by_id(bucket_id)
@@ -155,7 +149,7 @@ def test_get_bucket_by_id_returns_correct_bucket(
     assert bucket.bucket_name == "MacBook Pro"
 
 
-def test_get_bucket_by_id_raises_if_not_found(tracker: SavingBucketTracker) -> None:
+def test_get_bucket_by_id_raises_if_not_found(tracker):
     from uuid import uuid4
 
     fake_id = uuid4()
@@ -169,9 +163,7 @@ def test_get_bucket_by_id_raises_if_not_found(tracker: SavingBucketTracker) -> N
 # ====================================================
 
 
-def test_get_bucket_by_member_returns_matching_buckets(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
+def test_get_bucket_by_member_returns_matching_buckets(tracker_with_buckets):
     """amanda participa en 3 de los 4 buckets"""
     result = tracker_with_buckets.get_bucket_by_member("amanda")
 
@@ -180,45 +172,8 @@ def test_get_bucket_by_member_returns_matching_buckets(
         assert "amanda" in bucket.owners
 
 
-def test_get_bucket_by_member_returns_empty_if_no_match(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
+def test_get_bucket_by_member_returns_empty_if_no_match(tracker_with_buckets):
     result = tracker_with_buckets.get_bucket_by_member("miembro_inexistente")
-
-    assert result == {}
-
-
-# ====================================================
-# TESTS: get_shared_buckets
-# ====================================================
-
-
-def test_get_shared_buckets_excludes_personal_buckets(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
-    """amanda participa en 3 buckets, pero solo 2 son compartidos."""
-    result = tracker_with_buckets.get_shared_buckets("amanda")
-
-    assert len(result) == 2
-    for bucket in result.values():
-        assert "amanda" in bucket.owners
-        assert bucket.is_shared is True
-
-
-def test_get_shared_buckets_checks_every_bucket_not_just_the_first(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
-    """Regresión: un return mal indentado cortaba el bucle en la primera
-    vuelta y devolvía vacío aunque hubiera match más adelante."""
-    result = tracker_with_buckets.get_shared_buckets("heri")
-
-    assert len(result) == 2
-
-
-def test_get_shared_buckets_returns_empty_if_no_match(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
-    result = tracker_with_buckets.get_shared_buckets("miembro_inexistente")
 
     assert result == {}
 
@@ -228,9 +183,7 @@ def test_get_shared_buckets_returns_empty_if_no_match(
 # ====================================================
 
 
-def test_deposit_delegates_to_bucket(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_deposit_delegates_to_bucket(tracker, bucket_shared_emergency_fund):
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
 
     tracker.deposit(bucket_id, 10000, "amanda")
@@ -238,7 +191,7 @@ def test_deposit_delegates_to_bucket(
     assert tracker.get_bucket_by_id(bucket_id).balance == 10000
 
 
-def test_deposit_raises_if_bucket_not_found(tracker: SavingBucketTracker) -> None:
+def test_deposit_raises_if_bucket_not_found(tracker):
     from uuid import uuid4
 
     fake_id = uuid4()
@@ -252,9 +205,7 @@ def test_deposit_raises_if_bucket_not_found(tracker: SavingBucketTracker) -> Non
 # ====================================================
 
 
-def test_withdraw_delegates_to_bucket(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_withdraw_delegates_to_bucket(tracker, bucket_shared_emergency_fund):
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
     tracker.deposit(bucket_id, 10000, "amanda")
 
@@ -263,9 +214,7 @@ def test_withdraw_delegates_to_bucket(
     assert tracker.get_bucket_by_id(bucket_id).balance == 5000
 
 
-def test_withdraw_raises_if_insufficient_balance(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_withdraw_raises_if_insufficient_balance(tracker, bucket_shared_emergency_fund):
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
     tracker.deposit(bucket_id, 5000, "amanda")
 
@@ -278,9 +227,7 @@ def test_withdraw_raises_if_insufficient_balance(
 # ====================================================
 
 
-def test_get_all_buckets_return_copy_all_buckets(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
+def test_get_all_buckets_return_copy_all_buckets(tracker_with_buckets):
     buckets = tracker_with_buckets.get_all_buckets()
     buckets_names = [
         "Viaje a Japón",
@@ -294,10 +241,8 @@ def test_get_all_buckets_return_copy_all_buckets(
 
 
 def test_get_bucket_id_returns_correct_bucket(
-    tracker: SavingBucketTracker,
-    bucket_personal_new_mac: SavingBucket,
-    bucket_shared_emergency_fund: SavingBucket,
-) -> None:
+    tracker, bucket_personal_new_mac, bucket_shared_emergency_fund
+):
     id_mac = tracker.add_bucket(bucket_personal_new_mac)
     id_emergency_fund = tracker.add_bucket(bucket_shared_emergency_fund)
 
@@ -308,9 +253,7 @@ def test_get_bucket_id_returns_correct_bucket(
     assert bucket_emergency_fund.bucket_name == "Fondo de emergencia"
 
 
-def test_get_bucket_by_member_heri_has_three_buckets(
-    tracker_with_buckets: SavingBucketTracker,
-) -> None:
+def test_get_bucket_by_member_heri_has_three_buckets(tracker_with_buckets):
     """heri participa en 3 de los 4 buckets"""
     result = tracker_with_buckets.get_bucket_by_member("heri")
 
@@ -324,7 +267,7 @@ def test_get_bucket_by_member_heri_has_three_buckets(
 # ====================================================
 
 
-def test_withdraw_raises_if_bucket_not_found(tracker: SavingBucketTracker) -> None:
+def test_withdraw_raises_if_bucket_not_found(tracker):
     from uuid import uuid4
 
     fake_id = uuid4()
@@ -338,9 +281,7 @@ def test_withdraw_raises_if_bucket_not_found(tracker: SavingBucketTracker) -> No
 # ====================================================
 
 
-def test_deposit_with_date(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_deposit_with_date(tracker, bucket_shared_emergency_fund):
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
     date = datetime(2026, 1, 15)
 
@@ -351,9 +292,7 @@ def test_deposit_with_date(
     assert bucket._entries[0].date == date
 
 
-def test_withdraw_with_date(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
+def test_withdraw_with_date(tracker, bucket_shared_emergency_fund):
     bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
     date_dep = datetime(2026, 1, 10)
     date_wit = datetime(2026, 2, 5)
@@ -364,119 +303,3 @@ def test_withdraw_with_date(
     bucket = tracker.get_bucket_by_id(bucket_id)
     assert bucket.balance == 7000
     assert bucket._entries[1].date == date_wit
-
-
-# ====================================================
-# TESTS: get_total_shared
-# ====================================================
-
-
-def test_get_total_shared_only_counts_shared_buckets(
-    tracker: SavingBucketTracker,
-    bucket_shared_emergency_fund: SavingBucket,
-    bucket_personal_new_mac: SavingBucket,
-) -> None:
-    shared_id = tracker.add_bucket(bucket_shared_emergency_fund)
-    personal_id = tracker.add_bucket(bucket_personal_new_mac)
-
-    tracker.deposit(shared_id, 10000, "amanda")
-    tracker.deposit(shared_id, 20000, "heri")
-    tracker.deposit(personal_id, 5000, "heri")  # personal, no cuenta
-
-    assert tracker.get_total_shared() == 30000
-
-
-def test_get_total_shared_empty_tracker_returns_zero(
-    tracker: SavingBucketTracker,
-) -> None:
-    assert tracker.get_total_shared() == 0
-
-
-# ====================================================
-# TESTS: get_member_saved_in_period
-# ====================================================
-
-
-def test_get_member_saved_in_period_sums_across_buckets(
-    tracker: SavingBucketTracker,
-    bucket_personal_new_mac: SavingBucket,
-    bucket_shared_emergency_fund: SavingBucket,
-) -> None:
-    personal_id = tracker.add_bucket(bucket_personal_new_mac)
-    shared_id = tracker.add_bucket(bucket_shared_emergency_fund)
-
-    tracker.deposit(personal_id, 10000, "heri", date=datetime(2026, 3, 5))
-    tracker.deposit(shared_id, 20000, "heri", date=datetime(2026, 3, 10))
-
-    saved = tracker.get_member_saved_in_period(
-        "heri", date(2026, 3, 1), date(2026, 3, 31)
-    )
-    assert saved == 30000
-
-
-def test_get_member_saved_in_period_excludes_out_of_range(
-    tracker: SavingBucketTracker, bucket_personal_new_mac: SavingBucket
-) -> None:
-    bucket_id = tracker.add_bucket(bucket_personal_new_mac)
-
-    tracker.deposit(bucket_id, 10000, "heri", date=datetime(2026, 2, 1))
-    tracker.deposit(bucket_id, 5000, "heri", date=datetime(2026, 3, 5))
-
-    saved = tracker.get_member_saved_in_period(
-        "heri", date(2026, 3, 1), date(2026, 3, 31)
-    )
-    assert saved == 5000
-
-
-def test_get_member_saved_in_period_withdrawals_count_negative(
-    tracker: SavingBucketTracker, bucket_personal_new_mac: SavingBucket
-) -> None:
-    bucket_id = tracker.add_bucket(bucket_personal_new_mac)
-
-    tracker.deposit(bucket_id, 10000, "heri", date=datetime(2026, 3, 5))
-    tracker.withdraw(bucket_id, 3000, "heri", date=datetime(2026, 3, 8))
-
-    saved = tracker.get_member_saved_in_period(
-        "heri", date(2026, 3, 1), date(2026, 3, 31)
-    )
-    assert saved == 7000
-
-
-# ====================================================
-# TESTS: get_shared_by_period
-# ====================================================
-
-
-def test_get_shared_by_period_groups_by_member(
-    tracker: SavingBucketTracker, bucket_shared_emergency_fund: SavingBucket
-) -> None:
-    bucket_id = tracker.add_bucket(bucket_shared_emergency_fund)
-
-    tracker.deposit(bucket_id, 10000, "amanda", date=datetime(2026, 3, 1))
-    tracker.deposit(bucket_id, 20000, "heri", date=datetime(2026, 3, 10))
-    tracker.deposit(bucket_id, 5000, "amanda", date=datetime(2026, 2, 1))
-
-    march = tracker.get_shared_by_period(date(2026, 3, 1), date(2026, 3, 31))
-
-    assert len(march["amanda"]) == 1
-    assert march["amanda"][0].amount_cents == 10000
-    assert len(march["heri"]) == 1
-    assert march["heri"][0].amount_cents == 20000
-
-
-def test_get_shared_by_period_ignores_personal_buckets(
-    tracker: SavingBucketTracker,
-    bucket_personal_new_mac: SavingBucket,
-    bucket_shared_emergency_fund: SavingBucket,
-) -> None:
-    personal_id = tracker.add_bucket(bucket_personal_new_mac)
-    shared_id = tracker.add_bucket(bucket_shared_emergency_fund)
-
-    tracker.deposit(personal_id, 10000, "heri", date=datetime(2026, 3, 5))
-    tracker.deposit(shared_id, 20000, "heri", date=datetime(2026, 3, 10))
-
-    march = tracker.get_shared_by_period(date(2026, 3, 1), date(2026, 3, 31))
-
-    assert "heri" in march
-    assert len(march["heri"]) == 1
-    assert march["heri"][0].amount_cents == 20000

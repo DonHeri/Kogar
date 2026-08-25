@@ -50,6 +50,19 @@ def test_expense_date_is_datetime_object() -> None:
     assert hasattr(expense.date, "day")
 
 
+""" 
+El test debe comprobar que declaro un gasto a nombre de amanda, pero el gasto es de heri, y que el gasto no se contabiliza en el settlement de amanda.
+"""
+
+
+def test_expense_shared_flag_behavior() -> None:
+    """Test: Un gasto pagado por un miembro pero que es del otro no se contabiliza en el settlement de amanda"""
+    # Crear un gasto pagado por Amanda pero que es del otro miembro (Heri)
+    expense = Expense("Amanda", make_category("variables"), to_cents(100.0), ["heri"])
+
+    # Cargar el settlement de los miembros y heri debe a amanda 100.0€
+    
+
 # ====================================================
 # TESTS: Validaciones
 # ====================================================

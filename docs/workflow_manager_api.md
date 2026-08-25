@@ -8,10 +8,10 @@ El usuario interactúa **únicamente** con `WorkflowManager`. Las clases interna
 
 ### Unidades monetarias
 
-| Sentido | Unidad |
-| --- | --- |
-| Entradas (parámetros `amount_*`, `goal_*`) | Euros `€` |
-| Salidas (`→ int`) | Céntimos `¢` — 1€ = 100¢ |
+| Sentido                                    | Unidad                   |
+| ------------------------------------------ | ------------------------ |
+| Entradas (parámetros `amount_*`, `goal_*`) | Euros `€`                |
+| Salidas (`→ int`)                          | Céntimos `¢` — 1€ = 100¢ |
 
 Todos los métodos que reciben dinero esperan **euros** como `float`. Todos los métodos que devuelven dinero retornan **céntimos** como `int`.
 
@@ -158,15 +158,15 @@ Elimina una categoría y resuelve qué pasa con sus gastos.
 wm.remove_category("ocio")
 ```
 
-### `get_root_categories() → list[str]` *(PLANNING+)*
+### `get_root_categories() → list[str]` _(PLANNING+)_
 
 Las categorías raíz, las únicas que cuentan contra el ingreso.
 
-### `get_category_children(category_name: str) → list[str]` *(PLANNING+)*
+### `get_category_children(category_name: str) → list[str]` _(PLANNING+)_
 
 Los nombres de las categorías que cuelgan de una raíz.
 
-### `get_category_billable(category_name: str) → int (¢)` *(PLANNING+)*
+### `get_category_billable(category_name: str) → int (¢)` _(PLANNING+)_
 
 Lo que una categoría reparte entre los miembros: su presupuesto menos lo que ya ha delegado en sus hijas. En una hoja es su presupuesto entero.
 
@@ -204,7 +204,7 @@ wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0})
 # reserva = 20% automático
 ```
 
-### `get_budget_as_percentage(category: str) → int (basis points)` *(PLANNING+)*
+### `get_budget_as_percentage(category: str) → int (basis points)` _(PLANNING+)_
 
 Retorna qué porcentaje del ingreso total representa el presupuesto de la categoría, en basis points.
 
@@ -212,7 +212,7 @@ Retorna qué porcentaje del ingreso total representa el presupuesto de la catego
 pct = wm.get_budget_as_percentage("fijos")  # 5000 = 50%
 ```
 
-### `get_category_budget(category_name: str) → int (¢)` *(PLANNING+)*
+### `get_category_budget(category_name: str) → int (¢)` _(PLANNING+)_
 
 Presupuesto asignado a una categoría.
 
@@ -220,7 +220,7 @@ Presupuesto asignado a una categoría.
 budget = wm.get_category_budget("fijos")  # 150000¢ = 1500€
 ```
 
-### `get_total_budgeted() → int (¢)` *(PLANNING+)*
+### `get_total_budgeted() → int (¢)` _(PLANNING+)_
 
 Suma de los presupuestos de las categorías raíz (las hijas viven dentro del techo de su padre, no se cuentan aparte).
 
@@ -230,21 +230,21 @@ total = wm.get_total_budgeted()  # igual a total_ingresos si está todo presupue
 
 ### Dinero no presupuestado (`missing_money`)
 
-No hay un método `get_missing_money()` independiente. El dato vive dentro de `get_planning_summary()` / `get_month_summary()` como `["missing_money"]` (`{"total": ..., "by_member": {...}}`), y por miembro individual vía `get_reserve_contribution_by_member(member)`.
+No hay un método `get_missing_money()` independiente. El dato vive dentro de `get_planning_summary()` / `get_month_summary()` como `["missing_money"]` (`{"total": ..., "by_member": {...}}`), y por miembro individual vía `get_unbudgeted_income_by_member(member)`.
 
 ---
 
 ## Fase PLANNING — Método de reparto
 
-### `assign_distribution_method(method: MetodoReparto)`
+### `set_distribution_method(method: MetodoReparto)`
 
 Configura cómo se reparten los gastos entre miembros.
 
 ```python
 from src.models.constants import MetodoReparto
-wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)  # proporcional a ingresos
-wm.assign_distribution_method(MetodoReparto.EQUAL)          # a partes iguales
-wm.assign_distribution_method(MetodoReparto.CUSTOM)         # porcentajes manuales
+wm.set_distribution_method(MetodoReparto.PROPORTIONAL)  # proporcional a ingresos
+wm.set_distribution_method(MetodoReparto.EQUAL)          # a partes iguales
+wm.set_distribution_method(MetodoReparto.CUSTOM)         # porcentajes manuales
 ```
 
 ### `set_custom_splits(splits: dict[str, float])`
@@ -255,24 +255,20 @@ Define porcentajes personalizados para el método CUSTOM. Los porcentajes son fl
 wm.set_custom_splits({"Amanda": 60.0, "Heri": 40.0})
 ```
 
-### `preview_budget_contribution_summary(method: MetodoReparto) → dict` *(PLANNING+)*
+### `preview_with_forced_method(method: MetodoReparto, custom_splits: dict[str, float] | None = None) → dict` _(PLANNING+)_
 
-Calcula cómo quedarían las contribuciones con un método **hipotético**, sin modificar la configuración actual. Útil para comparar métodos antes de decidir.
+Cómo quedarían las contribuciones si **todas** las categorías usaran `method`, ignorando el método propio de cada una. Solo lectura: no modifica nada. Útil para comparar antes de decidir.
 
 ```python
-preview = wm.preview_budget_contribution_summary(MetodoReparto.EQUAL)
+preview = wm.preview_with_forced_method(MetodoReparto.EQUAL)
 # {
-#   "fijos": {
-#     "planned": 150000,                              # ¢
-#     "contributions": {"amanda": 75000, "heri": 75000},  # ¢
-#     "total_assigned": 150000                        # ¢
-#   }
+#   "fijos": {"amanda": 75000, "heri": 75000},  # ¢
 # }
 ```
 
-### `get_current_contributions() → dict` *(PLANNING+)*
+### `get_current_contributions() → dict` _(PLANNING+)_
 
-Contribuciones calculadas con el método **ya configurado** (equivale a `preview` con el método activo). Úsalo cuando ya tienes el método fijado y solo quieres ver los números.
+Contribuciones reales: cada categoría usa su propio método si lo declaró, o el del hogar si no. **No** es lo mismo que `preview_with_forced_method` con el método activo — una categoría con método propio no se mueve aunque cambie el del hogar.
 
 ```python
 contribs = wm.get_current_contributions()
@@ -305,7 +301,7 @@ coche = wm.add_debt_bucket(
 )
 ```
 
-### `get_debt_status(member_name: str) → dict (valores en ¢)` *(PLANNING+)*
+### `get_debt_status(member_name: str) → dict (valores en ¢)` _(PLANNING+)_
 
 Estado de deuda de un miembro: cuánto comprometió, cuánto pagó y cuánto le queda.
 
@@ -314,7 +310,7 @@ status = wm.get_debt_status("Amanda")
 # {"committed": 20000, "paid": 0, "remaining": 20000}
 ```
 
-### `get_all_debts_summary() → dict` *(PLANNING+)*
+### `get_all_debts_summary() → dict` _(PLANNING+)_
 
 Resumen de deuda de todos los miembros: sus buckets, la cuota comprometida y lo pagado en el período.
 
@@ -335,7 +331,7 @@ fecha límite opcionales. Ver "Fase MONTH — Saving Buckets": se crean en PLANN
 > `get_saving_requirement_by_member(member)`, que devuelve cuánto exigirían este mes las metas
 > con fecha límite.
 
-### `get_saving_requirement_by_member(member: str) → int (¢)` *(PLANNING+)*
+### `get_saving_requirement_by_member(member: str) → int (¢)` _(PLANNING+)_
 
 Cuánto pedirían este mes las metas del miembro para llegar a tiempo. **Es informativo**: el
 ahorro es una elección, no una obligación, y nada se valida contra él.
@@ -360,7 +356,7 @@ wm.validate_debt_doesnt_exceed_capacity()
 
 ## Fase PLANNING — Resumen y finalización
 
-### `get_planning_summary() → dict` *(PLANNING+)*
+### `get_planning_summary() → dict` _(PLANNING+)_
 
 Resumen completo de planificación: miembros, ingresos, método, porcentajes, categorías, presupuestos, deudas, ahorros, `total_budgeted`, `missing_money` (total y por miembro) y preview de contribuciones. Todos los valores monetarios en `¢`.
 
@@ -390,11 +386,11 @@ Registra un gasto en euros.
 
 Los tres casos que caben en esa lista:
 
-| Lista | Qué significa |
-|---|---|
-| solo el pagador | gasto personal, no entra en el settlement |
+| Lista             | Qué significa                                       |
+| ----------------- | --------------------------------------------------- |
+| solo el pagador   | gasto personal, no entra en el settlement           |
 | solo otro miembro | lo pagó uno y es de otro — el otro le debe el total |
-| varios miembros | compartido, se reparte según el método del hogar |
+| varios miembros   | compartido, se reparte según el método del hogar    |
 
 `is_shared` de un gasto ya registrado no es un flag que se pase — se deriva de `len(participants) > 1` (ver `Expense.is_shared`).
 
@@ -416,7 +412,7 @@ Registra un pago de deuda en euros. Lanza `ValueError` si el pago acumulado supe
 wm.register_debt_payment("Amanda", 200.0, "hipoteca")
 ```
 
-### `get_debt_history(member: str) → list[DebtEntry]` *(MONTH+)*
+### `get_debt_history(member: str) → list[DebtEntry]` _(MONTH+)_
 
 Historial completo de pagos de deuda de un miembro.
 
@@ -434,7 +430,7 @@ history = wm.get_debt_history("Amanda")
 > `owners`. Retirados: `register_savings_deposit`, `register_savings_withdrawal` y
 > `get_member_savings_summary`. El resumen por miembro es hoy `get_saving_status(member)`.
 
-### `get_savings_total_shared() → int (¢)` *(MONTH+)*
+### `get_savings_total_shared() → int (¢)` _(MONTH+)_
 
 Total acumulado en el fondo de ahorro compartido por todos los miembros.
 
@@ -442,7 +438,7 @@ Total acumulado en el fondo de ahorro compartido por todos los miembros.
 total = wm.get_savings_total_shared()
 ```
 
-### `get_savings_shared_by_period(start_date: date, end_date: date) → dict` *(PLANNING+)*
+### `get_savings_shared_by_period(start_date: date, end_date: date) → dict` _(PLANNING+)_
 
 Movimientos de ahorro compartido filtrados por rango de fechas. Retorna `{member: [SavingEntry]}`.
 
@@ -458,7 +454,7 @@ movs = wm.get_savings_shared_by_period(date(2026, 4, 1), date(2026, 4, 30))
 
 Los buckets son objetivos de ahorro concretos con una meta en euros y opcionalmente una fecha límite. Pueden ser personales (un solo dueño) o compartidos (varios dueños).
 
-### `create_saving_bucket(bucket_name, goal_euros, scope, owners, deadline=None, description="") → UUID` *(PLANNING+)*
+### `create_saving_bucket(bucket_name, goal_euros, scope, owners, deadline=None, description="") → UUID` _(PLANNING+)_
 
 Crea un bucket y retorna su UUID, que se usa para todas las operaciones posteriores.
 
@@ -476,7 +472,7 @@ bucket_id = wm.create_saving_bucket(
 )
 ```
 
-### `deposit_to_saving_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
+### `deposit_to_saving_bucket(bucket_id, member, amount_euros, date=None)` _(MONTH)_
 
 Registra un depósito en un bucket. El miembro debe ser uno de los `owners` del bucket.
 
@@ -484,7 +480,7 @@ Registra un depósito en un bucket. El miembro debe ser uno de los `owners` del 
 wm.deposit_to_saving_bucket(bucket_id, "Amanda", 200.0)
 ```
 
-### `withdraw_from_saving_bucket(bucket_id, member, amount_euros, date=None)` *(MONTH)*
+### `withdraw_from_saving_bucket(bucket_id, member, amount_euros, date=None)` _(MONTH)_
 
 Registra un retiro de un bucket. No puede superar el saldo disponible del miembro.
 
@@ -492,7 +488,7 @@ Registra un retiro de un bucket. No puede superar el saldo disponible del miembr
 wm.withdraw_from_saving_bucket(bucket_id, "Amanda", 50.0)
 ```
 
-### `get_bucket_by_id(bucket_id: UUID) → SavingBucket` *(PLANNING+)*
+### `get_bucket_by_id(bucket_id: UUID) → SavingBucket` _(PLANNING+)_
 
 Obtiene un bucket por su UUID.
 
@@ -503,7 +499,7 @@ bucket.goal          # meta del bucket en ¢
 bucket.bucket_name   # nombre
 ```
 
-### `get_all_buckets() → dict[UUID, SavingBucket]` *(PLANNING+)*
+### `get_all_buckets() → dict[UUID, SavingBucket]` _(PLANNING+)_
 
 Todos los buckets del hogar.
 
@@ -511,7 +507,7 @@ Todos los buckets del hogar.
 buckets = wm.get_all_buckets()
 ```
 
-### `get_buckets_by_member(member: str) → dict[UUID, SavingBucket]` *(PLANNING+)*
+### `get_buckets_by_member(member: str) → dict[UUID, SavingBucket]` _(PLANNING+)_
 
 Buckets en los que participa un miembro (aparece en `owners`).
 
@@ -523,7 +519,7 @@ buckets = wm.get_buckets_by_member("Amanda")
 
 ## Fase MONTH — Balances y consultas
 
-### `get_member_owed_total(member_name: str) → int (¢)` *(MONTH+)*
+### `get_member_owed_total(member_name: str) → int (¢)` _(MONTH+)_
 
 Cuánto debe pagar el miembro según el acuerdo congelado en planificación.
 
@@ -531,7 +527,7 @@ Cuánto debe pagar el miembro según el acuerdo congelado en planificación.
 owed = wm.get_member_owed_total("Amanda")
 ```
 
-### `get_member_paid_total(member_name: str) → int (¢)` *(MONTH+)*
+### `get_member_paid_total(member_name: str) → int (¢)` _(MONTH+)_
 
 Total de gastos registrados por el miembro en el mes.
 
@@ -539,7 +535,7 @@ Total de gastos registrados por el miembro en el mes.
 paid = wm.get_member_paid_total("Amanda")
 ```
 
-### `get_member_balance(member_name: str) → int (¢)` *(MONTH+)*
+### `get_member_balance(member_name: str) → int (¢)` _(MONTH+)_
 
 Balance: `pagado - acordado`. Negativo = aún debe, positivo = pagó de más.
 
@@ -547,7 +543,7 @@ Balance: `pagado - acordado`. Negativo = aún debe, positivo = pagó de más.
 balance = wm.get_member_balance("Amanda")  # -50000¢ → debe 500€ más
 ```
 
-### `get_member_status(member_name: str) → dict (valores en ¢)` *(MONTH+)*
+### `get_member_status(member_name: str) → dict (valores en ¢)` _(MONTH+)_
 
 Estado completo del miembro: ingreso, acordado, pagado, balance, deuda, objetivo de ahorro y desglose por categoría.
 
@@ -566,7 +562,7 @@ status = wm.get_member_status("Amanda")
 # }
 ```
 
-### `get_category_spent(category_name: str) → int (¢)` *(MONTH+)*
+### `get_category_spent(category_name: str) → int (¢)` _(MONTH+)_
 
 Total gastado en una categoría **y en las que cuelgan de ella**. En una hoja no hay hijas, así que es su propio gasto.
 
@@ -575,7 +571,7 @@ wm.get_category_spent("alquiler")  #  80000¢ — lo suyo
 wm.get_category_spent("fijos")     #  93050¢ — lo suyo más el de sus hijas
 ```
 
-### `get_total_spent() → int (¢)` *(MONTH+)*
+### `get_total_spent() → int (¢)` _(MONTH+)_
 
 Total de gastos registrados en el mes.
 
@@ -583,7 +579,7 @@ Total de gastos registrados en el mes.
 total = wm.get_total_spent()
 ```
 
-### `get_category_remaining(category_name: str) → int (¢)` *(MONTH+)*
+### `get_category_remaining(category_name: str) → int (¢)` _(MONTH+)_
 
 Presupuesto restante en una categoría: `presupuestado - gastado`, contando el gasto de todo su subárbol.
 
@@ -593,7 +589,7 @@ Presupuesto restante en una categoría: `presupuestado - gastado`, contando el g
 remaining = wm.get_category_remaining("variables")
 ```
 
-### `get_total_remaining() → int (¢)` *(MONTH+)*
+### `get_total_remaining() → int (¢)` _(MONTH+)_
 
 Presupuesto restante total en el mes.
 
@@ -601,7 +597,7 @@ Presupuesto restante total en el mes.
 remaining = wm.get_total_remaining()
 ```
 
-### `get_settlement() → list[dict]` *(MONTH+)*
+### `get_settlement() → list[dict]` _(MONTH+)_
 
 Transferencias mínimas para saldar los gastos compartidos entre miembros. Solo considera gastos con más de un participant (`is_shared` derivado).
 
@@ -610,7 +606,7 @@ transfers = wm.get_settlement()
 # [{"from": "heri", "to": "amanda", "amount": 15000}]  # amount en ¢
 ```
 
-### `get_month_summary() → dict (valores en ¢)` *(MONTH+)*
+### `get_month_summary() → dict (valores en ¢)` _(MONTH+)_
 
 Resumen financiero completo del mes: totales globales, desglose por categoría, estado de cada miembro (incluye su propio `by_category`) y `missing_money` (total y por miembro).
 
@@ -668,7 +664,7 @@ Registra un ingreso extra y recalcula la reserva. Lanza `ValueError` si el miemb
 wm.add_income_entry("Amanda", 150.0, "reembolso seguro")
 ```
 
-### `get_extra_income_entries() → list[IncomeEntry]` *(MONTH+)*
+### `get_extra_income_entries() → list[IncomeEntry]` _(MONTH+)_
 
 Ingresos extra registrados en el mes.
 
@@ -680,22 +676,22 @@ entries = wm.get_extra_income_entries()
 
 ## Consultas generales (cualquier fase)
 
-### `get_reserve_contribution_by_member(member: str) → int (¢)` *(PLANNING+)*
+### `get_unbudgeted_income_by_member(member: str) → int (¢)` _(PLANNING+)_
 
 La parte de `reserva` que le toca a un miembro según el método de reparto. Es el número que
 `validate_debt_doesnt_exceed_capacity()` usa como techo de su deuda, y el que aparece como
 `missing_money` en los resúmenes.
 
-### `get_saving_status(member: str) → dict` *(PLANNING+)*
+### `get_saving_status(member: str) → dict` _(PLANNING+)_
 
 Estado de ahorro de un miembro en el período: sus buckets y los totales (depositado, exigido por
 las metas). Informativo — nada aquí es una obligación.
 
-### `get_shared_buckets() → dict` *(PLANNING+)*
+### `get_shared_buckets() → dict` _(PLANNING+)_
 
 Los buckets con más de un propietario.
 
-### `set_debt_bucket_installment(bucket_id: UUID, amount_euros: float)` *(PLANNING+)*
+### `set_debt_bucket_installment(bucket_id: UUID, amount_euros: float)` _(PLANNING+)_
 
 Cambia la cuota mensual de un bucket de deuda ya declarado.
 
@@ -737,7 +733,7 @@ cats = wm.get_active_categories()  # ["fijos", "variables", "reserva"]
 
 Datos que se capturan al cerrar cada fase y no cambian después.
 
-### `get_registration_summary() → dict` *(REGISTRATION+)*
+### `get_registration_summary() → dict` _(REGISTRATION+)_
 
 Resumen del registro: miembros, ingresos por miembro y total. Valores monetarios en `¢`.
 
@@ -746,7 +742,7 @@ summary = wm.get_registration_summary()
 # {"members": [...], "member_incomes": {"amanda": 200000}, "total_household_income": 300000}
 ```
 
-### `get_incomes() → dict[str, int] (¢)` *(PLANNING+)*
+### `get_incomes() → dict[str, int] (¢)` _(PLANNING+)_
 
 Ingreso mensual de cada miembro. Mientras el período sigue abierto manda el ingreso vivo: ya no se congela al abrir, solo el acuerdo del mes se congela en `finish_planning()`.
 
@@ -754,7 +750,7 @@ Ingreso mensual de cada miembro. Mientras el período sigue abierto manda el ing
 incomes = wm.get_incomes()  # {"amanda": 200000, "heri": 100000}
 ```
 
-### `get_agreed_percentages() → dict[str, int] (basis points)` *(MONTH+)*
+### `get_agreed_percentages() → dict[str, int] (basis points)` _(MONTH+)_
 
 Porcentajes de reparto tal como quedaron congelados al cerrar la planificación.
 
@@ -762,7 +758,7 @@ Porcentajes de reparto tal como quedaron congelados al cerrar la planificación.
 pcts = wm.get_agreed_percentages()  # {"amanda": 6667, "heri": 3333}
 ```
 
-### `get_agreed_contributions() → dict (valores en ¢)` *(MONTH+)*
+### `get_agreed_contributions() → dict (valores en ¢)` _(MONTH+)_
 
 Contribuciones por categoría y miembro tal como quedaron congeladas al cerrar la planificación.
 
@@ -806,7 +802,7 @@ wm.register_member("Heri")
 wm.set_member_incomes("Heri", 1000.0)
 
 # PLANNING — presupuesto por porcentaje; reserva se autocalcula
-wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
 wm.set_budget_by_percentages({"fijos": 50.0, "variables": 30.0, "reserva": 20.0})
 
 # Desglosar el techo de fijos: las hijas reparten dentro, no se suman aparte

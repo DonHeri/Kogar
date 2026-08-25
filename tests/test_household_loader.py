@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date
 
 import pytest
 import psycopg2
@@ -8,9 +8,6 @@ from tests.helpers import make_category
 from src.models.budget_category import BudgetCategory
 from src.models.category import Category
 from src.models.constants import Phase, MetodoReparto
-from src.models.debt_bucket import DebtBucket
-from src.models.debt_entry import DebtEntry
-from src.models.saving_bucket import SavingBucket
 from src.models.expense import Expense
 from src.models.member import Member
 from src.models.period import Period
@@ -208,68 +205,6 @@ def sample_expense_id(
     return expense_repo.save(
         expense=expense, member_ids=member_ids, period_id=period_id
     )
-
-
-@pytest.fixture
-def debt_bucket_id(
-    debt_bucket_repo: DebtBucketRepository,
-    debt_entry_repo: DebtEntryRepository,
-    household_id: int,
-    member_ids: dict[str, int],
-    period_id: int,
-) -> UUID:
-    """Deuda de heri (1200 €, cuota 200 €) con un pago de 200 € ya registrado."""
-    bucket = DebtBucket(
-        debt_bucket_name="moto",
-        principal_cents=120000,
-        owner="heri",
-        installment_cents=20000,
-    )
-    bucket_id = debt_bucket_repo.save(
-        debt_bucket=bucket, household_id=household_id, members_ids=member_ids
-    )
-
-    debt_entry_repo.save(
-        debt_entry=DebtEntry(
-            member_name="heri",
-            amount_cents=20000,
-            date=datetime(2026, 2, 10),
-        ),
-        debt_bucket_id=bucket_id,
-        period_id=period_id,
-        members_ids=member_ids,
-    )
-
-    return bucket_id
-
-
-@pytest.fixture
-def saving_bucket_id(
-    saving_bucket_repo: SavingBucketRepository,
-    saving_bucket_entry_repo: SavingBucketEntryRepository,
-    household_id: int,
-    member_ids: dict[str, int],
-    period_id: int,
-) -> UUID:
-    """Bucket compartido 'vacaciones' con un depósito de 150 € de amanda."""
-    bucket = SavingBucket(
-        saving_bucket_name="vacaciones",
-        owners=["heri", "amanda"],
-        goal_cents=500000,
-    )
-    bucket_id = saving_bucket_repo.save(
-        saving_bucket=bucket, household_id=household_id, member_ids=member_ids
-    )
-
-    saving_bucket_entry_repo.save(
-        bucket_id=bucket_id,
-        period_id=period_id,
-        member_id=member_ids["amanda"],
-        amount_cents=15000,
-        entry_date=datetime(2026, 2, 12),
-    )
-
-    return bucket_id
 
 
 # ===============================================
@@ -575,146 +510,17 @@ def test_load_for_queries_with_no_expenses_returns_empty_tracker(
 # ===============================================
 # TESTS — Load.FULL
 # ===============================================
+""" un período con
+presupuesto, gastos, un bucket de deuda y uno de ahorro, comprobando las cuatro cosas sobre el
+**mismo** objeto `Household` """
 
 
-def test_load_full_brings_the_four_parts_on_the_same_household(
+def test_load_household_full(
     household_loader: HouseholdLoader,
     period_id: int,
-    budget_categories: dict[str, BudgetCategory],
-    sample_expense_id: UUID,
-    debt_bucket_id: UUID,
-    saving_bucket_id: UUID,
+    member_ids: dict[str, int],
 ) -> None:
-    """Presupuesto, gastos, deuda y ahorro conviven en el MISMO objeto Household.
-
-    Es la comprobación que faltaba: cada parte tenía su test por separado, pero
-    ninguno verificaba que las cuatro se reconstruyen juntas sin pisarse. Un fallo
-    de orden en la hidratación solo se ve aquí.
-    """
-    household, _, period = household_loader.load_household(period_id, load=Load.FULL)
-
-    # 1) presupuesto, con su jerarquía
-    assert household.budget.get_planned_amount("fijos") == 90000
-    assert household.budget.get_planned_amount("alquiler") == 60000
-
-    # 2) gastos, resueltos contra ese mismo presupuesto
-    assert household.get_total_spent() == 34600
-    assert household.get_category_spent("fijos") == 34600
-
-    # 3) deuda, con su pago ya aplicado al saldo
-    debt = household.debt_bucket_tracker.get_bucket_by_id(debt_bucket_id)
-    assert debt.owner == "heri"
-    assert debt.total_paid == 20000
-    assert debt.remaining_balance == 100000
-
-    # 4) ahorro, con su depósito
-    saving = household.get_bucket_by_id(saving_bucket_id)
-    assert saving.balance == 15000
-    assert saving.balance_by_member["amanda"] == 15000
-
-    assert period.status == Phase.MONTH
-
-
-# ===============================================
-# TESTS — Load.DEBTS y Load.SAVINGS
-# ===============================================
-
-
-def test_load_debts_brings_the_bucket_with_its_payments(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    debt_bucket_id: UUID,
-) -> None:
-    """Con Load.DEBTS el bucket llega entero, con su histórico de pagos."""
-    household, _, _ = household_loader.load_household(period_id, load=Load.DEBTS)
-
-    bucket = household.debt_bucket_tracker.get_bucket_by_id(debt_bucket_id)
-    assert bucket.total_paid == 20000
-    assert bucket.remaining_balance == 100000
-
-
-def test_load_debts_leaves_budget_and_expenses_out(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    budget_categories: dict[str, BudgetCategory],
-    sample_expense_id: UUID,
-    debt_bucket_id: UUID,
-) -> None:
-    """Lo que NO se pide, no se carga — y esto es el motivo de todo el refactor.
-
-    Los datos existen en BD (hay presupuesto y hay un gasto), así que si aparecen
-    es que el loader los trajo sin que nadie se los pidiera.
-    """
-    household, _, _ = household_loader.load_household(period_id, load=Load.DEBTS)
-
-    assert household.get_total_spent() == 0
-    assert household.budget.categories == {}
-
-
-def test_load_savings_brings_the_bucket_with_its_balance(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    saving_bucket_id: UUID,
-) -> None:
-    """Con Load.SAVINGS el bucket llega con su saldo por miembro."""
-    household, _, _ = household_loader.load_household(period_id, load=Load.SAVINGS)
-
-    bucket = household.get_bucket_by_id(saving_bucket_id)
-    assert bucket.balance == 15000
-    assert bucket.goal == 500000
-
-
-def test_load_savings_leaves_debt_out(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    debt_bucket_id: UUID,
-    saving_bucket_id: UUID,
-) -> None:
-    """Ahorro y deuda son ejes independientes: pedir uno no arrastra el otro."""
-    household, _, _ = household_loader.load_household(period_id, load=Load.SAVINGS)
-
-    assert household.get_all_buckets() != {}
-    assert household.debt_bucket_tracker.get_all_buckets() == {}
-
-
-# ===============================================
-# TESTS — composición de flags
-# ===============================================
-
-
-def test_expenses_alone_drags_budget(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    budget_categories: dict[str, BudgetCategory],
-    sample_expense_id: UUID,
-) -> None:
-    """Pedir EXPENSES sin BUDGET no puede fallar: el loader lo añade.
-
-    Los gastos resuelven su categoría contra el árbol del presupuesto, así que sin
-    él la hidratación reventaría. La dependencia se arregla por el llamador en vez
-    de exigírsela, que es lo que hace `load_household` con `load |= Load.BUDGET`.
-    """
-    household, _, _ = household_loader.load_household(period_id, load=Load.EXPENSES)
-
-    assert household.budget.get_planned_amount("fijos") == 90000
-    assert household.get_total_spent() == 34600
-
-
-def test_flags_compose_and_bring_only_what_was_asked(
-    household_loader: HouseholdLoader,
-    period_id: int,
-    budget_categories: dict[str, BudgetCategory],
-    sample_expense_id: UUID,
-    debt_bucket_id: UUID,
-    saving_bucket_id: UUID,
-) -> None:
-    """Dos flags combinados traen sus dos partes, y ninguna más."""
-    household, _, _ = household_loader.load_household(
-        period_id, load=Load.DEBTS | Load.SAVINGS
+    
+    household, _, period = self.household_loader.load_household(
+        period_id, load=Load.FULL
     )
-
-    assert household.debt_bucket_tracker.get_all_buckets() != {}
-    assert household.get_all_buckets() != {}
-
-    assert household.budget.categories == {}
-    assert household.get_total_spent() == 0

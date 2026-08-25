@@ -49,8 +49,6 @@ class HouseholdService:
         Raises:
             ValueError: si el nombre ya está registrado en el hogar
         """
-        self._validate_members_editable(household_id=household_id)
-
         household, _ = self.household_loader.load_members_only(
             household_id=household_id
         )
@@ -75,8 +73,6 @@ class HouseholdService:
         Raises:
             ValueError: si el miembro no existe en el hogar
         """
-        self._validate_members_editable(household_id=household_id)
-
         household, member_ids = self.household_loader.load_members_only(
             household_id=household_id
         )
@@ -89,26 +85,4 @@ class HouseholdService:
         self.member_repo.change_incomes(
             new_incomes_cents=amount_cents, member_id=member_id
         )
-
-    # ====== VALIDATORS ======
-    def _validate_members_editable(self, household_id: int) -> None:
-        """Miembros e ingresos solo se tocan mientras el plan sigue abierto.
-
-        finish_planning congela las contribuciones acordadas contra los ingresos
-        de ese momento. Cambiarlos después deja el acuerdo persistido apuntando a
-        números que ya no existen, y el settlement sale con datos viejos.
-
-        Sin período abierto no hay acuerdo que romper, así que se permite: es el
-        caso de dar de alta el hogar antes del primer start_new_month.
-
-        Raises:
-            ValueError: si el período en curso ya pasó de PLANNING
-        """
-        period = self.period_repo.get_current(household_id=household_id)
-
-        if period and period.status != Phase.PLANNING:
-            raise ValueError(
-                f"Miembros e ingresos solo se modifican en fase {Phase.PLANNING.value}. "
-                f"Fase actual: {period.status.value}"
-            )
 

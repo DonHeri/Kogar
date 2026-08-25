@@ -2,12 +2,12 @@ import pytest
 
 from src.models.budget import Budget
 from src.models.constants import MetodoReparto
-from src.models.debt_bucket_tracker import DebtBucketTracker
+from src.models.archivo.debt_tracker import DebtTracker
 from src.models.expense_tracker import ExpenseTracker
 from src.models.finance_calculator import FinanceCalculator
 from src.models.household import Household
 from src.models.member import Member
-from src.models.saving_bucket_tracker import SavingBucketTracker
+from src.models.saving_tracker import SavingTracker
 from src.workflow.budget_distribution_service import BudgetDistributionService
 
 
@@ -21,41 +21,38 @@ def _set_budget(hh, category, amount):
 
 
 @pytest.fixture
-def incomes_map() -> dict[str, int]:
+def incomes_map():
     return {"Member1": 200000, "Member2": 100000}
 
 
 @pytest.fixture
-def member_zero_income() -> dict[str, int]:
+def member_zero_income():
     return {"no_incomes": 0}
 
 
 @pytest.fixture
-def incomes_list() -> list[int]:
+def incomes_list():
     return [200000, 100000]
 
 
 @pytest.fixture
-def incomes_map_equal() -> dict[str, int]:
+def incomes_map_equal():
     return {"Member1": 1, "Member2": 1}
 
 
 @pytest.fixture
-def percentages_66_33() -> dict[str, int]:
+def percentages_66_33():
     return {"Member1": 6667, "Member2": 3333}
 
 
 @pytest.fixture
-def household_base() -> Household:
+def household_base():
     b = Budget()
     e = ExpenseTracker()
-    s = SavingBucketTracker()
+    s = SavingTracker()
     b.set_standard_categories()
     return Household(
-        budget=b,
-        expense_tracker=e,
-        saving_bucket_tracker=s,
-        debt_bucket_tracker=DebtBucketTracker(),
+        budget=b, expense_tracker=e, saving_tracker=s, debt_bucket_tracker=DebtTracker()
     )
 
 
@@ -64,11 +61,11 @@ def household_base() -> Household:
 # ====================================================
 
 
-def test_sum_total_incomes(incomes_list: list[int]) -> None:
+def test_sum_total_incomes(incomes_list):
     assert FinanceCalculator.sum_values(incomes_list) == 300000
 
 
-def test_sum_empty_list_returns_zero() -> None:
+def test_sum_empty_list_returns_zero():
     assert FinanceCalculator.sum_values([]) == 0
 
 
@@ -77,7 +74,7 @@ def test_sum_empty_list_returns_zero() -> None:
 # ====================================================
 
 
-def test_calculate_percentage_proportional_values(incomes_map: dict[str, int]) -> None:
+def test_calculate_percentage_proportional_values(incomes_map):
     percentages = FinanceCalculator.calculate_percentage_based_on_weight_of_income(
         incomes_map
     )
@@ -85,41 +82,35 @@ def test_calculate_percentage_proportional_values(incomes_map: dict[str, int]) -
     assert percentages["Member2"] == 3333
 
 
-def test_calculate_percentage_proportional_sums_to_10000(
-    incomes_map: dict[str, int],
-) -> None:
+def test_calculate_percentage_proportional_sums_to_10000(incomes_map):
     percentages = FinanceCalculator.calculate_percentage_based_on_weight_of_income(
         incomes_map
     )
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_percentage_proportional_remainder_goes_to_max(
-    incomes_map: dict[str, int],
-) -> None:
+def test_calculate_percentage_proportional_remainder_goes_to_max(incomes_map):
     percentages = FinanceCalculator.calculate_percentage_based_on_weight_of_income(
         incomes_map
     )
     assert percentages["Member1"] >= 6666
 
 
-def test_calculate_percentage_proportional_raises_on_zero_total(
-    member_zero_income: dict[str, int],
-) -> None:
+def test_calculate_percentage_proportional_raises_on_zero_total(member_zero_income):
     with pytest.raises(ValueError, match="Total de ingresos debe ser superior a 0"):
         FinanceCalculator.calculate_percentage_based_on_weight_of_income(
             member_zero_income
         )
 
 
-def test_calculate_percentage_proportional_raises_on_all_zeros() -> None:
+def test_calculate_percentage_proportional_raises_on_all_zeros():
     with pytest.raises(ValueError, match="Total de ingresos debe ser superior a 0"):
         FinanceCalculator.calculate_percentage_based_on_weight_of_income(
             {"Member1": 0, "Member2": 0}
         )
 
 
-def test_calculate_percentage_proportional_equal_incomes() -> None:
+def test_calculate_percentage_proportional_equal_incomes():
     percentages = FinanceCalculator.calculate_percentage_based_on_weight_of_income(
         {"Member1": 100000, "Member2": 100000}
     )
@@ -128,7 +119,7 @@ def test_calculate_percentage_proportional_equal_incomes() -> None:
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_percentage_proportional_three_members() -> None:
+def test_calculate_percentage_proportional_three_members():
     income_map = {"A": 500000, "B": 300000, "C": 200000}
     percentages = FinanceCalculator.calculate_percentage_based_on_weight_of_income(
         income_map
@@ -144,21 +135,21 @@ def test_calculate_percentage_proportional_three_members() -> None:
 # ====================================================
 
 
-def test_calculate_equal_percentage_two_members() -> None:
+def test_calculate_equal_percentage_two_members():
     members = {"Member1": 200000, "Member2": 100000}
     percentages = FinanceCalculator.calculate_equal_percentage(members)
     assert percentages["Member1"] == 5000
     assert percentages["Member2"] == 5000
 
 
-def test_calculate_equal_percentage_sums_to_10000_two_members() -> None:
+def test_calculate_equal_percentage_sums_to_10000_two_members():
     percentages = FinanceCalculator.calculate_equal_percentage(
         {"Member1": 200000, "Member2": 100000}
     )
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_equal_percentage_three_members() -> None:
+def test_calculate_equal_percentage_three_members():
     members = {"A": 300000, "B": 200000, "C": 100000}
     percentages = FinanceCalculator.calculate_equal_percentage(members)
     assert percentages["A"] == 3334
@@ -167,21 +158,21 @@ def test_calculate_equal_percentage_three_members() -> None:
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_equal_percentage_sums_to_10000_three_members() -> None:
+def test_calculate_equal_percentage_sums_to_10000_three_members():
     percentages = FinanceCalculator.calculate_equal_percentage(
         {"A": 300000, "B": 200000, "C": 100000}
     )
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_equal_percentage_remainder_goes_to_max_income() -> None:
+def test_calculate_equal_percentage_remainder_goes_to_max_income():
     members = {"A": 100000, "B": 200000, "C": 300000}
     percentages = FinanceCalculator.calculate_equal_percentage(members)
     assert percentages["A"] == 3334
     assert sum(percentages.values()) == 10000
 
 
-def test_calculate_equal_percentage_ignores_income_for_base_split() -> None:
+def test_calculate_equal_percentage_ignores_income_for_base_split():
     members = {"Rich": 1000000, "Poor": 10000}
     percentages = FinanceCalculator.calculate_equal_percentage(members)
     assert percentages["Rich"] == 5000
@@ -193,7 +184,7 @@ def test_calculate_equal_percentage_ignores_income_for_base_split() -> None:
 # ====================================================
 
 
-def test_calculate_contribution_from_custom_splits_raises_if_mismatch() -> None:
+def test_calculate_contribution_from_custom_splits_raises_if_mismatch():
     """Test: Lanza error de seguridad si el total repartido no coincide con el presupuesto"""
     # Pasando un diccionario vacío forzamos que reparta 0 céntimos de un budget de 1000
     with pytest.raises(
@@ -203,7 +194,7 @@ def test_calculate_contribution_from_custom_splits_raises_if_mismatch() -> None:
         FinanceCalculator.calculate_contribution_from_custom_splits({}, 1000)
 
 
-def test_calculate_contribution_basic_67_33(percentages_66_33: dict[str, int]) -> None:
+def test_calculate_contribution_basic_67_33(percentages_66_33):
     budget = 90000
     contributions = FinanceCalculator.calculate_contribution_from_custom_splits(
         percentages_66_33, budget
@@ -213,7 +204,7 @@ def test_calculate_contribution_basic_67_33(percentages_66_33: dict[str, int]) -
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_equal_split(incomes_map_equal: dict[str, int]) -> None:
+def test_calculate_contribution_equal_split(incomes_map_equal):
     budget = 100000
     contributions = FinanceCalculator.calculate_contribution_from_incomes(
         incomes_map_equal, budget
@@ -223,7 +214,7 @@ def test_calculate_contribution_equal_split(incomes_map_equal: dict[str, int]) -
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_small_budget(percentages_66_33: dict[str, int]) -> None:
+def test_calculate_contribution_small_budget(percentages_66_33):
     budget = 100
     contributions = FinanceCalculator.calculate_contribution_from_custom_splits(
         percentages_66_33, budget
@@ -233,7 +224,7 @@ def test_calculate_contribution_small_budget(percentages_66_33: dict[str, int]) 
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_zero_budget() -> None:
+def test_calculate_contribution_zero_budget():
     contributions = FinanceCalculator.calculate_contribution_from_incomes(
         {"Member1": 5000, "Member2": 5000}, 0
     )
@@ -243,8 +234,8 @@ def test_calculate_contribution_zero_budget() -> None:
 
 
 def test_calculate_contribution_remainder_distributed_by_largest_truncation_loss(
-    percentages_66_33: dict[str, int],
-) -> None:
+    percentages_66_33,
+):
     """El sobrante va al miembro con mayor pérdida por truncamiento, no siempre al de mayor porcentaje"""
     budget = 100
     contributions = FinanceCalculator.calculate_contribution_from_custom_splits(
@@ -253,7 +244,7 @@ def test_calculate_contribution_remainder_distributed_by_largest_truncation_loss
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_three_members() -> None:
+def test_calculate_contribution_three_members():
     income_map = {"A": 500000, "B": 300000, "C": 200000}
     budget = 100000
     contributions = FinanceCalculator.calculate_contribution_from_incomes(
@@ -265,9 +256,7 @@ def test_calculate_contribution_three_members() -> None:
     assert sum(contributions.values()) == budget
 
 
-def test_calculate_contribution_totals_always_match_budget(
-    incomes_map: dict[str, int],
-) -> None:
+def test_calculate_contribution_totals_always_match_budget(incomes_map):
     for budget in [90000, 300000, 500000, 1000000]:
         contributions = FinanceCalculator.calculate_contribution_from_incomes(
             incomes_map, budget
@@ -280,7 +269,7 @@ def test_calculate_contribution_totals_always_match_budget(
 # ====================================================
 
 
-def test_edge_case_proportional_2_to_1_full_budget(household_base: Household) -> None:
+def test_edge_case_proportional_2_to_1_full_budget(household_base):
     """Presupuesto 100% con ratio 2:1 — ningún miembro excede su ingreso"""
     m1 = Member("amanda")
     m2 = Member("heri")
@@ -288,7 +277,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base: Household) ->
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.prepare_period()
+    household_base.freeze_registration_state()
 
     _set_budget(household_base, "fijos", 150000)
     _set_budget(household_base, "variables", 90000)
@@ -314,7 +303,7 @@ def test_edge_case_proportional_2_to_1_full_budget(household_base: Household) ->
     assert amanda_total + heri_total == 300000
 
 
-def test_edge_case_extreme_imbalance_99_to_1(household_base: Household) -> None:
+def test_edge_case_extreme_imbalance_99_to_1(household_base):
     """Ratio 99:1 con 5 categorías — caso extremo de acumulación"""
     m1 = Member("amanda")
     m2 = Member("heri")
@@ -322,7 +311,7 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base: Household) -> None:
     m2.monthly_income = 3000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.prepare_period()
+    household_base.freeze_registration_state()
 
     for i in range(1, 6):
         household_base.add_category(f"categoria{i}")
@@ -336,14 +325,14 @@ def test_edge_case_extreme_imbalance_99_to_1(household_base: Household) -> None:
     assert amanda_total <= 297000, f"Amanda excede: {amanda_total - 297000}¢"
 
 
-def test_edge_case_five_members_equal_split(household_base: Household) -> None:
+def test_edge_case_five_members_equal_split(household_base):
     """5 miembros con EQUAL — ninguno excede su ingreso"""
     for i in range(1, 6):
         m = Member(f"miembro{i}")
         m.monthly_income = 60000
         household_base.register_member(m)
 
-    household_base.prepare_period()
+    household_base.freeze_registration_state()
     household_base.assign_distribution_method(MetodoReparto.EQUAL)
 
     _set_budget(household_base, "fijos", 150000)
@@ -363,7 +352,7 @@ def test_edge_case_five_members_equal_split(household_base: Household) -> None:
         assert actual == expected, f"{cat_name}: {actual}¢ != {expected}¢"
 
 
-def test_edge_case_one_cent_per_category(household_base: Household) -> None:
+def test_edge_case_one_cent_per_category(household_base):
     """Presupuesto de 1 céntimo por categoría — no debe romperse"""
     m1 = Member("amanda")
     m2 = Member("heri")
@@ -371,7 +360,7 @@ def test_edge_case_one_cent_per_category(household_base: Household) -> None:
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.prepare_period()
+    household_base.freeze_registration_state()
 
     _set_budget(household_base, "fijos", 1)
     _set_budget(household_base, "variables", 1)
@@ -385,9 +374,7 @@ def test_edge_case_one_cent_per_category(household_base: Household) -> None:
         assert actual == expected, f"{cat_name}: expected {expected}¢, got {actual}¢"
 
 
-def test_edge_case_ten_categories_accumulate_remainders(
-    household_base: Household,
-) -> None:
+def test_edge_case_ten_categories_accumulate_remainders(household_base):
     """10 categorías — la acumulación de restos no excede el ingreso"""
     m1 = Member("amanda")
     m2 = Member("heri")
@@ -395,7 +382,7 @@ def test_edge_case_ten_categories_accumulate_remainders(
     m2.monthly_income = 100000
     household_base.register_member(m1)
     household_base.register_member(m2)
-    household_base.prepare_period()
+    household_base.freeze_registration_state()
 
     for i in range(1, 11):
         household_base.add_category(f"categoria{i}")
@@ -414,7 +401,7 @@ def test_edge_case_ten_categories_accumulate_remainders(
 # ====================================================
 
 
-def test_calculate_budget_from_percentages_largest_remainder() -> None:
+def test_calculate_budget_from_percentages_largest_remainder():
     """Largest remainder garantiza sum(budgets) == total_incomes sin perder céntimos"""
     # 100001 céntimos no se divide exactamente en 50/30/20
     # Sin largest remainder: 50000+30000+20000 = 100000 (falta 1¢)
@@ -430,7 +417,7 @@ def test_calculate_budget_from_percentages_largest_remainder() -> None:
     assert sum(budgets.values()) == 100001
 
 
-def test_calculate_budget_from_percentages_validates_sum_10000() -> None:
+def test_calculate_budget_from_percentages_validates_sum_10000():
     """Lanza ValueError si los porcentajes no suman 10000"""
     with pytest.raises(ValueError, match="10000"):
         FinanceCalculator.calculate_budget_from_percentages(

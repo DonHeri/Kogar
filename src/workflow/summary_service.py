@@ -27,7 +27,7 @@ class SummaryService:
         total_budgeted = household.get_total_budgeted()
 
         missing_money_by_member = {
-            name: household.get_reserve_contribution_by_member(name) for name in members
+            name: household.get_unbudgeted_income_by_member(name) for name in members
         }
         missing_money = sum(missing_money_by_member.values())
 
@@ -157,7 +157,7 @@ class SummaryService:
         total_budgeted = household.get_total_budgeted()
 
         missing_money_by_member = {
-            member: household.get_reserve_contribution_by_member(member)
+            member: household.get_unbudgeted_income_by_member(member)
             for member in members
         }
         missing_money = sum(missing_money_by_member.values())

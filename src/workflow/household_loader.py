@@ -76,33 +76,8 @@ class HouseholdLoader:
         self._saving_bucket_entry_repository = saving_bucket_entry_repository
 
     # ============================================================
-    # recetas públicas
-    #
-    # Son dos, y responden a preguntas distintas: `load_household` reconstruye el
-    # hogar **dentro de un período** y el llamador compone la profundidad con
-    # flags; `load_members_only` lo reconstruye **sin período**, para las
-    # operaciones del hogar que ocurren antes de que exista ninguno.
+    # única receta pública: el llamador compone la profundidad
     # ============================================================
-
-    def load_members_only(
-        self, household_id: int, period: Period | None = None
-    ) -> tuple[Household, dict[str, int]]:
-        """El hogar con sus miembros y nada más. No necesita período.
-
-        No se puede expresar con `Load`, y por eso sigue siendo un método aparte:
-        registrar un miembro o fijar su ingreso son operaciones **del hogar**, y
-        ocurren antes de que exista un período al que pedirle nada. `HouseholdService`
-        las usa así.
-
-        `period` es opcional porque solo sirve para que el Household nazca con el
-        método de reparto correcto; sin él cae al default de `_build_base`.
-        """
-        household = self._build_base(period=period)
-
-        member_rows = self._member_repo.list_members(household_id)
-        member_ids = self._hydrate_members(household=household, members=member_rows)
-
-        return (household, member_ids)
 
     def load_household(
         self, period_id: int, load: Load = Load.FULL
@@ -130,9 +105,9 @@ class HouseholdLoader:
         period = self._require_period(period_id)
         household_id = period.household_id
 
-        household, member_ids = self.load_members_only(
-            household_id=household_id, period=period
-        )
+        household = self._build_base(period=period)
+        member_rows = self._member_repo.list_members(household_id)
+        member_ids = self._hydrate_members(household=household, members=member_rows)
 
         # ---- presupuesto, splits y acuerdo congelado ----
         if Load.BUDGET in load:

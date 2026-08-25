@@ -93,6 +93,12 @@ with DatabaseConnection(
     wm.register_member("Heri")
     wm.set_member_incomes("Heri", 1124.50)
 
+    # Después de los miembros: una categoría raíz nace con sus participantes,
+    # así que ya no puede crearse con el hogar todavía vacío
+    #wm.household.set_standard_categories()
+    # TODO Construir cada categoría raíz
+    
+
     print(f"Amanda: {to_euros(wm.get_member_income('amanda'))}")
     print(f"Heri:   {to_euros(wm.get_member_income('heri'))}")
     print(f"Total:  {to_euros(wm.get_total_incomes())}")
@@ -137,7 +143,7 @@ with DatabaseConnection(
     print(f"  {'TECHO':<14} {to_euros(wm.get_category_budget('fijos')):>10}")
 
     # --- Método de reparto ---
-    wm.assign_distribution_method(MetodoReparto.PROPORTIONAL)
+    wm.set_distribution_method(MetodoReparto.PROPORTIONAL)
     print("\nMétodo de reparto: PROPORCIONAL")
 
     # --- Contribuciones por categoría ---
@@ -300,7 +306,7 @@ with DatabaseConnection(
     # Colchón de Heri (sin meta): deposita el excedente discrecional tras deuda —
     # su parte de reserva menos la cuota de deuda. Nadie se lo exige, es su elección.
     disponible_heri = to_euros_float(
-        wm.get_reserve_contribution_by_member("heri")
+        wm.get_unbudgeted_income_by_member("heri")
     ) - to_euros_float(wm.get_debt_status("heri")["totals"]["committed"])
     wm.deposit_to_saving_bucket(
         bucket_id=colchon_heri_id, member="heri", amount_euros=disponible_heri

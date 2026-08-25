@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE bucket_owners (
-            bucket_id UUID NOT NULL REFERENCES saving_buckets(id),
+            bucket_id INTEGER NOT NULL REFERENCES saving_buckets(id),
             member_id INTEGER NOT NULL REFERENCES members(id),
             PRIMARY KEY (bucket_id, member_id)
         );

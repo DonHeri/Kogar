@@ -57,6 +57,7 @@ class Household:
             raise ValueError(f"{name} no existe en el hogar")
 
         self.members[name].set_income(amount_cents)
+        self.budget.recalculate_percentage_categories(self.get_incomes())
 
     def prepare_period(self):
         """Deja el hogar listo para planificar: buckets personales y categorías base.
@@ -66,8 +67,8 @@ class Household:
         """
         self._create_personal_saving_bucket_for_members()
 
-        if not self.budget.categories:
-            self.budget.set_standard_categories()
+        if self.members and not self.budget.categories:
+            self.budget.set_standard_categories(self.get_member_names())
 
     def _create_personal_saving_bucket(self, name: str) -> None:
         """Crea el bucket de ahorro personal de un miembro si aún no lo tiene."""
@@ -88,9 +89,50 @@ class Household:
 
     # ====== PLANNING — CATEGORIES ======
 
-    def add_category(self, name: str, parent: str | None = None):
-        """Agrega categoría y la propaga a Budget"""
-        self.budget.add_category(name, parent=parent)
+    def add_category(
+        self,
+        name: str,
+        participants: list[str] | None = None,
+        parent: str | None = None,
+        method: MetodoReparto | None = None,
+        custom_splits: dict[str, int] | None = None,
+    ):
+        """Agrega categoría y la propaga a Budget.
+
+        En una hija, `participants=None` hereda los del padre. Es el único caso
+        en que puede faltar: una raíz no tiene de quién heredar.
+        """
+        participants_normalized = self._validate_participants_are_members(participants)
+
+        if method is None:
+            method = self.method
+
+        self.budget.add_category(
+            name,
+            participants=participants_normalized,
+            parent=parent,
+            method=method,
+            custom_splits=custom_splits,
+        )
+
+    def _validate_participants_are_members(
+        self, participants: list[str] | None
+    ) -> list[str] | None:
+        """Valida que cada participante viva en el hogar.
+
+        Budget no puede comprobarlo: no conoce a los miembros. Sin esto, una
+        categoría reparte entre alguien que no existe y el reparto revienta
+        más tarde, lejos de donde se declaró el error.
+        """
+        if participants is None:
+            return
+
+        participants_normalized: list[str] = []
+        for name in participants:
+            normalized = normalize_name(name)
+            self.validate_member_exist(normalized)
+            participants_normalized.append(normalized)
+        return participants_normalized
 
     def remove_category(self, name: str):
         """Elimina una categoría y resuelve el destino de sus gastos.
@@ -122,11 +164,26 @@ class Household:
             expense.category = destination
 
     def set_standard_categories(self):
-        self.budget.set_standard_categories()
+        """Categorías estándar con todo el hogar dentro. Muere en P5."""
+        self.budget.set_standard_categories(self.get_member_names())
+
+    # ====== PLANNING — BUDGET ======
+
+    def set_planned_percentage(self, category: str, percentage: int) -> None:
+        """Declara el techo de una categoría como % del ingreso de sus propios
+        participantes, no del total del hogar. Se resuelve aquí y no en Budget,
+        porque Budget no conoce ingresos — Household es quien tiene los dos
+        datos a la vez.
+        """
+        participants = self.budget.get_budget_category(category).participants
+        incomes = self.get_incomes()
+        participants_income = sum(incomes[name] for name in participants)
+        resolved_amount_cents = participants_income * percentage // 10000
+        self.budget.set_planned_percentage(category, percentage, resolved_amount_cents)
 
     # ====== PLANNING — DISTRIBUTION ======
 
-    def assign_distribution_method(self, method: MetodoReparto):
+    def set_distribution_method(self, method: MetodoReparto):
         """Establece método de reparto"""
         self.method = method
 
@@ -154,17 +211,17 @@ class Household:
         return self._custom_splits
 
     def validate_debt_doesnt_exceed_capacity(self):
-        """Valida que la deuda (obligación real) de cada miembro no supere su
-        parte de reserva. El ahorro NO se valida aquí — es elección, no obligación."""
+        """Valida que la deuda (obligación real) de cada miembro no supere lo que
+        le queda sin presupuestar. El ahorro NO se valida aquí — es elección, no obligación."""
         for member in self.members:
-            reserve_capacity = self.get_reserve_contribution_by_member(member)
+            unbudgeted = self.get_unbudgeted_income_by_member(member)
             debt = self.debt_bucket_tracker.total_expected_installment_by_member(
                 member_name=member
             )
-            if debt > reserve_capacity:
+            if debt > unbudgeted:
                 raise ValueError(
-                    f"La deuda ({debt}¢) de {member} supera su "
-                    f"parte de reserva ({reserve_capacity}¢)"
+                    f"La deuda ({debt}¢) de {member} supera lo que le queda "
+                    f"sin presupuestar ({unbudgeted}¢)"
                 )
 
     def freeze_planning_state(self):
@@ -328,6 +385,10 @@ class Household:
         self._income_entries = list()
 
     # ====== QUERIES — MIEMBROS ======
+    def get_member_income(self, name: str) -> int:
+        """Ingreso mensual vivo de un miembro (céntimos)"""
+        self.validate_member_exist(name)
+        return self.members[name].monthly_income
 
     def get_member_names(self) -> list[str]:
         """Devuelve los nombres de miembros registrados en el núcleo familiar"""
@@ -339,6 +400,8 @@ class Household:
 
     # ====== QUERIES — PLANNING ======
 
+    # --- Categorías y árbol ---
+
     def get_budget_categories(self) -> dict[str, BudgetCategory]:
         """Retorna todas las categoría con presupuesto activas"""
         return self.budget.get_budget_categories()
@@ -347,9 +410,23 @@ class Household:
         """Lista categorías activas"""
         return self.budget.get_category_names()
 
+    def get_children(self, category_name: str) -> list[str]:
+        """Obtiene nombres de categorías hijas de una categoría padre"""
+        return self.budget.get_children(category_name)
+
+    def get_root_categories(self) -> list[str]:
+        """Obtiene nombres de categorías raíz (sin padre)"""
+        return self.budget.get_root_categories()
+
     def get_category_planned_amount(self, category: str) -> int:
         """Obtiene presupuesto asignado a una categoría"""
         return self.budget.get_planned_amount(category)
+
+    def get_category_billable(self, category_name: str) -> int:
+        """Obtiene el monto billable de una categoría (planificado - planificado de hijas)"""
+        return self.budget.get_category_billable(category_name=category_name)
+
+    # --- Ingresos ---
 
     def get_total_incomes(self):
         """Calcula el ingreso total mensual del hogar.
@@ -370,18 +447,6 @@ class Household:
         """Obtiene total presupuestado (cents)"""
         return self.budget.get_total_budgeted()
 
-    def get_reserve_contribution_by_member(self, name: str) -> int:
-        """Obtiene cuánto le corresponde a un miembro de la categoría auto-calculada (reserva) según el método activo"""
-        name = normalize_name(name)
-        self.validate_member_exist(name)
-        auto_cat = self.budget.get_auto_calculated_category()
-        contributions = (
-            self.get_current_contributions()
-            .get(auto_cat.name, {})
-            .get("contributions", {})
-        )
-        return contributions.get(name, 0)
-
     def get_budget_as_percentage(self, category: str):
         """
         Retorna qué % del ingreso total representa el presupuesto de la categoría.
@@ -395,6 +460,8 @@ class Household:
         total = self.get_total_incomes()
         pct_basis = (category_budget * 10000) // total
         return pct_basis
+
+    # --- Método de reparto ---
 
     def get_percentages_by_method(self, method: MetodoReparto):
         """Calcula el porcentaje de reparto sobre los ingresos vivos"""
@@ -464,9 +531,56 @@ class Household:
             {name: source[name] for name in participants}
         )
 
-    def preview_budget_contribution_summary(self, method: MetodoReparto) -> dict:
+    # --- Contribuciones ---
+
+    def get_contribution(
+        self,
+        category_name: str,
+        method: MetodoReparto | None = None,
+        custom_splits: dict[str, int] | None = None,
+    ) -> dict[str, int]:
         """
-        Calcula contribuciones por categoría con método de reparto inyectado.
+        Calcula la contribución para un presupuesto.
+        Devuelve un dict[member_name:contribution]
+        """
+        self.validate_category_exist(category=category_name)
+        budget_category = self.budget.get_budget_category(name=category_name)
+        participants = budget_category.participants
+        if method is None:
+            method = budget_category.method or self.method
+
+        billable = self.budget.get_category_billable(category_name=category_name)
+
+        if method == MetodoReparto.CUSTOM:
+            source = (
+                custom_splits
+                or budget_category.custom_splits
+                or self.get_percentages_by_method(MetodoReparto.CUSTOM)
+            )
+            return FinanceCalculator.calculate_contribution_from_custom_splits(
+                source, billable
+            )
+
+        if method == MetodoReparto.EQUAL:
+            weight_map = {name: 1 for name in participants}
+        else:
+            incomes = self.get_incomes()
+            missing = [name for name in participants if name not in incomes]
+            if missing:
+                raise ValueError(
+                    f"Participantes que no son miembros del hogar: {sorted(missing)}"
+                )
+            weight_map = {name: incomes[name] for name in participants}
+
+        return FinanceCalculator.calculate_contribution_from_incomes(
+            weight_map, billable
+        )
+
+    def get_current_contributions(self) -> dict:
+        """
+        Calcula contribuciones para cada categoría.
+        Utiliza el método propio de la categoría, o el método de reparto
+        del núcleo para categorías con method = None.
 
         Returns:
             dict: Por cada categoría:
@@ -474,33 +588,15 @@ class Household:
                 - contributions: {nombre_miembro: contribución (céntimos)}
                 - total_assigned: suma de contributions
         """
-        income_map = self.get_incomes()
 
         summary = {}
         billable = {}
 
-        for cat_name, category in self.budget.categories.items():
+        for cat_name, _ in self.budget.get_budget_categories().items():
             billable[cat_name] = self.budget.get_category_billable(
                 category_name=cat_name
             )
-
-            if method == MetodoReparto.CUSTOM:
-                contributions = (
-                    FinanceCalculator.calculate_contribution_from_custom_splits(
-                        self._custom_splits, billable[cat_name]
-                    )
-                )
-
-            elif method == MetodoReparto.EQUAL:
-                equal_income_map = {name: 1 for name in income_map}
-                contributions = FinanceCalculator.calculate_contribution_from_incomes(
-                    equal_income_map, billable[cat_name]
-                )
-
-            else:
-                contributions = FinanceCalculator.calculate_contribution_from_incomes(
-                    income_map, billable[cat_name]
-                )
+            contributions = self.get_contribution(category_name=cat_name)
 
             summary[cat_name] = {
                 "planned": billable[cat_name],
@@ -510,22 +606,6 @@ class Household:
 
         return summary
 
-    def get_category_billable(self, category_name: str) -> int:
-        """Obtiene el monto billable de una categoría (planificado - planificado de hijas)"""
-        return self.budget.get_category_billable(category_name=category_name)
-
-    def get_children(self, category_name: str) -> list[str]:
-        """Obtiene nombres de categorías hijas de una categoría padre"""
-        return self.budget.get_children(category_name)
-
-    def get_root_categories(self) -> list[str]:
-        """Obtiene nombres de categorías raíz (sin padre)"""
-        return self.budget.get_root_categories()
-
-    def get_current_contributions(self) -> dict:
-        """Obtiene contribuciones usando el método ya configurado (self.method)"""
-        return self.preview_budget_contribution_summary(self.method)
-
     def get_contributions_by_category(self) -> dict[str, dict[str, int]]:
         """El reparto vigente en su forma mínima: {categoría: {miembro: céntimos}}.
 
@@ -534,21 +614,71 @@ class Household:
         segundo es la suma de la fila, y dos copias del mismo dato se descuadran.
         """
         return {
-            category: dict(data["contributions"])
-            for category, data in self.get_current_contributions().items()
+            cat: self.get_contribution(cat) for cat in self.budget.get_category_names()
         }
+
+    def preview_with_forced_method(
+        self, method: MetodoReparto, custom_splits: dict[str, int] | None = None
+    ) -> dict[str, dict[str, int]]:
+        """Cómo quedaría el reparto si TODAS las categorías usaran `method`,
+        sin tocar el método propio de ninguna. Solo lectura: no muta nada."""
+        return {
+            cat: self.get_contribution(cat, method=method, custom_splits=custom_splits)
+            for cat in self.budget.get_category_names()
+        }
+
+    def apply_method_to_all_categories(self, method: MetodoReparto) -> None:
+        """Aplica `method` a cada categoría existente, sobrescribiendo la suya.
+
+        A diferencia de `preview_with_forced_method`, esto muta de verdad.
+        Reutiliza la validación que ya vive en Budget/BudgetCategory categoría
+        por categoría — una CUSTOM sin splits propios lanza igual que ya hacía.
+        """
+        for cat_name in self.budget.get_category_names():
+            self.budget.set_split_method(cat_name, method)
+
+    def get_total_contribution_by_member(self, member_name: str) -> int:
+        """Cuánto le toca a un miembro en total, sumando su parte de cada categoría."""
+        self.validate_member_exist(member_name)
+        return sum(
+            self.get_contribution(cat_name).get(member_name, 0)
+            for cat_name in self.budget.get_category_names()
+        )
 
     def get_total_contributions_by_member(self) -> dict[str, int]:
         "Suma las contribuciones de cada miembro en todas las categorías. Devuelve {nombre: total_cents}."
-        contributions = self.get_current_contributions()
-
         totals = {member: 0 for member in self.members}
 
-        for cat in contributions:
-            for member, amount in contributions[cat]["contributions"].items():
+        for cat_name in self.budget.get_category_names():
+            for member, amount in self.get_contribution(cat_name).items():
                 totals[member] += amount
 
         return totals
+
+    # --- Sobrante ---
+
+    def get_unbudgeted_income(self) -> int:
+        """Ingreso sin destino: total de ingresos menos lo presupuestado en
+        categorías raíz. Negativo significa que las categorías piden más de
+        lo que entra — categorías con porcentaje incluidas, porque su
+        `planned_amount` ya se mantiene al día en cada cambio de ingreso.
+
+        No lanza ni bloquea nada: detecta el número, no decide qué hacer con
+        él. Avisar es responsabilidad de quien llame (UI/CLI), como ya pasa
+        con `missing_money`. Es una pieza estrecha, pensada para el guard de
+        P3 — la versión completa y visible del sobrante es la tarea P6.
+        """
+        return self.get_total_incomes() - self.get_total_budgeted()
+
+    def get_unbudgeted_income_by_member(self, name: str) -> int:
+        """Cuánto le queda a un miembro sin presupuestar: su ingreso menos lo
+        que ya le piden sus categorías. Análogo por miembro de get_unbudgeted_income."""
+        self.validate_member_exist(name)
+        income = self.get_member_income(name)
+        budgeted = self.get_total_contribution_by_member(name)
+        return income - budgeted
+
+    # --- Acuerdo congelado ---
 
     def get_agreed_percentages(self) -> dict[str, int]:
         """Obtiene porcentajes acordados congelados (disponible en MONTH)"""
@@ -566,27 +696,12 @@ class Household:
             )
         return self._agreed_contributions.copy()
 
-    # ====== QUERIES — MONTH ======
-    def recalculate_reserve(self):
-        """Recalcula la categoría auto-calculada (reserva) según ingresos y presupuestos actuales"""
-        reserve_cat = self.budget.get_auto_calculated_category()
-        total_incomes = self.get_total_incomes()
-        current_reserve = self.get_category_planned_amount(reserve_cat.name)
-        other_budgeted = self.get_total_budgeted() - current_reserve
-
-        new_reserve_amount = reserve_cat.calculate_own_budget(
-            total_incomes, other_budgeted
-        )
-        self.budget.set_planned_amount(reserve_cat.name, new_reserve_amount)
-
     def get_member_owed_total(self, member_name: str) -> int:
         """Cuánto acordó pagar el miembro"""
         member_name = normalize_name(member_name)
         self.validate_member_exist(member_name)
         contributions = self.get_agreed_contributions()
-        total = sum(
-            by_member[member_name] for by_member in contributions.values()
-        )
+        total = sum(by_member[member_name] for by_member in contributions.values())
         return total
 
     def get_member_paid_total(self, member_name: str) -> int:
