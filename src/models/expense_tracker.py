@@ -10,46 +10,95 @@ class ExpenseTracker:
         self.expenses = []
 
     # ====== STORAGE ======
-    def add_expense(self, expense: Expense) -> None:
+    def add_expense(self, expense: Expense | list) -> None:  # TODO quitar opción lista
         """Añade gasto a la colección"""
-        self.expenses.append(expense)
+        if isinstance(expense, Expense):
+            self.expenses.append(expense)
+
+        if isinstance(expense, list):
+            self.expenses.extend(expense)
 
     def get_all_expenses(self) -> list[Expense]:
         """Retorna todos los gastos"""
         return self.expenses.copy()
 
+    def get_shared_expenses_by_members(self):
+        """"""
+        shared_expenses_by_member = {}
+        for expense in self.expenses:
+            if expense.is_shared:
+                shared_expenses_by_member[expense.member] = (
+                    shared_expenses_by_member.get(expense.member, 0) + expense.amount
+                )
+        return shared_expenses_by_member
+
     # ====== FILTERS ======
-    def filter_expenses(
-        self,
-        categories: list[str] | None = None,
-        member: str | None = None,
-    ) -> list[Expense]:
-        """Gastos que cumplen los filtros indicados. Sin filtros, todos.
+    def get_expenses_by_category(self, category: str) -> list[Expense]:
+        """Filtra por categoría"""
+        return [e for e in self.expenses if e.category == category]
 
-        categories: nombres de categoría; el gasto entra si su categoría está
-            en la lista. Una sola categoría se pasa como lista de un elemento,
-            y un subárbol entero como la lista de sus nombres — el tracker no
-            sabe qué cuelga de qué, solo suma lo que le señalan.
-        member: quién pagó.
-        """
-        expenses = self.expenses
-
-        if categories is not None:
-            expenses = [e for e in expenses if e.category.name in categories]
-
-        if member is not None:
-            normalized_member = normalize_name(member)
-            expenses = [e for e in expenses if e.member == normalized_member]
-
-        return list(expenses)
+    def get_expenses_by_member(self, member: str) -> list[Expense]:
+        """Filtra por miembro"""
+        normalized_member = normalize_name(member)
+        return [e for e in self.expenses if e.member == normalized_member]
 
     # ====== AGGREGATIONS ======
-    def get_total_spent(
-        self,
-        categories: list[str] | None = None,
-        member: str | None = None,
-    ) -> int:
-        """Total gastado (céntimos) por los gastos que cumplen los filtros"""
+    def get_total_spent(self) -> int:
+        """Total gastado (céntimos)"""
+        return sum(e.amount for e in self.expenses)
+
+    def get_total_spent_by_category(self, category: str) -> int:
+        """Total gastado por categoría"""
+        return sum(e.amount for e in self.expenses if e.category == category)
+
+    def get_total_spent_by_member(self, member: str) -> int:
+        """Total gastado por miembro"""
+        normalized_member = normalize_name(member)
+        return sum(e.amount for e in self.expenses if e.member == normalized_member)
+
+    def get_total_spent_by_member_and_category(self, member: str, category: str) -> int:
+        """Cuánto gastó un miembro específico en una categoría específica"""
+        normalized_member = normalize_name(member)
         return sum(
-            e.amount for e in self.filter_expenses(categories=categories, member=member)
+            e.amount
+            for e in self.expenses
+            if e.member == normalized_member and e.category == category
         )
+
+    def get_category_breakdown(self) -> dict[str, int]:
+        """Desglose por categoría
+
+        Retorna:
+        {
+            "category" : total_spent(cents),
+            "category_2" : total_spent(cents),
+        }
+        """
+        breakdown = {}
+
+        for expense in self.expenses:
+            category = expense.category
+            amount = expense.amount
+
+            if category not in breakdown:
+                breakdown[category] = 0
+
+            breakdown[category] += amount
+
+        return breakdown
+
+    def get_member_breakdown(self) -> dict[str, int]:
+        """Desglose por miembro
+
+        Retorna:
+        {
+            "member" : total_spent(cents),
+            "member_2" : total_spent(cents),
+        }
+        """
+        breakdown = {}
+        for expense in self.expenses:
+            if expense.member not in breakdown:
+                breakdown[expense.member] = 0
+            breakdown[expense.member] += expense.amount
+        return breakdown

@@ -1,37 +1,38 @@
-from src.models.category import Category
-from src.utils.currency import to_cents, to_euros
+from src.models.constants import CategoryBehavior
+from src.utils.currency import to_euros, to_cents
 
 
 class BudgetCategory:
     """Gestiona presupuesto planificado de una categoría (solo planificación)"""
 
     def __init__(
-        self, category: Category, planned_amount: float, parent: str | None = None
+        self,
+        name: str,
+        planned_amount: float,
+        behavior: CategoryBehavior = CategoryBehavior.SHARED,
     ) -> None:
 
         self._validate_amount(planned_amount)
 
-        self.category = category
+        self.name = name
+        self._behavior = behavior
         self.planned_amount: int = to_cents(planned_amount)
-        self.parent = parent
 
     @property
-    def name(self) -> str:
-        return self.category.name
+    def behavior(self):
+        return self._behavior
 
-    @property
-    def is_shared(self) -> bool:
-        return self.category.is_shared
-
-    def __repr__(self) -> str:  # pragma: no cover
-        return (
-            f"BudgetCategory(name={self.name}, planned={to_euros(self.planned_amount)})"
-        )
+    def set_behavior(self, behavior: CategoryBehavior):
+        self._behavior = behavior
 
     # ====== VALIDATORS ======
     def _validate_amount(self, amount: float):
         """Valida que el monto presupuestado no sea negativo"""
-        if isinstance(amount, bool):
-            raise TypeError("El monto presupuestado no puede ser booleano")
         if amount < 0:
             raise ValueError("El monto presupuestado no puede ser negativo")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        """Información técnica para debugging"""
+        return (
+            f"BudgetCategory(name={self.name}, planned={to_euros(self.planned_amount)})"
+        )

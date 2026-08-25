@@ -2,7 +2,7 @@
 
 Gestión financiera para hogares compartidos. Resuelve _cuánto debe pagar cada miembro del núcleo familiar, acorde a como quieran hacer el reparto_, registra gastos del mes y calcula transferencias mínimas para saldar las cuentas.
 
-> _Estado_: core de dominio funcional y testeado. Persistencia en PostgreSQL de miembros, períodos, gastos, deuda, categorías de presupuesto y ahorro (entradas y buckets); falta reconstruir el `Household` completo desde BD entre requests. Sin UI.
+> _Estado_: core de dominio funcional y testeado. Sin UI ni persistencia aún -- todo vive en memoria. Próxima fase SQLite.
 
 ---
 
@@ -24,8 +24,6 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - Planifica presupuesto por categorías (fijos, variables, reserva, o las que añadas), _asignable por monto o por porcentaje de ingreso_.
 
-- Organiza las categorías en árbol: una raíz actúa de techo y sus subcategorías reparten ese importe dentro del límite (p. ej. "fijos" → alquiler, luz, internet). Cada categoría solo reparte entre los miembros lo que no ha delegado en sus hijas, así que nadie aporta dos veces por el mismo dinero, y el gasto de una subcategoría cuenta contra el techo de su raíz.
-
 - Reparte cada presupuesto entre miembros según el método elegido, con precisión de céntimo.
 
 - Registra gastos reales del mes, diferenciando compartidos vs personales.
@@ -40,11 +38,11 @@ Con Kogar este problema se resuelve eligiendo el método que mejor se adapte a t
 
 - No hay interfaz de usuario (solo API de Python).
 
-- Lectura desde BD a medias: `HouseholdLoader` ya reconstruye miembros, período, categorías, gastos, y los buckets de deuda y ahorro con sus movimientos. Falta llevar esa reconstrucción a todos los servicios para que una API stateless pueda apoyarse en ella sin mantener el `Household` en memoria.
+- No hay persistencia — al matar el proceso se pierde el estado.
 
 - No hay histórico multi-mes ni comparativas.
 
-- No hay transferencias internas entre miembros. Los ingresos extra sí se registran, y caen en la reserva.
+- No hay gestión de ingresos extra ni transferencias internas entre miembros.
 
 ---
 
@@ -72,8 +70,8 @@ wm = WorkflowManager(Household(
 # Fase REGISTRATION
 wm.register_member("Amanda")
 wm.register_member("Heri")
-wm.set_member_incomes("Amanda", 2000.0)
-wm.set_member_incomes("Heri", 1500.0)
+wm.set_incomes("Amanda", 2000.0)
+wm.set_incomes("Heri", 1500.0)
 wm.finish_registration()
 
 # Fase PLANNING — porcentajes deben sumar 100%; reserva se autocalcula
@@ -86,7 +84,7 @@ wm.register_expense("Heri", "variables", 120.0, "Supermercado")
 
 # Quién le debe a quién al cerrar
 print(wm.get_settlement())
-# [{"from": "heri", "to": "amanda", "amount": 34286}]  (en céntimos)
+# [{"from": "heri", "to": "amanda", "amount": 45714}]  (en céntimos)
 
 ```
 
@@ -108,12 +106,7 @@ docs/workflow_manager_api.md
 
 Arquitectura en 3 capas:
 
-- **`WorkflowManager`** — fachada pública. Valida la fase, convierte euros↔céntimos, normaliza nombres, crea objetos de dominio. Único punto de entrada desde el exterior. Delega la lógica que no es puro estado en servicios stateless (`src/workflow/`):
-  - `BudgetDistributionService` — asigna presupuesto a categorías (por monto o repartido).
-  - `SettlementCalculator` — calcula las transferencias mínimas para saldar gastos compartidos.
-  - `SummaryService` — arma los resúmenes de cada fase (registration, planning, month, closing).
-  - `IncomeEntryService` — registra ingresos extra y dispara el recálculo de reserva.
-  - `HouseholdLoader` — reconstruye un `Household` desde BD dado un `household_id`/`period_id` (en progreso, ver TODO).
+- **`WorkflowManager`** — fachada pública. Valida la fase, convierte euros↔céntimos, normaliza nombres, crea objetos de dominio. Único punto de entrada desde el exterior.
 
 - **`Household`** — núcleo de dominio. Orquesta reglas de negocio, trackers y cálculos.
 
@@ -149,32 +142,25 @@ Cada operación solo es válida en ciertas fases. Al cerrar una fase, el estado 
 docs/
 ├── workflow_manager_api.md    ← Referencia completa de la API pública
 examples/
-└── full_month_simulation.py
+├── quick_checks/
+│   └── full_month_simulation.py
 src/
 ├── cli/                       ← En desarrollo (esqueleto)
 ├── exceptions/                ← En desarrollo (esqueleto)
 ├── workflow/
-│   ├── workflow_manager.py            ← FACHADA. Único punto de entrada desde UI.
-│   ├── budget_distribution_service.py ← Asignación de presupuesto a categorías
-│   ├── setllement_calculator.py       ← Transferencias mínimas para saldar gastos
-│   ├── summary_service.py             ← Resúmenes por fase
-│   ├── incomes_entries_service.py     ← Ingresos extra + recálculo de reserva
-│   └── household_loader.py            ← Reconstruye Household desde BD (en progreso)
+│   └── workflow_manager.py    ← FACHADA. Único punto de entrada desde UI.
 ├── models/
 │   ├── household.py           ← Núcleo de dominio. Orquesta todo.
 │   ├── finance_calculator.py  ← Matemática pura (sin estado). Reparto de céntimos.
 │   │
 │   ├── member.py              ← Persona con ingreso
-│   ├── budget.py              ← Plan: dict plano de BudgetCategory + índice de hijas.
-│   │                            Dueño del árbol: techo, facturable y reglas de borrado.
-│   ├── category.py            ← Category / AutoCalculatedCategory (objeto con is_shared)
-│   ├── budget_category.py     ← Una categoría con su planned_amount y su parent
-│   ├── category_library.py    ← Fábrica string→Category + estándar/extendidas/custom
+│   ├── budget.py              ← Plan: dict de BudgetCategory
+│   ├── budget_category.py     ← Una categoría con su planned_amount
+│   ├── category_library.py    ← Categorías estándar + extendidas + custom
 │   ├── subcategory_library.py ← Sugerencias de subcategorías (display only)
-│   ├── exceptions.py          ← Errores de dominio con datos (heredan de ValueError)
 │   │
-│   ├── expense.py             ← Gasto registrado, con id propio (UUID)
-│   ├── expense_tracker.py     ← Colección de gastos del mes actual (filtro + suma)
+│   ├── expense.py             ← Gasto registrado
+│   ├── expense_tracker.py     ← Colección de gastos del mes actual
 │   │
 │   ├── saving_entry.py        ← Movimiento de ahorro (dataclass inmutable)
 │   ├── saving_account.py      ← Cuenta de ahorro de UN miembro
@@ -186,20 +172,9 @@ src/
 │   ├── debt_entry.py          ← Pago de deuda (dataclass inmutable)
 │   ├── debt_account.py        ← Cuenta de deuda de UN miembro
 │   ├── debt_tracker.py        ← Gestor de cuentas de deuda
-│   └── constants.py           ← Enums: Phase, MetodoReparto, SavingScope
+│   └── constants.py           ← Enums: Phase, MetodoReparto, CategoryBehavior, SavingScope
 │
-├── storage/                    ← Persistencia (repositorios, capa BD)
-│   ├── connection.py           ← Conexión psycopg2 (RealDictCursor)
-│   ├── household_repository.py
-│   ├── member_repository.py
-│   ├── period_repository.py
-│   ├── budget_categories_repository.py
-│   ├── expense_repository.py
-│   ├── income_entry_repository.py
-│   ├── saving_entry_repository.py
-│   ├── saving_buckets_repository.py
-│   ├── bucket_entry_repository.py
-│   └── debt_entry_repository.py
+├── storage/                   ← Futuro (persistencia)
 └── utils/
     ├── currency.py            ← to_cents, to_euros, to_percentage_basis
     ├── printer.py             ← Helper de visualización (no crítico)
